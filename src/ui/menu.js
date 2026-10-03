@@ -1,5 +1,9 @@
 /**
  * The corner menu: sound on and off, start over, and the how-to again.
+ *
+ * On a phone the corners are kitchen — the pan's handle and the knob are down
+ * the right-hand side — so there the menu folds into one button at the end of
+ * the bar's burner row and opens upward over the bar.
  */
 
 const MUTE = 'short-order:muted';
@@ -8,12 +12,35 @@ export function createMenu({ game, sound, intro, root = document.body }) {
   const nav = document.createElement('nav');
   nav.id = 'menu';
   nav.innerHTML = `
-    <button class="chip" data-act="sound" aria-pressed="false" title="Sound (M)">sound on</button>
-    <button class="chip" data-act="restart" title="Start over">start over</button>
-    <button class="chip" data-act="help" title="How to play">how to play</button>
+    <button class="chip round more" data-act="more" aria-expanded="false" aria-label="Menu" title="Menu">⋯</button>
+    <div class="items">
+      <button class="chip" data-act="sound" aria-pressed="false" title="Sound (M)">sound on</button>
+      <button class="chip" data-act="restart" title="Start over">start over</button>
+      <button class="chip" data-act="help" title="How to play">how to play</button>
+    </div>
   `;
   root.appendChild(nav);
   for (const type of ['pointerdown', 'pointerup', 'pointermove']) nav.addEventListener(type, (e) => e.stopPropagation());
+
+  const more = nav.querySelector('[data-act="more"]');
+  const open = (on) => {
+    nav.dataset.open = String(on);
+    more.setAttribute('aria-expanded', String(on));
+  };
+  open(false);
+
+  /** Where it lives follows the kitchen's shape: the corner when wide, the bar when tall. */
+  const dock = () => {
+    const bar = document.querySelector('#bar .heat');
+    const home = document.body.dataset.shape === 'tall' && bar ? bar : root;
+    if (nav.parentNode !== home) home.appendChild(nav);
+    open(false);
+  };
+  dock();
+  new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['data-shape'] });
+  document.addEventListener('pointerdown', (event) => {
+    if (nav.dataset.open === 'true' && !nav.contains(event.target)) open(false);
+  });
 
   const soundButton = nav.querySelector('[data-act="sound"]');
   const show = () => {
@@ -37,6 +64,11 @@ export function createMenu({ game, sound, intro, root = document.body }) {
 
   nav.addEventListener('click', (event) => {
     const act = event.target.closest('button')?.dataset.act;
+    if (act === 'more') {
+      open(nav.dataset.open !== 'true');
+      return;
+    }
+    open(false);
     if (act === 'sound') toggle();
     else if (act === 'restart') game.reset();
     else if (act === 'help') {

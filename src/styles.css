@@ -450,8 +450,27 @@ body[data-shape="tall"] #ticket .now {
 #menu button:hover { background: rgba(24, 20, 16, 0.9); }
 #menu button[aria-pressed="true"] { color: #e6a070; }
 body:not([data-playing]) #menu { visibility: hidden; }
-body[data-shape="tall"] #menu { top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); right: 10px; flex-direction: column; align-items: flex-end; }
-body[data-shape="tall"] #menu button { height: 26px; padding: 0 9px; font-size: 9.5px; }
+#menu .items { display: flex; gap: 6px; }
+#menu .more { display: none; }
+
+/* On a phone: one button at the end of the burner row, the rest opening up over the bar. */
+body[data-shape="tall"] #bar .heat { position: relative; }
+body[data-shape="tall"] #menu { position: absolute; top: calc(50% - 3px); right: 0; transform: translateY(-50%); z-index: auto; }
+body[data-shape="tall"] #menu .more { display: inline-flex; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 0; border-radius: 11px; background: rgba(255, 240, 220, 0.06); }
+body[data-shape="tall"] #menu[data-open="true"] .more { background: rgba(255, 240, 220, 0.16); }
+body[data-shape="tall"] #menu .items {
+  position: absolute;
+  right: -6px;
+  bottom: calc(100% + 14px);
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(24, 20, 16, 0.9);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+body[data-shape="tall"] #menu[data-open="false"] .items { display: none; }
+body[data-shape="tall"] #menu .items button { height: 34px; padding: 0 14px; font-size: 10px; border: 0; background: transparent; }
 
 /* ── the cook's notes ────────────────────────────────────────────────────── */
 

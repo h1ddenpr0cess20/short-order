@@ -8,9 +8,12 @@ oil, and the pan on a gas burner that starts cold.
 Dice the potato, fry it golden, beat three eggs and scramble them in, and plate
 it. The plate is marked on what is actually on it.
 
-![The kitchen: the board, the pan on its burner, and the ticket](docs/screenshots/desktop.png)
+![The kitchen two minutes in: the potato diced and golden in the pan, three eggs beaten in the bowl, and the ticket](docs/screenshots/desktop.png)
 
-<img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan" width="300">
+<p>
+  <img src="docs/screenshots/plate.png" alt="A five-star plate: golden dice and soft curds folded together, marked 95 out of 100" height="360">
+  <img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan" height="360">
+</p>
 
 ## Run
 
