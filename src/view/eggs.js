@@ -58,9 +58,15 @@ export function createSheetView(GFX, sheet) {
       nrm[k * 3 + 1] = 1;
     }
   }
+  /**
+   * Only the cells over the round floor: the grid is square, and its corners
+   * reach out past the floor and under the pan's wall, where the surface
+   * tucked under the iron would show beneath the pan.
+   */
   const index = [];
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
+      if (Math.hypot(-FLAT + (i + 0.5) * size, -FLAT + (j + 0.5) * size) > FLAT + size * 0.5) continue;
       const a = j * V + i, b = a + 1, c = a + V, d = c + 1;
       index.push(a, c, b, b, c, d);
     }
@@ -116,8 +122,10 @@ export function createSheetView(GFX, sheet) {
       const f = fallen[n];
       const k = Math.floor((f.z + FLAT) / size) * N + Math.floor((f.x + FLAT) / size);
       const hide = veiled || sheet.amount[k] < 0.008 || (owner && hidden.has(owner[k]));
-      const y = hide ? -1 : 0.025 + sheet.amount[k] * 0.9;
       const o = n * 9;
+      /** A speck with no egg under it is not drawn: all three corners on one point. */
+      if (hide) continue;
+      const y = 0.025 + sheet.amount[k] * 0.9;
       for (let c = 0; c < 3; c++) {
         const a = f.a + (c * Math.PI * 2) / 3;
         speckPos[o + c * 3] = f.x + Math.cos(a) * f.s;
