@@ -153,6 +153,22 @@ export function createSound() {
       for (let k = 0; k < 5; k++) tone({ at: k * 0.11, from: jitter(380, 0.15), to: 200, length: 0.08, gain: 0.1 });
       crackleDebt += 6;
     },
+    /** A pinch of salt: a patter of fine grains. */
+    salt() {
+      for (let k = 0; k < 9; k++) burst({ at: k * 0.03 + Math.random() * 0.02, length: 0.012, type: 'highpass', frequency: jitter(6000, 0.2), gain: 0.05 });
+    },
+    /** A twist of the mill: the burr crunching peppercorns, a few clicks round. */
+    pepper() {
+      for (let k = 0; k < 6; k++) burst({ at: k * 0.055, length: 0.03, frequency: jitter(1400, 0.3), Q: 2.5, gain: 0.14 });
+    },
+    /** A pat of butter landing: a soft thud, and on a hot pan a sputter as its water hits the iron. */
+    butter(heat = 1) {
+      tone({ from: jitter(180), to: 90, length: 0.1, gain: 0.25 });
+      if (heat > 0.1) {
+        burst({ at: 0.03, length: 0.5, frequency: 5200, Q: 0.7, gain: Math.min(0.3, 0.1 + 0.2 * heat) });
+        crackleDebt += 14 * heat;
+      }
+    },
     /** The burner: clicks of the igniter, then the gas catching. */
     ignite() {
       for (let k = 0; k < 3; k++) burst({ at: k * 0.09, length: 0.012, type: 'highpass', frequency: 3000, gain: 0.3 });

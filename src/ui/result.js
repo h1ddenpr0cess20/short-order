@@ -51,6 +51,7 @@ export function createResult({ game, root = document.body }) {
         ${row('dice', 'dice', report.dice, report.notes.dice)}
         ${row('fry', 'fry', report.fry, report.notes.fry)}
         ${row('eggs', 'eggs', report.eggs, report.notes.eggs)}
+        ${row('season', 'season', report.season, report.notes.season)}
         ${row('time', 'time', report.time, report.notes.time)}
       </ul>
       <button class="again" type="button">cook again</button>

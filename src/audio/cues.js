@@ -29,6 +29,9 @@ export function wireSound({ game, sound }) {
         break;
       case 'pour-start': sound.play('pour'); break;
       case 'oil': sound.play('oil'); break;
+      case 'salt': sound.play('salt'); break;
+      case 'pepper': sound.play('pepper'); break;
+      case 'butter': sound.play('butter', heat()); break;
       case 'heat':
         if (lastLevel === 0 && e.level > 0) sound.play('ignite');
         else sound.play('knob');

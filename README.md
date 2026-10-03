@@ -3,15 +3,16 @@
 A cooking game in one cast iron pan. There is one ticket on the rail — a potato
 and egg scramble — and everything on the counter to make it with: a russet on
 the board, a chef's knife, a carton of eggs, a bowl and a whisk, a bottle of
-oil, and the pan on a gas burner that starts cold.
+oil, a stick of butter, salt and a pepper mill, and the pan on a gas burner
+that starts cold.
 
-Dice the potato, fry it golden, beat three eggs and scramble them in, and plate
-it. The plate is marked on what is actually on it.
+Dice the potato, fry it golden, beat three eggs and scramble them in, season
+it, and plate it. The plate is marked on what is actually on it.
 
-![The kitchen two minutes in: the potato diced and golden in the pan, three eggs beaten in the bowl, and the ticket](docs/screenshots/desktop.png)
+![The kitchen two minutes in: the potato diced, golden and peppered in foaming butter, three eggs beaten and seasoned in the bowl, and the ticket](docs/screenshots/desktop.png)
 
 <p>
-  <img src="docs/screenshots/plate.png" alt="A five-star plate: golden dice and soft curds folded together, marked 95 out of 100" height="360">
+  <img src="docs/screenshots/plate.png" alt="A five-star plate: golden dice and soft, buttery curds folded together, flecked with pepper, marked 97 out of 100" height="360">
   <img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan" height="360">
 </p>
 
@@ -35,6 +36,8 @@ to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actio
 | **carry** | Drag the pile and it comes up on the flat of the knife; let go over the pan to drop it in, anywhere else and it goes back just as it was. `S` scrapes the board straight in. |
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
+| **butter** | Click the butter for a pat into the pan, or `B`. |
+| **salt, pepper** | Click the salt for a pinch (`A`), the mill for a twist (`F`): over the food in the pan, or into the eggs in the bowl if the pan is empty. Drag either to the bowl or the pan to choose. |
 | **spatula** | Over the pan, drag to stir and click to flip what is under it. `space` tosses the whole pan. |
 | **handle** | Drag the pan's handle to shake it — the food slides — and flick upward as you let go to toss. |
 | **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. |
@@ -44,7 +47,7 @@ Everything in that list is also a button in the bar along the bottom, so it all
 works on a phone: a tap on the board chops, a drag carries or stirs or whisks.
 And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
 chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg,
-`enter` plates, `M` mutes.
+`B` butters, `A` salts, `F` peppers, `enter` plates, `M` mutes.
 
 ### What it takes
 
@@ -68,6 +71,17 @@ curds — slow strokes make big soft ones — and those cook on like any other
 piece. Leave it alone and it sets flat, which is an omelette. Egg wants less
 heat than potato: turn the burner down before it goes in.
 
+Butter greases the pan like oil, and eggs scrambled in it come out richer for
+it. It melts in seconds on hot iron and foams while its water cooks off; then
+its milk solids brown, nutty, and on a hot pan go on to burn, which makes the
+whole plate bitter. Melt it on gentle heat, or let the eggs cover it.
+
+Salt and pepper go onto whatever they are sprinkled over, each piece taking its
+share, and stay there — salt the potatoes as they fry and the eggs that go in
+later are not salted. Season the eggs in the bowl, or the scramble in the pan.
+About a pinch for the potato and one for the eggs is right; pepper is more
+forgiving than salt.
+
 The ticket keeps a running commentary on all of this, read off the food rather
 than ticked by hand — down to what the knife should do next, from the shapes
 lying on the board — and a note pops up over the bar when the pan needs you:
@@ -75,8 +89,9 @@ something catching, a dry pan, a cold one, or eggs going into one too hot for
 them. The plate is marked on the same measurements: how much
 of the potato is a good bite and how even, how much of it is golden and cooked
 through against pale, burnt or raw, whether the eggs were beaten smooth,
-scrambled rather than set flat, and soft rather than runny, rubbery or brown —
-and how long the ticket waited.
+scrambled rather than set flat, and soft rather than runny, rubbery or brown,
+whether the potatoes and the eggs are each seasoned right — and how long the
+ticket waited.
 
 ## How it works
 
@@ -95,6 +110,10 @@ See [design](docs/design.md) for the long version. In short:
 - **Egg is a sheet until it is not.** Liquid egg is a heightfield over the
   pan's floor that runs, sets and browns per patch; the spatula tears set egg
   off it into curds, which become pieces. [`src/sim/eggs.js`](src/sim/eggs.js)
+- **Seasoning sticks where it lands.** A pinch is shared over the pieces in the
+  pan by how much floor each covers, and over the egg lying there; curds torn
+  from the egg take their share of it. The plate is tasted part by part.
+  [`src/sim/season.js`](src/sim/season.js)
 - **Sound is synthesised.** The sizzle is filtered noise and a crackle of tiny
   pops, both following how much wet food is on hot iron.
   [`src/audio/sound.js`](src/audio/sound.js)

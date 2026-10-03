@@ -120,6 +120,22 @@ What is left set flat at the end is counted as omelette, not scramble.
 
 ## The marking
 
+Butter is fat with water and milk solids in it. A pat melts at a pace set by
+the iron's temperature — a few seconds at frying heat, not at all cold — and
+as it melts it adds to the pan's fat, so it greases like oil. The water foams
+off, the foam dying away the faster the hotter the iron. The solids brown from
+140°, nutty by about one, and burnt at 1.6: on medium-low that takes most of a
+minute, on high a few seconds. Food or egg over the floor keeps them off the
+iron and slows it to a quarter. Eggs poured into butter are marked as buttered;
+burnt butter in the pan with the food makes the plate bitter.
+
+Salt and pepper are counted in pinches and twists and kept on each piece. A
+pinch over the pan is shared by footprint over the pieces and the egg on the
+floor; the egg holds its seasoning all through, and a curd torn off it takes
+its share by volume. With the pan empty, or when the salt is dragged there,
+it goes into the bowl and into the pan with the eggs.
+[`sim/season.js`](../src/sim/season.js)
+
 [`game/grade.js`](../src/game/grade.js) is plain functions over the food, used
 both for the plate and for the ticket's running commentary:
 
@@ -128,6 +144,7 @@ both for the plate and for the ticket's running commentary:
 | dice | the share of the potato, by volume, in pieces no side of which is a sliver or longer than a mouthful; and how alike those are |
 | fry | the share golden all round — every face coloured, none burnt — and cooked through, against pale, one-sided, burnt and raw in the middle |
 | eggs | how smooth they were beaten, how much is in curds rather than set flat, and how much is set soft against runny, rubbery or brown |
+| season | salt against right for the potato and for the egg, each by its own volume — a pinch to every eight — and pepper the same, more forgivingly; bitter if the butter burnt |
 | time | from the first thing the cook did to the plate |
 
 ## The picture

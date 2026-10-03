@@ -34,13 +34,22 @@ const RUNS = 0.32;
 const CURD = 0.16;
 
 export function createBowl() {
-  const state = { eggs: 0, mix: 0, yolks: [] };
+  const state = { eggs: 0, mix: 0, yolks: [], salt: 0, pepper: 0 };
 
   return {
     state,
     get eggs() { return state.eggs; },
     get mix() { return state.mix; },
     get volume() { return state.eggs * EGG_VOLUME; },
+    get salt() { return state.salt; },
+    get pepper() { return state.pepper; },
+
+    /** Salt or pepper into the eggs, to go into the pan with them. */
+    season(kind, amount) {
+      if (state.eggs === 0) return 0;
+      state[kind] += amount;
+      return amount;
+    },
 
     /** One egg in. Where its yolk lands is the view's business; it is kept here so it stays put. */
     crack(random = Math.random) {
@@ -63,14 +72,16 @@ export function createBowl() {
       state.eggs = 0;
       state.mix = 0;
       state.yolks = [];
+      state.salt = state.pepper = 0;
     },
 
-    /** Empties the bowl: what came out, and how well beaten it was. */
+    /** Empties the bowl: what came out, how well beaten it was, and what it was seasoned with. */
     pour() {
-      const out = { volume: state.eggs * EGG_VOLUME, mix: state.mix, eggs: state.eggs };
+      const out = { volume: state.eggs * EGG_VOLUME, mix: state.mix, eggs: state.eggs, salt: state.salt, pepper: state.pepper };
       state.eggs = 0;
       state.mix = 0;
       state.yolks = [];
+      state.salt = state.pepper = 0;
       return out;
     },
   };
@@ -98,6 +109,8 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   /** Egg that has left the sheet as curds, waiting to be collected. */
   const curds = [];
+  /** Salt and pepper in the egg on the floor, all through it. */
+  const seasoning = { salt: 0, pepper: 0 };
   let torn = 0, tornSet = 0, tornYolk = 0, tornBrown = 0;
   let poured = 0;
 
@@ -300,9 +313,34 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     return amount[k];
   }
 
-  /** The curds made since the last call, for the game to turn into pieces. */
+  /**
+   * The curds made since the last call, for the game to turn into pieces,
+   * each with its share of whatever the egg was seasoned with.
+   */
   function takeCurds() {
-    return curds.splice(0);
+    const out = curds.splice(0);
+    if (out.length && (seasoning.salt > 0 || seasoning.pepper > 0)) {
+      const gone = out.reduce((sum, c) => sum + c.volume, 0);
+      const whole = summary().volume + gone;
+      for (const kind of ['salt', 'pepper']) {
+        const share = whole > 0 ? (seasoning[kind] * gone) / whole : 0;
+        for (const c of out) c[kind] = gone > 0 ? (share * c.volume) / gone : 0;
+        seasoning[kind] -= share;
+      }
+    }
+    return out;
+  }
+
+  /** How much of the floor the egg covers. */
+  function area() {
+    let n = 0;
+    for (let k = 0; k < cells; k++) if (amount[k] > 0.002) n += 1;
+    return n * size * size;
+  }
+
+  /** Salt or pepper onto the egg on the floor. */
+  function season(kind, amount) {
+    seasoning[kind] += amount;
   }
 
   /** How much egg is on the floor as a sheet, and in what state, for the grade and the plate. */
@@ -323,6 +361,8 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       brown: volume ? brownSum / volume : 0,
       yolk: volume ? yolkSum / volume : 0,
       liquid,
+      salt: seasoning.salt,
+      pepper: seasoning.pepper,
     };
   }
 
@@ -332,8 +372,12 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     const out = [];
     if (s.volume <= 0.05) return out;
     for (let n = 0; n < pieces; n++) {
-      out.push({ x: (random() - 0.5) * 4, z: (random() - 0.5) * 4, volume: s.volume / pieces, set: s.set, yolk: s.yolk, brown: s.brown, sheet: true });
+      out.push({
+        x: (random() - 0.5) * 4, z: (random() - 0.5) * 4, volume: s.volume / pieces, set: s.set, yolk: s.yolk, brown: s.brown, sheet: true,
+        salt: seasoning.salt / pieces, pepper: seasoning.pepper / pieces,
+      });
     }
+    seasoning.salt = seasoning.pepper = 0;
     amount.fill(0);
     set.fill(0);
     brown.fill(0);
@@ -346,13 +390,14 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     yolk.fill(0);
     brown.fill(0);
     curds.length = 0;
+    seasoning.salt = seasoning.pepper = 0;
     torn = tornSet = tornYolk = tornBrown = 0;
     poured = 0;
   }
 
   return {
     N, size, amount, set, yolk, brown, inside,
-    pour, update, stir, toss, takeCurds, summary, lift, clear, liquidAt,
+    pour, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },
   };

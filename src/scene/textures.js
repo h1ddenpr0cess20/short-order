@@ -230,6 +230,31 @@ export function puff(GFX, size = 128) {
 }
 
 /**
+ * Butter foaming: a froth of small bubbles, thick in the middle and thinning
+ * to nothing at the edge, so a disc of it lies on the pan like a pool.
+ */
+export function foam(GFX, size = 256) {
+  const c = canvas(size);
+  if (!c) return null;
+  const { ctx } = c;
+  const random = seeded(17);
+  for (let n = 0; n < 1400; n++) {
+    const a = random() * Math.PI * 2, r = Math.sqrt(random()) * size * 0.48;
+    const x = size / 2 + Math.cos(a) * r, y = size / 2 + Math.sin(a) * r;
+    const fade = 1 - (r / (size * 0.48)) ** 2;
+    const b = 0.6 + random() * 2.6;
+    ctx.beginPath();
+    ctx.arc(x, y, b, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${(0.25 + random() * 0.55) * fade})`;
+    ctx.fill();
+    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = `rgba(255,255,255,${0.7 * fade})`;
+    ctx.stroke();
+  }
+  return texture(GFX, c.el);
+}
+
+/**
  * A soft ring of light, brightest a little way in from the edge: the glow a
  * gas burner throws out from under a pan onto the steel round it.
  */

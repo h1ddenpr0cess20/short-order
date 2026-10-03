@@ -118,6 +118,9 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   function startPour() {
     if (pour || bowl.eggs === 0 || pending) return false;
     pour = { t: 0, mix: bowl.mix, volume: bowl.volume, poured: 0, angle: Math.random() * Math.PI * 2 };
+    /** Whatever the eggs were seasoned with goes in with them. */
+    sheet.season('salt', bowl.salt);
+    sheet.season('pepper', bowl.pepper);
     bowl.state.draining = 1;
     stopBeating();
     emit('pour-start');
@@ -222,6 +225,8 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
       piece.yolk = c.yolk;
       piece.moisture = 0.7;
       piece.brown[3] = c.brown;
+      piece.salt = c.salt ?? 0;
+      piece.pepper = c.pepper ?? 0;
       piece.curd = true;
       made.push(piece);
     }

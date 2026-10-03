@@ -1,7 +1,8 @@
 /**
- * Things on the counter that are only there to be there: a folded tea towel,
- * a pepper mill and a little wooden dish of salt. A kitchen with nothing in it
- * but the job looks like a stage.
+ * Things on the counter round the job: a folded tea towel, which is only
+ * there to be there — a kitchen with nothing in it but the job looks like a
+ * stage — and the pepper mill, the little wooden dish of salt and the butter,
+ * which the cook reaches for.
  */
 
 import { towel } from './textures.js';
@@ -34,7 +35,7 @@ export function buildMill(GFX) {
   const group = new GFX.Group();
   group.name = 'pepper-mill';
   group.add(body, knob);
-  return { group };
+  return { group, height: 5 };
 }
 
 export function buildSaltDish(GFX) {
@@ -50,5 +51,45 @@ export function buildSaltDish(GFX) {
   const group = new GFX.Group();
   group.name = 'salt';
   group.add(dish, heap);
-  return { group };
+  return { group, height: 1.1 };
+}
+
+/** How many pats there are in a stick of butter. */
+export const PATS = 8;
+
+/**
+ * A stick of butter on a white dish. Every pat taken off it shortens the
+ * stick from the cut end; `left(k)` shows it with that share still there.
+ */
+export function buildButter(GFX) {
+  const china = new GFX.MeshStandardMaterial({ name: 'butter-dish', color: 0xf7f5ef, roughness: 0.25, metalness: 0 });
+  const fat = new GFX.MeshStandardMaterial({ name: 'butter', color: 0xf4dc8a, roughness: 0.42, metalness: 0 });
+  const group = new GFX.Group();
+  group.name = 'butter';
+  const dish = new GFX.Mesh(new GFX.BoxGeometry(4.6, 0.22, 2.4), china);
+  dish.name = 'butter-dish';
+  dish.position.y = 0.11;
+  group.add(dish);
+  for (const [w, d, x, z] of [[4.6, 0.14, 0, -1.13], [4.6, 0.14, 0, 1.13], [0.14, 2.4, -2.23, 0], [0.14, 2.4, 2.23, 0]]) {
+    const lip = new GFX.Mesh(new GFX.BoxGeometry(w, 0.2, d), china);
+    lip.name = 'butter-dish-lip';
+    lip.position.set(x, 0.3, z);
+    group.add(lip);
+  }
+  const LENGTH = 3.6;
+  const stick = new GFX.Mesh(new GFX.BoxGeometry(LENGTH, 1.0, 1.2), fat);
+  stick.name = 'butter-stick';
+  stick.position.set(0, 0.72, 0);
+  group.add(stick);
+  return {
+    group,
+    height: 1.3,
+    /** Shows the stick with `k` of it left: shorter from the right-hand, cut end. */
+    left(k) {
+      const keep = Math.max(0, Math.min(1, k));
+      stick.visible = keep > 0.01;
+      stick.scale.x = Math.max(0.01, keep);
+      stick.position.x = -LENGTH / 2 + (LENGTH * keep) / 2;
+    },
+  };
 }

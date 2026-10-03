@@ -12,7 +12,7 @@ import { BOARD, buildBoard, buildGuide, buildKnife } from './board.js';
 import { buildBowl, buildPlate, buildSpatula, buildWhisk } from './cookware.js';
 import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
-import { buildMill, buildSaltDish, buildTowel } from './props.js';
+import { buildButter, buildMill, buildSaltDish, buildTowel } from './props.js';
 import { GRATE_TOP, buildStove } from './stove.js';
 import { marble, studio, subwayTile } from './textures.js';
 
@@ -33,6 +33,7 @@ export const LAYOUTS = Object.freeze({
     towel: { x: -11.2, z: 10.6, yaw: 0.12 },
     mill: { x: 15.4, z: -10.6 },
     salt: { x: 11.6, z: -10.4 },
+    butter: { x: 5.4, z: -10.3 },
     wall: -13.6,
   },
   tall: {
@@ -44,8 +45,9 @@ export const LAYOUTS = Object.freeze({
     plate: { x: 0, z: 24 },
     spatula: { x: -9.2, z: 6.2, yaw: Math.PI + 0.1 },
     towel: { x: -15, z: 2, yaw: -0.1 },
-    mill: { x: 12.4, z: -17.2 },
-    salt: { x: 13.6, z: -12 },
+    mill: { x: 9.2, z: -1.4 },
+    salt: { x: 9.1, z: -6.6 },
+    butter: { x: -9.1, z: -6.6, yaw: Math.PI / 2 },
     wall: -19.6,
   },
 });
@@ -142,7 +144,7 @@ export function buildKitchen({ stage, GFX }) {
   plate.group.visible = false;
   room.add(plate.group);
 
-  const props = { towel: buildTowel(GFX), mill: buildMill(GFX), salt: buildSaltDish(GFX) };
+  const props = { towel: buildTowel(GFX), mill: buildMill(GFX), salt: buildSaltDish(GFX), butter: buildButter(GFX) };
   for (const p of Object.values(props)) room.add(p.group);
 
   /** Told whenever the stations move, so anything that remembers where they were can catch up. */
@@ -217,6 +219,10 @@ export function buildKitchen({ stage, GFX }) {
     const row = [LAYOUT.carton, LAYOUT.oil, LAYOUT.bowl];
     corners(Math.min(...row.map((r) => r.x)) - 3.8, Math.max(...row.map((r) => r.x)) + 3.8, 0, 3.5,
       Math.min(...row.map((r) => r.z)) - 3, Math.max(...row.map((r) => r.z)) + 2.6);
+    /** The salt, the pepper and the butter are things to reach for: they have to be in shot too. */
+    for (const [key, half, height] of [['salt', 1.5, 1.1], ['mill', 1.0, 5.0], ['butter', 2.3, 1.3]]) {
+      corners(LAYOUT[key].x - half, LAYOUT[key].x + half, 0, height, LAYOUT[key].z - half, LAYOUT[key].z + half);
+    }
   }
 
   const view = { pitch: 0.88, yaw: 0, fov: 34 };
@@ -360,7 +366,7 @@ export function buildKitchen({ stage, GFX }) {
       arranged.add(fn);
       return () => arranged.delete(fn);
     },
-    stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate,
+    stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate, props,
   };
 }
 

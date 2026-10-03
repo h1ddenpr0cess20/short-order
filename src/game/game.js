@@ -20,16 +20,20 @@ import { PLATE } from '../scene/cookware.js';
 import { HANDLE_TURN, LAYOUT, PAN_Y } from '../scene/kitchen.js';
 import { COOK_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
+import { PATS } from '../scene/props.js';
 import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
 import { makePiece } from '../sim/piece.js';
 import { axisAngle, multiply, slerp } from '../sim/quat.js';
+import { sprinkle } from '../sim/season.js';
+import { createButterView } from '../view/butter.js';
+import { createGrains } from '../view/grains.js';
 import { createSheetView } from '../view/eggs.js';
 import { createPieceViews } from '../view/pieces.js';
 import { createEggStation } from './eggs.js';
-import { BITE, diceReport, eggReport, fryReport, grade } from './grade.js';
+import { BITE, diceReport, eggReport, fryReport, grade, seasonReport } from './grade.js';
 import { createPointer } from './pointer.js';
 
 /** How far the pointer has to travel before a press is a drag rather than a click. */
@@ -57,7 +61,7 @@ export function createGame({ stage, GFX, kitchen }) {
   const views = createPieceViews(GFX);
   const board = createBoard();
   /** Potato sitting in egg that is still running is held at the egg's heat, and barely browns. */
-  const pan = createPan({ liquid: (x, z) => sheet.liquidAt(x, z) });
+  const pan = createPan({ liquid: (x, z) => sheet.liquidAt(x, z), covered: () => (sheet.empty ? 0 : sheet.area()) });
   const listeners = new Set();
 
   /** The board's top, as a frame: where its pieces hang. */
@@ -85,11 +89,18 @@ export function createGame({ stage, GFX, kitchen }) {
   const sheet = createSheet();
   const sheetView = createSheetView(GFX, sheet);
   panRig.add(sheetView.mesh);
+  const butterView = createButterView(GFX, panRig);
+  const grains = createGrains({ GFX, room: kitchen.room });
+  let butterLeft = PATS;
+  /** The salt, the mill and the butter give a little hop when they are used. */
+  const hops = { salt: 0, mill: 0, butter: 0 };
   const eggs = createEggStation({
     GFX, kitchen, sheet, pan,
     emit: (type, detail) => {
       if (type === 'poured') round.pours.push(detail);
       if (type === 'egg-in' || type === 'pour-start') begin();
+      /** Eggs that go into foaming butter are scrambled in butter. */
+      if (type === 'pour-start' && pan.butter.share >= 0.3 && !pan.butter.burnt) round.buttered = true;
       emit(type, detail);
     },
   });
@@ -110,7 +121,7 @@ export function createGame({ stage, GFX, kitchen }) {
   const stats = { chops: 0, tosses: 0, stirs: 0, scrapes: 0 };
 
   /** This attempt at the dish: when it started, what went into the pan from the bowl, whether it is served. */
-  let round = { started: null, pours: [], plated: false };
+  let round = { started: null, pours: [], plated: false, buttered: false, burntButter: false };
   const plateGroup = kitchen.plate.group;
   const plated = [];
   /** Pieces on their way from the pan to the plate, in the room's frame. */
@@ -157,6 +168,12 @@ export function createGame({ stage, GFX, kitchen }) {
     if (b) {
       const x = b.x - boardOrigin.x, z = b.z - boardOrigin.z;
       if (Math.abs(x) < BOARD.w / 2 && Math.abs(z) < BOARD.d / 2) return { zone: 'board', point: [x, z] };
+    }
+
+    /** The salt, the pepper mill and the butter, each a round patch at its own height. */
+    for (const [key, zoneName, height, radius] of [['salt', 'salt', 1.0, 1.7], ['mill', 'pepper', 2.6, 1.3], ['butter', 'butter', 1.0, 1.9]]) {
+      const q = pointer.at(height);
+      if (q && Math.hypot(q.x - LAYOUT[key].x, q.z - LAYOUT[key].z) < radius) return { zone: zoneName };
     }
 
     /** The handle: a strip running out from the rim toward the cook. */
@@ -288,6 +305,56 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
+  /** A pat of butter off the stick and into the pan, somewhere near the middle. */
+  function butter() {
+    if (round.plated || butterLeft <= 0) return false;
+    begin();
+    butterLeft -= 1;
+    kitchen.props.butter.left(butterLeft / PATS);
+    const a = Math.random() * Math.PI * 2, r = Math.random() * 2.4;
+    pan.addButter(Math.cos(a) * r, Math.sin(a) * r);
+    hops.butter = 1;
+    return true;
+  }
+
+  /**
+   * A pinch of salt, or a twist of pepper, onto `target`: 'pan' or 'bowl'.
+   * Left to itself it goes over the food in the pan if there is any, or else
+   * into the eggs in the bowl. With nothing there, it goes nowhere.
+   */
+  function season(kind, target = null) {
+    if (round.plated) return false;
+    begin();
+    const panFood = pan.pieces.length > 0 || !sheet.empty;
+    const bowlEggs = eggs.bowl.eggs > 0 && !eggs.pouring;
+    const to = target ?? (panFood ? 'pan' : 'bowl');
+    let where = null;
+    if (to === 'pan' && panFood) {
+      sprinkle(kind, 1, { pieces: pan.pieces, sheet: sheet.empty ? null : sheet });
+      where = 'pan';
+      grains.pour(kind, panRig.localToWorld(new GFX.Vector3(0, 0.4, 0)), { radius: 3.4 });
+    } else if (to === 'bowl' && bowlEggs) {
+      eggs.bowl.season(kind, 1);
+      where = 'bowl';
+      grains.pour(kind, new GFX.Vector3(LAYOUT.bowl.x, kitchen.bowl.floor + 0.3, LAYOUT.bowl.z), { radius: 1.1, count: 18 });
+    }
+    hops[kind === 'salt' ? 'salt' : 'mill'] = 1;
+    emit(kind, { where });
+    if (!where) emit('season-nothing');
+    return Boolean(where);
+  }
+
+  /** The hop: up and back down in a third of a second, the mill turning as it grinds. */
+  function updateHops(dt) {
+    for (const key of Object.keys(hops)) {
+      if (hops[key] <= 0) continue;
+      hops[key] = Math.max(0, hops[key] - dt / 0.32);
+      const group = kitchen.props[key].group;
+      group.position.y = Math.sin((1 - hops[key]) * Math.PI) * (key === 'mill' ? 0.5 : 0.35);
+      if (key === 'mill') group.rotation.y += dt * 9;
+    }
+  }
+
   // ------------------------------------------------------------ the plate
 
   /**
@@ -308,6 +375,8 @@ export function createGame({ stage, GFX, kitchen }) {
       beaten: poured.eggs ? poured.mix / poured.eggs : 0,
       eggs: poured.eggs,
       seconds,
+      buttered: !round.burntButter && (round.buttered || pan.butter.share >= 0.3),
+      burntButter: round.burntButter,
     });
 
     /** Egg left set flat comes up in a few wide pieces, the way an omelette breaks. */
@@ -316,6 +385,8 @@ export function createGame({ stage, GFX, kitchen }) {
       piece.core = c.set;
       piece.yolk = c.yolk;
       piece.brown.fill(c.brown * 0.5);
+      piece.salt = c.salt ?? 0;
+      piece.pepper = c.pepper ?? 0;
       return piece;
     });
     /** Shuffled, so potato and egg come out folded through each other rather than in the order they went in. */
@@ -408,11 +479,29 @@ export function createGame({ stage, GFX, kitchen }) {
     keys.clear();
     press.down = false;
     press.drag = null;
-    round = { started: null, pours: [], plated: false };
+    round = { started: null, pours: [], plated: false, buttered: false, burntButter: false };
+    butterLeft = PATS;
+    kitchen.props.butter.left(1);
+    butterView.clear();
     for (const k of Object.keys(stats)) stats[k] = 0;
     progressAt = -1;
     newPotato();
     emit('reset');
+  }
+
+  /** How seasoned the food is so far: what is in the pan, and the eggs still in the bowl with whatever is in them. */
+  function seasonProgress(flat) {
+    const bowl = eggs.bowl;
+    const egg = (flat?.volume ?? 0) + bowl.volume > 0
+      ? { volume: (flat?.volume ?? 0) + bowl.volume, salt: (flat?.salt ?? 0) + bowl.salt, pepper: (flat?.pepper ?? 0) + bowl.pepper }
+      : null;
+    const s = seasonReport({ pieces: pan.pieces, sheet: egg, burntButter: round.burntButter });
+    const food = pan.pieces.length > 0 || egg !== null;
+    return {
+      salt: s.salt, pepper: s.pepper, salted: s.salted ?? 0, peppered: s.peppered ?? 0,
+      potato: s.potato, egg: s.egg, score: s.score, food,
+      done: food && pan.pieces.length > 0 && (s.salted ?? 0) >= 0.85,
+    };
   }
 
   /**
@@ -472,6 +561,8 @@ export function createGame({ stage, GFX, kitchen }) {
         soft: egg ? egg.soft : 0,
         done: Boolean(egg) && egg.scrambled >= 0.6 && egg.soft >= 0.6,
       },
+      season: seasonProgress(flat),
+      butter: { left: butterLeft, share: pan.butter.share, brown: pan.butter.brown, burnt: pan.butter.burnt },
       ready: pan.pieces.length > 0 || !sheet.empty,
       plated: round.plated,
     };
@@ -495,6 +586,7 @@ export function createGame({ stage, GFX, kitchen }) {
       }
       else if (press.zone.zone === 'pan') press.drag = 'stir';
       else if (press.zone.zone === 'bowl') press.drag = 'whisk';
+      else if (press.zone.zone === 'salt' || press.zone.zone === 'pepper') press.drag = 'season';
       else if (press.zone.zone === 'handle' && !toss) {
         press.drag = 'shake';
         shake.on = true;
@@ -515,6 +607,11 @@ export function createGame({ stage, GFX, kitchen }) {
     if (press.drag === 'scrape') {
       const p = pointer.at(CARRY);
       if (p) carryAt.set(p.x + press.grab[0], CARRY, p.z + press.grab[1]);
+    } else if (press.drag === 'season') {
+      /** The salt or the mill comes along in the hand, held up over the counter. */
+      const p = pointer.at(4.5);
+      const group = kitchen.props[press.zone.zone === 'salt' ? 'salt' : 'mill'].group;
+      if (p) group.position.set(p.x, 3.2, p.z);
     } else if (press.drag === 'whisk') {
       const p = eggs.inBowl(pointer);
       if (p) eggs.beat(p);
@@ -542,6 +639,14 @@ export function createGame({ stage, GFX, kitchen }) {
     pointer.aim(event);
     press.down = false;
     if (press.drag === 'scrape') letGo();
+    else if (press.drag === 'season') {
+      /** Salt or pepper carried over to the pan or the bowl and let go there. */
+      const over = locate().zone;
+      const target = over === 'bowl' ? 'bowl' : over === 'pan' || over === 'handle' ? 'pan' : null;
+      if (target) season(press.zone.zone, target);
+      const key = press.zone.zone === 'salt' ? 'salt' : 'mill';
+      kitchen.props[key].group.position.set(LAYOUT[key].x, 0, LAYOUT[key].z);
+    }
     else if (press.drag === 'whisk') eggs.stopBeating();
     else if (press.drag === 'shake') {
       /**
@@ -603,6 +708,9 @@ export function createGame({ stage, GFX, kitchen }) {
       case 'pan': if (pan.flip(at.point[0], at.point[1])) emit('flip'); break;
       case 'knob': heat(pan.heat.level >= SETTINGS.length - 1 ? -(SETTINGS.length - 1) : 1); break;
       case 'oil': oil(); break;
+      case 'salt': season('salt'); break;
+      case 'pepper': season('pepper'); break;
+      case 'butter': butter(); break;
       case 'carton': eggs.crack(); break;
       default: break;
     }
@@ -656,6 +764,9 @@ export function createGame({ stage, GFX, kitchen }) {
     }
     else if (key === 's') scrapeIntoPan();
     else if (key === 'o') oil();
+    else if (key === 'b') butter();
+    else if (key === 'a') season('salt');
+    else if (key === 'f') season('pepper');
     else if (key === 'g') eggs.crack();
     else if (key === 'enter') plateIt();
     else if (key === 'p') eggs.startPour();
@@ -883,6 +994,12 @@ export function createGame({ stage, GFX, kitchen }) {
     floor.roughness = 0.44 - 0.32 * sheen;
     floor.metalness = 0.62 - 0.2 * sheen;
 
+    butterView.update(pan.butter, pan.oil, dt, time);
+    grains.update(dt);
+    updateHops(dt);
+    /** Burnt butter in the pan with the food is in the food. */
+    if (pan.butter.burnt && (pan.pieces.length > 0 || !sheet.empty)) round.burntButter = true;
+
     for (const e of pan.events.splice(0)) emit(e.type, e);
     if (elapsed - progressAt > 0.3) {
       progressAt = elapsed;
@@ -893,7 +1010,7 @@ export function createGame({ stage, GFX, kitchen }) {
   newPotato();
 
   return {
-    update, chop, turn, scrapeIntoPan, startToss, heat, oil, newPotato, plateIt, reset,
+    update, chop, turn, scrapeIntoPan, startToss, heat, oil, butter, season, newPotato, plateIt, reset,
     crackEgg: () => eggs.crack(),
     pourEggs: () => eggs.startPour(),
     board, pan, sheet, eggs, stats, views,
@@ -903,6 +1020,7 @@ export function createGame({ stage, GFX, kitchen }) {
     set live(on) { live = Boolean(on); },
     get knife() { return knife; },
     get carrying() { return carried.length > 0; },
+    get butterLeft() { return butterLeft; },
     get elapsed() { return elapsed; },
     get progress() { return progress ?? measureProgress(); },
     get report() { return report; },

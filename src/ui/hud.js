@@ -27,11 +27,16 @@ export function createHud({ game, root = document.body }) {
       <button class="chip" data-act="turn" title="Turn the pile a quarter turn (R)">turn</button>
       <button class="chip" data-act="scrape" title="Scrape the board into the pan (S)">into pan</button>
       <button class="chip" data-act="oil" title="Oil the pan (O)">oil</button>
+      <button class="chip" data-act="butter" title="A pat of butter into the pan (B)">butter</button>
       <button class="chip" data-act="toss" title="Toss the pan (space)">toss</button>
     </div>
     <div class="group eggs">
       <button class="chip" data-act="egg" title="Crack an egg into the bowl (G)">egg</button>
       <button class="chip" data-act="pour" title="Pour the eggs into the pan (P)">pour</button>
+    </div>
+    <div class="group season">
+      <button class="chip" data-act="salt" title="A pinch of salt (A)">salt</button>
+      <button class="chip" data-act="pepper" title="A twist of pepper (F)">pepper</button>
     </div>
   `;
   root.appendChild(bar);
@@ -51,6 +56,9 @@ export function createHud({ game, root = document.body }) {
     if (name === 'cooler') game.heat(-1);
     else if (name === 'hotter') game.heat(1);
     else if (name === 'oil') game.oil();
+    else if (name === 'butter') game.butter();
+    else if (name === 'salt') game.season('salt');
+    else if (name === 'pepper') game.season('pepper');
     else if (name === 'turn') game.turn();
     else if (name === 'scrape') game.scrapeIntoPan();
     else if (name === 'toss') game.startToss();
@@ -68,6 +76,9 @@ export function createHud({ game, root = document.body }) {
     carton: 'click to crack an egg into the bowl',
     handle: 'drag to shake the pan · flick up to toss',
     bowl: 'drag round and round to whisk',
+    salt: 'click for a pinch of salt over the pan · drag it to the bowl to salt the eggs',
+    pepper: 'click for a twist of pepper over the pan · drag it to the bowl to pepper the eggs',
+    butter: 'click to drop a pat of butter in the pan',
   };
 
   return {
@@ -83,6 +94,7 @@ export function createHud({ game, root = document.body }) {
       act('toss').disabled = game.pan.pieces.length === 0;
       act('egg').disabled = game.eggs.eggsLeft === 0 || game.eggs.bowl.eggs >= 4 || game.eggs.pouring;
       act('pour').disabled = game.eggs.bowl.eggs === 0 || game.eggs.pouring || game.eggs.cracking;
+      act('butter').disabled = game.butterLeft === 0;
       hint.textContent = HINTS[game.zone.zone] ?? '';
     },
   };

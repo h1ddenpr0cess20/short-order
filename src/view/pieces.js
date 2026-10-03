@@ -64,8 +64,98 @@ export function createPieceViews(GFX) {
     sheenRoughness: 0.6,
   });
 
+  /** Ground pepper: dark flecks stuck to the surface. */
+  const pepper = new GFX.MeshStandardMaterial({ name: 'pepper', color: 0x1f1813, roughness: 0.85, metalness: 0 });
+
   const views = new Map();
   let cursor = 0;
+
+  /** A seeded generator per piece, so a piece's flecks stay put as more are added. */
+  function rng(seed) {
+    let t = (seed * 2654435761) >>> 0;
+    return () => {
+      t = (t + 0x6d2b79f5) >>> 0;
+      let x = Math.imul(t ^ (t >>> 15), t | 1);
+      x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /**
+   * As much pepper as the piece has had, as flecks on its surface: a few
+   * tiny dark grains at points picked over its area, riding with it.
+   */
+  function fleck(view) {
+    const want = Math.min(16, Math.round((view.piece.pepper ?? 0) * 55));
+    if (want === (view.flecks?.count ?? 0)) return;
+    if (view.flecks) {
+      view.mesh.remove(view.flecks.mesh);
+      view.flecks.mesh.geometry.dispose();
+      view.flecks = null;
+    }
+    if (want === 0) return;
+    const { pos } = view.piece.solid;
+    const tris = pos.length / 9;
+    if (!view.areas) {
+      view.areas = new Float32Array(tris);
+      let sum = 0;
+      for (let t = 0; t < tris; t++) {
+        const o = t * 9;
+        const ax = pos[o + 3] - pos[o], ay = pos[o + 4] - pos[o + 1], az = pos[o + 5] - pos[o + 2];
+        const bx = pos[o + 6] - pos[o], by = pos[o + 7] - pos[o + 1], bz = pos[o + 8] - pos[o + 2];
+        sum += Math.hypot(ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx) / 2;
+        view.areas[t] = sum;
+      }
+    }
+    const total = view.areas[tris - 1];
+    const random = rng(view.piece.id);
+    const out = new Float32Array(want * 12 * 3);
+    const nrm = new Float32Array(want * 12 * 3);
+    const CORNERS = [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]];
+    const FACES = [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]];
+    let w = 0;
+    for (let n = 0; n < want; n++) {
+      /** A point on the surface, chosen by area, and a hair out from it along the face. */
+      const pick = random() * total;
+      let lo = 0, hi = tris - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (view.areas[mid] < pick) lo = mid + 1;
+        else hi = mid;
+      }
+      const o = lo * 9;
+      let u = random(), v = random();
+      if (u + v > 1) { u = 1 - u; v = 1 - v; }
+      const ax = pos[o + 3] - pos[o], ay = pos[o + 4] - pos[o + 1], az = pos[o + 5] - pos[o + 2];
+      const bx = pos[o + 6] - pos[o], by = pos[o + 7] - pos[o + 1], bz = pos[o + 8] - pos[o + 2];
+      let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      const l = Math.hypot(nx, ny, nz) || 1;
+      nx /= l; ny /= l; nz /= l;
+      const size = 0.028 + random() * 0.026;
+      const c = [pos[o] + ax * u + bx * v + nx * size * 0.6, pos[o + 1] + ay * u + by * v + ny * size * 0.6, pos[o + 2] + az * u + bz * v + nz * size * 0.6];
+      const corner = CORNERS.map(([x, y, z]) => [c[0] + x * size, c[1] + y * size * 0.6, c[2] + z * size]);
+      for (const [i, j, k] of FACES) {
+        const a = corner[i], b = corner[j], d = corner[k];
+        const ex = b[0] - a[0], ey = b[1] - a[1], ez = b[2] - a[2], fx = d[0] - a[0], fy = d[1] - a[1], fz = d[2] - a[2];
+        let fnx = ey * fz - ez * fy, fny = ez * fx - ex * fz, fnz = ex * fy - ey * fx;
+        const fl = Math.hypot(fnx, fny, fnz) || 1;
+        fnx /= fl; fny /= fl; fnz /= fl;
+        for (const q of [a, b, d]) {
+          out.set(q, w);
+          nrm.set([fnx, fny, fnz], w);
+          w += 3;
+        }
+      }
+    }
+    const geometry = new GFX.BufferGeometry();
+    geometry.setAttribute('position', new GFX.BufferAttribute(out, 3));
+    geometry.setAttribute('normal', new GFX.BufferAttribute(nrm, 3));
+    geometry.computeBoundingSphere();
+    const mesh = new GFX.Mesh(geometry, pepper);
+    mesh.name = 'pepper-flecks';
+    view.mesh.add(mesh);
+    view.flecks = { mesh, count: want };
+  }
 
   function build(piece) {
     const { solid } = piece;
@@ -178,6 +268,7 @@ export function createPieceViews(GFX) {
       view.mesh.position.set(piece.pos[0], piece.pos[1], piece.pos[2]);
       const q = lean ? multiply(lean, piece.rot) : piece.rot;
       view.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
+      fleck(view);
       view.seen = true;
       return view.mesh;
     },
@@ -203,6 +294,7 @@ export function createPieceViews(GFX) {
         if (!view.seen) {
           view.mesh.removeFromParent();
           view.geometry.dispose();
+          view.flecks?.mesh.geometry.dispose();
           views.delete(id);
         }
         view.seen = false;

@@ -46,6 +46,15 @@ const FRICTION = { dry: 9, oiled: 3.6 };
 /** How quickly a piece that has landed rocks onto its nearest face. */
 const SETTLE_TIME = 0.09;
 
+/**
+ * Butter. A pat gives the pan about two thirds of a pour of oil's worth of
+ * fat; it melts at a pace set by the iron's heat — seconds on a hot pan, not
+ * at all on a cold one — foaming as its water cooks off. Its milk solids
+ * brown from 140°, nutty at one, and past `BURNT` they are burnt. Egg or food
+ * over the floor keeps them from the iron and they brown far slower.
+ */
+export const BUTTER = Object.freeze({ fat: 0.4, melt: 600, brownFrom: 140, brownTime: 14, burnt: 1.6 });
+
 /** Pieces further out than this are over the edge of the pan. */
 const OUT = COOK_RADIUS + 0.4;
 
@@ -53,11 +62,13 @@ const OUT = COOK_RADIUS + 0.4;
  * `liquid(x, z)`, if given, says how deep any liquid egg is on the floor there:
  * a piece sitting in it is held at the egg's temperature and barely browns.
  */
-export function createPan({ random = Math.random, liquid = null } = {}) {
+export function createPan({ random = Math.random, liquid = null, covered = null } = {}) {
   const heat = createHeat();
   const pieces = [];
   const events = [];
   let oil = 0;
+  /** Pats still melting, where they sit; and of the fat in the pan, how much is butter, its milk solids and how brown. */
+  const butter = { pats: [], fat: 0, solids: 0, brown: 0, foam: 0, burnt: false };
   let sizzle = 0;
   let steam = 0;
   let smoke = 0;
@@ -469,11 +480,54 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
     for (let i = 0; i < steps; i++) physics(h, shove);
     heat.update(dt, load + extra);
     cook(dt);
+    melt(dt);
   }
 
   function pour(amount = 0.6) {
     oil = Math.min(1.3, oil + amount);
     events.push({ type: 'oil', amount });
+  }
+
+  /** A pat of butter dropped in at (x, z) on the floor. */
+  function addButter(x = 0, z = 0) {
+    butter.pats.push({ x, z, left: 1 });
+    events.push({ type: 'butter' });
+  }
+
+  /** How much of the floor is under food or egg, 0 to 1. */
+  function cover() {
+    let area = covered ? covered() : 0;
+    for (const p of pieces) {
+      const e = extents(p);
+      area += (e.max[0] - e.min[0]) * (e.max[2] - e.min[2]);
+    }
+    return Math.min(1, area / (Math.PI * COOK_RADIUS * COOK_RADIUS));
+  }
+
+  /** Butter melting, foaming, browning, burning. */
+  function melt(dt) {
+    const t = heat.temp;
+    for (const pat of butter.pats) {
+      const gone = Math.min(pat.left, (Math.max(0, t - 32) / BUTTER.melt) * dt);
+      pat.left -= gone;
+      oil = Math.min(1.6, oil + gone * BUTTER.fat);
+      butter.fat += gone * BUTTER.fat;
+      butter.solids += gone;
+      butter.foam = Math.min(1.2, butter.foam + gone * 0.9);
+    }
+    for (let i = butter.pats.length - 1; i >= 0; i--) if (butter.pats[i].left <= 1e-3) butter.pats.splice(i, 1);
+    /** The foam is water boiling off: it dies away the faster the hotter the iron, once the melting stops feeding it. */
+    if (t > 100) butter.foam *= Math.exp(-dt * (t - 100) / 200);
+    butter.fat = Math.min(butter.fat, oil);
+    if (butter.solids > 0 && t > BUTTER.brownFrom) {
+      const shielded = 1 - 0.75 * cover();
+      butter.brown += (((t - BUTTER.brownFrom) / 45) ** 1.2 / BUTTER.brownTime) * shielded * dt;
+      if (!butter.burnt && butter.brown >= BUTTER.burnt) {
+        butter.burnt = true;
+        events.push({ type: 'butter-burnt' });
+      }
+    }
+    if (butter.burnt) smoke = Math.min(1, smoke + Math.min(1, butter.solids) * Math.min(0.6, (butter.brown - BUTTER.burnt + 0.4)));
   }
 
   function takeAll() {
@@ -487,6 +541,7 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
     pieces.length = 0;
     events.length = 0;
     oil = 0;
+    Object.assign(butter, { pats: [], fat: 0, solids: 0, brown: 0, foam: 0, burnt: false });
     sizzle = steam = smoke = 0;
     dropped = 0;
     load = 0;
@@ -496,7 +551,11 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
 
   return {
     pieces, heat, events,
-    add, remove, toss, stir, flip, update, pour, takeAll, clear,
+    add, remove, toss, stir, flip, update, pour, addButter, takeAll, clear,
+    /** The butter in the pan: pats still melting, its foam, how brown, whether burnt, and its share of the fat. */
+    get butter() {
+      return { pats: butter.pats, foam: butter.foam, brown: butter.brown, burnt: butter.burnt, solids: butter.solids, share: oil > 0 ? Math.min(1, butter.fat / oil) : 0 };
+    },
     get oil() { return oil; },
     get sizzle() { return sizzle; },
     get steam() { return steam; },

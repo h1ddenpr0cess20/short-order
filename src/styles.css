@@ -65,7 +65,7 @@ button {
   gap: 6px;
 }
 
-#bar .heat, #bar .moves {
+#bar .heat, #bar .moves, #bar .eggs {
   padding-right: 10px;
   border-right: 1px solid rgba(255, 240, 220, 0.1);
 }
@@ -381,14 +381,17 @@ body[data-shape="tall"] #ticket .plate { height: 28px; padding: 0 10px; }
 body[data-shape="tall"] #ticket ol {
   grid-area: steps;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 4px;
+  gap: 4px 3px;
   margin-top: 8px;
   padding-top: 8px;
 }
-body[data-shape="tall"] #ticket li { padding: 0 0 0 21px; min-height: 17px; }
+/* Six steps across a phone: small circles, tight type, and a second row rather than off the edge. */
+body[data-shape="tall"] #ticket li { padding: 0 0 0 18px; min-height: 15px; }
+body[data-shape="tall"] #ticket li::before { width: 14px; height: 14px; font-size: 9px; line-height: 14px; top: 1px; }
 body[data-shape="tall"] #ticket li .what, body[data-shape="tall"] #ticket li .how, body[data-shape="tall"] #ticket li .bar { display: none; }
-body[data-shape="tall"] #ticket li .short { display: block; font: 600 10.5px/17px var(--mono); letter-spacing: .04em; }
+body[data-shape="tall"] #ticket li .short { display: block; font: 600 10px/17px var(--mono); letter-spacing: .01em; }
 body[data-shape="tall"] #ticket li[data-done="true"] .short { color: var(--done); }
 body[data-shape="tall"] #ticket .now {
   grid-area: now;
@@ -408,9 +411,9 @@ body[data-shape="tall"] #ticket .now {
     padding: 7px;
   }
   #bar .heat { width: 100%; justify-content: center; border-right: 0; padding-right: 0; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 240, 220, 0.1); }
-  #bar .moves { border-right: 0; padding-right: 0; }
+  #bar .moves, #bar .eggs { border-right: 0; padding-right: 0; }
   #bar button { height: 32px; padding: 0 8px; font-size: 10px; letter-spacing: .08em; }
-  #bar .moves, #bar .eggs { gap: 4px; }
+  #bar .moves, #bar .eggs, #bar .season { gap: 4px; }
   #bar .dial, #bar .thermo { min-width: 70px; }
   #hint { display: none; }
   #result {
