@@ -16,14 +16,23 @@ const SETTING = hex(0xf5cd52);
 const SET = hex(0xf7da6c);
 const DRY = hex(0xeed693);
 const BROWNED = hex(0xc8913f);
+/** White on its own sets from glass to milky to a clean opaque white, and dries a little cream. */
+const WHITE_SETTING = hex(0xd9d4c8);
+const WHITE_SET = hex(0xfbf8f0);
+const WHITE_DRY = hex(0xf2eadb);
+
+const tint = [0, 0, 0], tint2 = [0, 0, 0], tint3 = [0, 0, 0];
 
 /** The colour of egg at a given set, yolkiness and browning. */
 export function eggColour(set, yolk, brown, out = [0, 0, 0]) {
   const raw = rawEgg(yolk);
+  /** How much the set colours lean to yolk: beaten egg is all yellow, a white alone is white. */
+  const y = Math.min(1, Math.max(0, yolk * 2.6));
+  const setting = mix(WHITE_SETTING, SETTING, y, tint), done = mix(WHITE_SET, SET, y, tint2), dry = mix(WHITE_DRY, DRY, y, tint3);
   const s = Math.min(1, Math.max(0, set));
-  mix(raw, SETTING, Math.min(1, s / 0.5), out);
-  if (s > 0.5) mix(out, SET, (s - 0.5) / 0.5, out);
-  if (set > 1.1) mix(out, DRY, Math.min(1, (set - 1.1) / 0.4), out);
+  mix(raw, setting, Math.min(1, s / 0.5), out);
+  if (s > 0.5) mix(out, done, (s - 0.5) / 0.5, out);
+  if (set > 1.1) mix(out, dry, Math.min(1, (set - 1.1) / 0.4), out);
   if (brown > 0.2) mix(out, BROWNED, Math.min(0.85, (brown - 0.2) * 0.9), out);
   return out;
 }
@@ -71,7 +80,40 @@ export function createSheetView(GFX, sheet) {
 
   const c = [0, 0, 0];
 
+  /** The yolks of eggs broken in whole: a glossy dome each, sitting on the white. */
+  const yolkGeometry = new GFX.SphereGeometry(0.62, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+  const domes = [];
+  const yc = [0, 0, 0], wc = [0, 0, 0];
+  function updateYolks() {
+    while (domes.length < sheet.yolks.length) {
+      const dome = new GFX.Mesh(yolkGeometry, new GFX.MeshPhysicalMaterial({
+        name: 'yolk-dome', color: 0xf09a12, roughness: 0.14, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06,
+      }));
+      dome.name = 'yolk-dome';
+      dome.castShadow = true;
+      mesh.add(dome);
+      domes.push(dome);
+    }
+    domes.forEach((dome, i) => {
+      const y = sheet.yolks[i];
+      dome.visible = Boolean(y && y.whole);
+      if (!dome.visible) return;
+      const k = Math.floor((y.z + FLAT) / size) * N + Math.floor((y.x + FLAT) / size);
+      const under = sheet.amount[k] ?? 0;
+      dome.position.set(y.x, 0.01 + under * 0.9, y.z);
+      /** Turned face down it is flattened under the white, which shows as a pale film over it. */
+      const down = y.flips % 2 === 1;
+      dome.scale.set(1, down ? 0.45 : 0.85, 1);
+      eggColour(Math.min(1.2, y.set), 1, 0, yc);
+      if (down) mix(yc, eggColour(1, 0.05, 0, wc), 0.5, yc);
+      dome.material.color.setRGB(yc[0], yc[1], yc[2]);
+      dome.material.roughness = 0.14 + Math.min(0.5, y.set * 0.5);
+      dome.material.clearcoat = Math.max(0.2, 1 - y.set);
+    });
+  }
+
   function update() {
+    updateYolks();
     let any = false;
     for (let j = 0; j < V; j++) {
       for (let i = 0; i < V; i++) {
@@ -86,7 +128,7 @@ export function createSheetView(GFX, sheet) {
           a += w;
           s += sheet.set[k] * w;
           y += sheet.yolk[k] * w;
-          b += sheet.brown[k] * w;
+          b += (sheet.brown[k] + sheet.top[k]) * w;
           n += 1;
         }
         const k = j * V + i;
@@ -116,7 +158,7 @@ export function createSheetView(GFX, sheet) {
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.normal.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
-    mesh.visible = any;
+    mesh.visible = any || sheet.yolks.some((y) => y.whole);
   }
 
   return { mesh, update };
@@ -262,7 +304,8 @@ export function createCracker(GFX, { room, rimPoint, centre }) {
   });
   const drop = new GFX.SphereGeometry(0.55, 20, 14);
 
-  function start(eggMesh, onIn) {
+  /** `to` overrides where this one egg is broken: `{ rimPoint, centre }`, as for the bowl. */
+  function start(eggMesh, onIn, to = null) {
     const from = eggMesh.getWorldPosition(new GFX.Vector3());
     from.y += 1.1;
     eggMesh.visible = false;
@@ -281,7 +324,7 @@ export function createCracker(GFX, { room, rimPoint, centre }) {
     white.visible = false;
     room.add(group, yolk, white);
     group.position.copy(from);
-    active.push({ t: 0, from, group, top, bottom, yolk, white, onIn, landed: false, cracked: false });
+    active.push({ t: 0, from, group, top, bottom, yolk, white, onIn, landed: false, cracked: false, rimPoint: to?.rimPoint ?? rimPoint, centre: to?.centre ?? centre });
   }
 
   const ease = (t) => t * t * (3 - 2 * t);
@@ -292,9 +335,9 @@ export function createCracker(GFX, { room, rimPoint, centre }) {
     for (const a of [...active]) {
       a.t += dt;
       const t = a.t;
-      const rim = rimPoint();
+      const rim = a.rimPoint();
       /** Which way is into the bowl from the rim, across the counter; the egg is turned to face it. */
-      const c = centre();
+      const c = a.centre();
       const ix0 = c.x - rim.x, iz0 = c.z - rim.z, il = Math.hypot(ix0, iz0) || 1;
       const ix = ix0 / il, iz = iz0 / il;
       const yaw = Math.atan2(-iz, ix);

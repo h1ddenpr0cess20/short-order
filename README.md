@@ -1,13 +1,21 @@
 # Short Order
 
-A cooking game in one cast iron pan. There is one ticket on the rail — a potato
-and egg scramble — and everything on the counter to make it with: a russet on
-the board, a chef's knife, a carton of eggs, a bowl and a whisk, a bottle of
-oil, a stick of butter, salt and a pepper mill, and the pan on a gas burner
-that starts cold.
+A cooking game in one cast iron pan. There is one ticket on the rail at a
+time — pick it from the menu — and everything on the counter to make it with:
+a russet on the board, a chef's knife, a carton of eggs, a bowl and a whisk, a
+bottle of oil, a stick of butter, salt and a pepper mill, six ramekins of
+extras, and the pan on a gas burner that starts cold.
 
-Dice the potato, fry it golden, beat three eggs and scramble them in, season
-it, and plate it. The plate is marked on what is actually on it.
+| | |
+|---|---|
+| **Potato & egg scramble** | Dice the potato, fry it golden, beat three eggs and scramble them in. |
+| **Scrambled eggs** | Three eggs, beaten smooth, stirred slowly in butter into soft curds. |
+| **Sunny side up** | Two eggs broken straight into the pan and left alone: whites set, yolks runny. |
+| **Over easy** | The same, turned over once — briefly, so the yolks still run. |
+| **French omelette** | Stirred while it runs, left to settle, rolled: pale, soft inside, no colour. |
+| **Diner omelette** | Set flat, filled — cheese and one more at least — and folded in half. |
+
+Season it and plate it. The plate is marked on what is actually on it.
 
 ![The kitchen two and a half minutes in, against green tile and marble: the potato diced, golden and peppered in butter, three eggs beaten and seasoned in the bowl, and the ticket](docs/screenshots/desktop.png)
 
@@ -40,7 +48,10 @@ to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actio
 | **salt, pepper** | Click the salt for a pinch (`A`), the mill for a twist (`F`): over the food in the pan, or into the eggs in the bowl if the pan is empty. Drag either to the bowl or the pan to choose. |
 | **spatula** | Over the pan, drag to stir and click to flip what is under it. `space` tosses the whole pan. |
 | **handle** | Drag the pan's handle to shake it — the food slides — and flick upward as you let go to toss. |
-| **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. |
+| **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. For fried eggs the carton breaks them straight into the pan instead. |
+| **turn an egg** | Click a fried egg to slide the spatula under it and turn it over; `space` turns them all. Too soon, before the white holds, and it tears. A spatula dragged through a yolk breaks it. |
+| **fold** | `L`, or the bar's **fold**, folds the sheet of egg: rolled for a French omelette, in half for a diner one. Whatever is lying on the egg goes inside. |
+| **extras** | Click a ramekin for a handful in the pan — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6`. Onto the egg before folding is a filling; over the food after is a topping. |
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
 
 Everything in that list is also a button in the bar along the bottom, so it all
@@ -48,7 +59,8 @@ works on a phone: a tap on the board chops, a drag carries or stirs or whisks, u
 on its side.
 And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
 chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg,
-`B` butters, `A` salts, `F` peppers, `enter` plates, `M` mutes.
+`L` folds, `1`–`6` the extras, `B` butters, `A` salts, `F` peppers, `enter`
+plates, `M` mutes.
 
 ### What it takes
 
@@ -72,6 +84,23 @@ curds — slow strokes make big soft ones — and those cook on like any other
 piece. Leave it alone and it sets flat, which is an omelette. Egg wants less
 heat than potato: turn the burner down before it goes in.
 
+An egg broken in whole keeps its yolk apart: a dome sitting on its white,
+cooked only from below, through the white, so it stays runny for minutes while
+the white sets — slowest close round the yolk, where the white is deepest and
+the top never touches iron. Thick white holds together round its yolk instead
+of running across the pan. Turned over, the yolk is on the iron and sets five
+times as fast: over easy is a turn, a moment, and off.
+
+Folded, the sheet of egg is one piece from then on and cooks on like any
+other — a French omelette wants rolling while the top is still wet, so it is
+just set inside, and wants no colour at all; a diner omelette is set through
+and may be golden.
+
+The extras are real food too. Onion and green pepper want a minute in the pan
+before the eggs go over them; ham crisps; cheese slumps and melts. Each one
+goes on whatever dish you like, and is marked for how well it suits it — chives
+on a French omelette, yes; ham, an eyebrow.
+
 Butter greases the pan like oil, and eggs scrambled in it come out richer for
 it. It melts in seconds on hot iron and foams while its water cooks off; then
 its milk solids brown, nutty, and on a hot pan go on to burn, which makes the
@@ -92,7 +121,9 @@ of the potato is a good bite and how even, how much of it is golden and cooked
 through against pale, burnt or raw, whether the eggs were beaten smooth,
 scrambled rather than set flat, and soft rather than runny, rubbery or brown,
 whether the potatoes and the eggs are each seasoned right — and how long the
-ticket waited.
+ticket waited. The other dishes are marked their own way — fried eggs on their
+whites and yolks, omelettes on their texture, their colour and, for the diner
+one, their filling — and each against its own time.
 
 ## How it works
 
@@ -114,6 +145,13 @@ See [design](docs/design.md) for the long version. In short:
 - **Egg is a sheet until it is not.** Liquid egg is a heightfield over the
   pan's floor that runs, sets and browns per patch; the spatula tears set egg
   off it into curds, which become pieces. [`src/sim/eggs.js`](src/sim/eggs.js)
+- **Yolks are kept apart.** An egg broken in whole is its white in the sheet
+  and its yolk on its own, which a spatula can break and a turn puts face
+  down; a fold lifts the whole sheet off as one omelette.
+  [`src/sim/eggs.js`](src/sim/eggs.js)
+- **The menu is data.** Every dish is its steps, how each is read off the
+  food, and how its plate is marked. [`src/game/dishes.js`](src/game/dishes.js),
+  [`src/game/grade.js`](src/game/grade.js)
 - **Seasoning sticks where it lands.** A pinch is shared over the pieces in the
   pan by how much floor each covers, and over the egg lying there; curds torn
   from the egg take their share of it. The plate is tasted part by part.

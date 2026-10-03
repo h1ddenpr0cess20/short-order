@@ -7,6 +7,7 @@
  * and keep the recipe card's running commentary while the cooking goes on.
  */
 
+import { FILLINGS, isFilling } from '../food/fillings.js';
 import { dimensions } from '../sim/piece.js';
 import { ratio, taste } from '../sim/season.js';
 
@@ -125,7 +126,8 @@ export function seasonReport({ pieces, sheet = null, burntButter = false }) {
     return { volume, salt: ratio('salt', salt, volume), pepper: ratio('pepper', pepper, volume) };
   };
   const potato = part(pieces.filter((p) => p.kind === 'potato'));
-  const egg = part(pieces.filter((p) => p.kind === 'egg'), sheet);
+  /** The egg, and anything cooked in with it — salt on the onion before the eggs went over it is still in the dish. */
+  const egg = part(pieces.filter((p) => p.kind !== 'potato'), sheet);
   const volume = potato.volume + egg.volume;
   if (volume <= 0) return { salt: 0, pepper: 0, potato, egg, burntButter, score: 0 };
   /** Each part tasted on its own, then weighed by how much of the plate it is. */
@@ -139,10 +141,13 @@ export function seasonReport({ pieces, sheet = null, burntButter = false }) {
   };
 }
 
-/** Quick is good, up to a point: four minutes is full marks, ten is half. */
-export function timeReport(seconds) {
-  const score = seconds <= 240 ? 100 : Math.max(20, Math.round(100 - ((seconds - 240) / 360) * 50));
-  return { seconds, score };
+/**
+ * Quick is good, up to a point: inside `par` is full marks, and it falls to
+ * half by two and a half times par. Four minutes is par for the scramble.
+ */
+export function timeReport(seconds, par = 240) {
+  const score = seconds <= par ? 100 : Math.max(20, Math.round(100 - ((seconds - par) / (par * 1.5)) * 50));
+  return { seconds, par, score };
 }
 
 export const WEIGHTS = Object.freeze({ dice: 0.22, fry: 0.3, eggs: 0.28, season: 0.1, time: 0.1 });
@@ -248,4 +253,258 @@ function verdict({ dice, fry, egg, season, total, potato }) {
   if (worst === 'fry') return 'Breakfast, technically. Watch the pan.';
   if (worst === 'season') return 'Breakfast, technically. Season it.';
   return 'Breakfast, technically. Mind the eggs.';
+}
+
+// ------------------------------------------------------------ the other plates
+
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const pct = (v) => Math.round(100 * clamp01(v));
+
+/**
+ * Fried eggs, one report per egg as it came off the iron (see the sheet's
+ * `fried()`), marked for the way the ticket asked for them: 'sunny' — never
+ * turned, the yolk runny under a white set right up to it — or 'easy' — turned
+ * once, briefly, the yolk still runny.
+ */
+export function friedReport(eggs, style = 'sunny') {
+  if (!eggs.length) return { eggs: 0, whites: { score: 0 }, yolks: { score: 0 }, set: 0, runnyWhite: 0, browned: 0, whole: 0, runny: 0, turned: 0 };
+  const each = eggs.map((e) => {
+    const w = e.white, y = e.yolk;
+    /** Set through, not glassy; a lacy brown edge is fine, a brown egg is not. */
+    const set = clamp01((w.set - 0.6) / 0.35) * (w.set > 1.45 ? 0.7 : 1);
+    const runnyWhite = w.runny;
+    const browned = clamp01((w.brown - 0.7) / 0.6);
+    const whites = clamp01(set - 0.9 * runnyWhite - 0.45 * browned + 0.08 * clamp01(w.crisp * 3));
+    /** A whole yolk, still runny — warm through but not set. */
+    const runny = y.whole ? (y.set < 0.5 ? 1 : clamp01(1 - (y.set - 0.5) / 0.45)) : 0;
+    const turned = style === 'easy' ? (y.flips > 0 ? 1 : 0) : (y.flipped ? 0 : 1);
+    const yolks = clamp01((y.whole ? 0.25 : 0) + 0.55 * runny + 0.2 * turned);
+    return { set, runnyWhite, browned, whites, runny, whole: y.whole ? 1 : 0, turned, yolks };
+  });
+  const mean = (k) => each.reduce((a, e) => a + e[k], 0) / each.length;
+  /** Two eggs is the order; one is half of it. */
+  const short = Math.max(0, 2 - eggs.length) * 0.3;
+  return {
+    eggs: eggs.length, style,
+    set: mean('set'), runnyWhite: mean('runnyWhite'), browned: mean('browned'), whole: mean('whole'), runny: mean('runny'), turned: mean('turned'),
+    whites: { score: pct(mean('whites') - short) },
+    yolks: { score: pct(mean('yolks') - short) },
+  };
+}
+
+/**
+ * An omelette, off the plate: the one folded piece, any egg torn off it as
+ * curds before it was folded, and how it was beaten. 'french' wants it pale,
+ * smooth and soft inside; 'american' wants it set through, golden at most.
+ */
+export function omeletteReport({ omelette = null, curds = [], beaten = 0, eggs = 0, style = 'french', buttered = false }) {
+  if (!omelette) return { eggs, folded: false, omelette: { score: 0 }, colour: { score: 0 }, core: 0, brown: 0, torn: 0, beaten };
+  const core = omelette.core;
+  const brown = surfaceOf(omelette).mean;
+  const curdVolume = curds.reduce((a, p) => a + p.volume, 0);
+  const torn = curdVolume / (curdVolume + omelette.volume);
+  const short = Math.max(0, 3 - eggs) * 0.1;
+  let texture, colour;
+  if (style === 'french') {
+    /** Baveuse: just set, still soft in the middle — neither running out nor dry. */
+    const soft = core < 0.6 ? clamp01(core / 0.6) * 0.4 : core <= 1.1 ? 1 : clamp01(1 - (core - 1.1) / 0.4);
+    texture = 0.55 * soft + 0.25 * beaten + 0.2 * (1 - clamp01(torn * 3)) + (buttered ? 0.06 : 0);
+    colour = brown < 0.25 ? 1 : clamp01(1 - (brown - 0.25) / 0.6);
+  } else {
+    const set = core < 0.85 ? clamp01(core / 0.85) * 0.6 : core <= 1.45 ? 1 : clamp01(1 - (core - 1.45) / 0.3);
+    texture = 0.6 * set + 0.25 * beaten + 0.15 * (1 - clamp01(torn * 3));
+    colour = brown <= 0.9 ? 1 : clamp01(1 - (brown - 0.9) / 0.6);
+  }
+  return {
+    eggs, folded: true, style, core, brown, torn, beaten, buttered,
+    omelette: { score: pct(texture - short) },
+    colour: { score: pct(colour) },
+  };
+}
+
+/** Which extras go with which dish, beyond what anyone would raise an eyebrow at. */
+const SUITS = Object.freeze({
+  hash: ['cheese', 'tomato', 'ham', 'pepper', 'onion', 'chives'],
+  scramble: ['cheese', 'chives', 'tomato', 'ham'],
+  fried: ['chives', 'cheese', 'tomato', 'ham'],
+  french: ['chives', 'cheese'],
+  american: ['cheese', 'tomato', 'ham', 'pepper', 'onion', 'chives'],
+});
+
+/**
+ * The extras on the plate: what went in, how much, whether the ones that want
+ * cooking were cooked and the cheese melted, and — for an omelette that wants
+ * filling — how much of it ended up folded inside. `inside` is the bits folded in.
+ */
+export function extrasReport(bits, { dish = 'hash', inside = [], wants = false } = {}) {
+  const all = [...bits, ...inside];
+  const count = {};
+  for (const b of all) count[b.kind] = (count[b.kind] ?? 0) + 1;
+  const kinds = Object.keys(count);
+  if (!all.length) return { kinds, handfuls: 0, wants, score: wants ? 0 : null, inside: 0, melted: 0, raw: 0, burnt: 0, odd: 0 };
+  const handfuls = kinds.reduce((a, k) => a + count[k] / FILLINGS[k].handful, 0);
+  const veg = all.filter((b) => FILLINGS[b.kind].cooks);
+  const raw = veg.length ? veg.filter((b) => b.core < 0.45).length / veg.length : 0;
+  const cheese = all.filter((b) => b.kind === 'cheese');
+  const melted = cheese.length ? cheese.filter((b) => b.core >= 0.5).length / cheese.length : 0;
+  const burnt = all.filter((b) => Math.max(...b.brown) >= 1.6).length / all.length;
+  const heavy = clamp01((handfuls - 4) / 3);
+  const suits = SUITS[dish] ?? SUITS.hash;
+  const odd = kinds.filter((k) => !suits.includes(k)).length / kinds.length;
+  const folded = inside.length / all.length;
+  let raw01;
+  if (wants) {
+    const others = kinds.filter((k) => k !== 'cheese').length;
+    raw01 = (cheese.length ? 0.3 * (0.5 + 0.5 * melted) : 0) + (others ? 0.25 : 0) + 0.25 * folded + 0.1 * (1 - raw) + 0.1 * (1 - heavy) - 0.4 * burnt;
+  } else {
+    raw01 = 0.55 + 0.15 * (1 - raw) + 0.15 * (1 - heavy) + 0.15 * (cheese.length ? melted : 1) - 0.4 * odd - 0.4 * burnt;
+  }
+  return { kinds, count, handfuls, wants, inside: folded, melted, raw, burnt, heavy, odd, score: pct(raw01) };
+}
+
+/** The extras named, in the order they sit on the counter: 'ham, cheese and pepper'. */
+function listed(kinds) {
+  const names = Object.keys(FILLINGS).filter((k) => kinds.includes(k)).map((k) => FILLINGS[k].name);
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+function extrasNote(r) {
+  if (!r.kinds.length) return r.wants ? 'No filling — a diner omelette wants one.' : '';
+  const what = listed(r.kinds);
+  const cap = what.charAt(0).toUpperCase() + what.slice(1);
+  if (r.burnt > 0.3) return `${cap}, scorched.`;
+  if (r.wants && r.inside < 0.4) return `${cap} — mostly on the outside, not folded in.`;
+  if (r.raw > 0.5) return `${cap}. The onion and pepper wanted cooking first.`;
+  if (r.heavy > 0.3) return `${cap}, and a lot of it.`;
+  if (r.odd > 0.4) return `${cap} — an odd thing to put on it.`;
+  if (r.kinds.includes('cheese') && r.melted < 0.5) return `${cap}. The cheese never melted.`;
+  return r.wants ? `${cap}, folded in.` : `${cap} — a good addition.`;
+}
+
+/** A part of the plate as the verdict lists it. */
+const part = (key, label, score, note) => ({ key, label, score, note });
+
+/**
+ * The plate, marked for the dish that was ordered: `dish` from dishes.js,
+ * the rest whatever the game kept of the cooking. Every dish comes back with
+ * `parts` — label, score, note — a total, stars and a verdict.
+ */
+export function gradeDish(dish, data) {
+  const { pieces = [], seconds = 0, burntButter = false } = data;
+  const time = timeReport(seconds, dish.par);
+  const parts = [];
+  const add = (key, label, score, note, weight) => parts.push({ ...part(key, label, score, note), weight });
+
+  if (dish.kind === 'hash') {
+    const g = grade(data);
+    add('dice', 'dice', g.dice.score, g.notes.dice, WEIGHTS.dice);
+    add('fry', 'fry', g.fry.score, g.notes.fry, WEIGHTS.fry);
+    add('eggs', 'eggs', g.eggs.score, g.notes.eggs, WEIGHTS.eggs);
+    add('season', 'season', g.season.score, g.notes.season, WEIGHTS.season);
+    add('time', 'time', g.time.score, g.notes.time, WEIGHTS.time);
+    const extras = extrasReport(pieces.filter(isFilling), { dish: 'hash' });
+    if (extras.score === null) return { ...g, dish: dish.id, parts };
+    for (const p of parts) p.weight *= 0.9;
+    add('extras', 'extras', extras.score, extrasNote(extras), 0.1);
+    const total = Math.round(parts.reduce((a, p) => a + p.score * p.weight, 0));
+    return { ...g, dish: dish.id, parts, extras, total, stars: stars(total) };
+  }
+
+  const folded = pieces.filter((p) => p.omelette).flatMap((p) => p.inside ?? []);
+  const season = seasonReport({ pieces: [...pieces, ...folded], sheet: data.sheet ?? null, burntButter });
+  let verdictLine;
+  if (dish.kind === 'scramble') {
+    const curds = pieces.filter((p) => p.kind === 'egg');
+    const eggs = eggReport({ curds, sheet: data.sheet ?? null, beaten: data.beaten ?? 0, eggs: data.eggs ?? 0, buttered: data.buttered });
+    add('eggs', 'eggs', eggs.score, eggNote(eggs).replace('It was meant to be a scramble.', 'It was meant to be scrambled eggs.'), 0.65);
+    verdictLine = (total) => (total >= 92 ? 'Soft as anything. Order up.' : total >= 78 ? 'Proper scrambled eggs.' : total >= 62 ? 'Scrambled eggs. Fine ones.' : eggs.eggs === 0 ? 'No eggs. Bold, for scrambled eggs.' : 'Eggs, technically. Lower and slower.');
+  } else if (dish.kind === 'fried') {
+    const r = friedReport(data.fried ?? [], dish.style);
+    add('whites', 'whites', r.whites.score, whitesNote(r), 0.4);
+    add('yolks', 'yolks', r.yolks.score, yolksNote(r, dish.style), 0.4);
+    verdictLine = (total) => {
+      if (r.eggs === 0) return 'No eggs. It was meant to be eggs.';
+      if (total >= 92) return dish.style === 'easy' ? 'Over easy, done right.' : 'Sunny side up, done right.';
+      if (total >= 78) return 'Two good eggs.';
+      if (total >= 62) return 'Eggs, fried. Someone would eat them.';
+      return r.whole < 0.5 ? 'Broken yolks. Gentler with the spatula.' : 'Eggs, technically. Mind the heat.';
+    };
+  } else {
+    const omelette = pieces.find((p) => p.omelette) ?? null;
+    const curds = pieces.filter((p) => p.kind === 'egg' && !p.omelette);
+    const r = omeletteReport({ omelette, curds, beaten: data.beaten ?? 0, eggs: data.eggs ?? 0, style: dish.style, buttered: data.buttered });
+    add('omelette', 'omelette', r.omelette.score, omeletteNote(r), dish.style === 'french' ? 0.45 : 0.4);
+    add('colour', 'colour', r.colour.score, colourNote(r), dish.style === 'french' ? 0.25 : 0.15);
+    if (dish.style === 'american') {
+      const extras = extrasReport(pieces.filter(isFilling), { dish: 'american', inside: omelette?.inside ?? [], wants: true });
+      add('fillings', 'filling', extras.score, extrasNote(extras), 0.2);
+    }
+    verdictLine = (total) => {
+      if (!r.folded) return curds.length ? 'That is scrambled eggs. It was meant to be an omelette.' : 'No omelette on the plate.';
+      if (total >= 92) return dish.style === 'french' ? 'Pale, soft, rolled. Escoffier would nod.' : 'A proper diner omelette.';
+      if (total >= 78) return 'A good omelette.';
+      if (total >= 62) return 'An omelette. Someone would eat it.';
+      return 'Omelette, technically. Mind the heat.';
+    };
+  }
+  /** Extras nobody asked for are marked too, when there are any: a tenth of the plate. */
+  if (!parts.some((p) => p.key === 'fillings')) {
+    const omelette = pieces.find((p) => p.omelette);
+    const extras = extrasReport(pieces.filter(isFilling), { dish: dish.kind === 'omelette' ? dish.style : dish.kind, inside: omelette?.inside ?? [] });
+    if (extras.score !== null) {
+      for (const p of parts) p.weight *= 0.9;
+      add('extras', 'extras', extras.score, extrasNote(extras), 0.1);
+    }
+  }
+  const left = 1 - parts.reduce((a, p) => a + p.weight, 0);
+  add('season', 'season', season.score, seasonNote(season).replace(/The potatoes are seasoned, the eggs are not\.|The eggs are seasoned, the potatoes are not\./, 'Unevenly seasoned.'), left * 0.6);
+  add('time', 'time', time.score, timeNote(time), left * 0.4);
+  const total = Math.round(parts.reduce((a, p) => a + p.score * p.weight, 0));
+  return { dish: dish.id, parts, season, time, total, stars: stars(total), verdict: verdictLine(total) };
+}
+
+function whitesNote(r) {
+  if (r.eggs === 0) return 'No eggs.';
+  if (r.runnyWhite > 0.25) return 'The whites are still glassy round the yolk.';
+  if (r.browned > 0.5) return 'Brown and leathery underneath — too hot.';
+  if (r.set < 0.6) return 'Underdone whites.';
+  if (r.browned > 0.15) return 'Set, with crisp brown edges.';
+  return 'Tender whites, set right through.';
+}
+
+function yolksNote(r, style) {
+  if (r.eggs === 0) return 'No yolks.';
+  if (r.whole < 1) return r.whole === 0 ? 'Both yolks broken.' : 'One yolk broken.';
+  if (style === 'easy' && r.turned < 1) return 'Never turned — that is sunny side up.';
+  if (style === 'sunny' && r.turned < 1) return 'Turned over — that is over easy.';
+  if (r.runny < 0.5) return 'The yolks set hard.';
+  if (r.runny < 0.9) return 'Jammy rather than runny.';
+  return 'Whole and runny.';
+}
+
+function omeletteNote(r) {
+  if (!r.folded) return 'Never folded.';
+  if (r.torn > 0.3) return 'Broken up before it was folded.';
+  if (r.style === 'french') {
+    if (r.core < 0.6) return 'Raw in the middle.';
+    if (r.core > 1.2) return 'Dry inside — it wanted to come off sooner.';
+    if (r.beaten < 0.6) return 'Streaky — beat them longer.';
+    return 'Soft and just set inside.';
+  }
+  if (r.core < 0.85) return 'Runny inside.';
+  if (r.core > 1.5) return 'Rubbery.';
+  if (r.beaten < 0.6) return 'Streaky — beat them longer.';
+  return 'Set right through.';
+}
+
+function colourNote(r) {
+  if (!r.folded) return '';
+  if (r.style === 'french') {
+    if (r.brown < 0.25) return 'Pale gold, no colour on it.';
+    if (r.brown < 0.6) return 'Some colour — a French one has none.';
+    return 'Brown. Gentler heat for a French omelette.';
+  }
+  if (r.brown < 0.3) return 'Pale.';
+  if (r.brown <= 0.9) return 'Lightly golden.';
+  return 'Brown and tough outside.';
 }

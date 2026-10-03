@@ -132,6 +132,40 @@ slow stroke. Curds are pieces from then on.
 
 What is left set flat at the end is counted as omelette, not scramble.
 
+An egg broken straight into the pan is poured into the sheet as white — thick
+white, which runs a sixth as freely as beaten egg, so it stays round its
+yolk — and its yolk is kept apart, as a dome with its own set. The yolk is
+cooked from below, through the white, at a fifth the pace of the white; the
+white close round a yolk still face up sets at about half pace, since it is
+deep there and its top never touches the iron. A spatula drawn through a yolk
+breaks it, and it runs out into the sheet. Turning an egg over takes every
+patch nearer its yolk than any other: if they have set enough to hold, the
+browning on their two faces swaps and the yolk is face down, setting five
+times as fast; if not, the white tears and the yolk breaks. A toss turns
+every egg at once.
+
+Folding lifts the whole sheet off the floor as one piece — rolled, or in
+half — with how set it was as its middle and its underside's browning as its
+outside, and from then on it is a piece like any other.
+
+## The extras
+
+Grated cheese, diced tomato, ham, green pepper and onion, and snipped chives
+sit in ramekins along the counter, each heaped with bits of the same solids
+the pan gets. A handful goes in as small pieces
+([`food/fillings.js`](../src/food/fillings.js)), which slide, toss and cook
+like any others: they brown on the face that is down, and their middles cook
+through, which for onion and pepper is softening, for cheese melting — it
+slumps as it does. A fold takes every bit lying on the egg inside the
+omelette with it; a diner omelette shows flecks of them along its fold.
+
+## The menu
+
+[`game/dishes.js`](../src/game/dishes.js) is plain data: for every dish, what
+is on the counter (a potato or not), whether eggs go to the bowl or the pan,
+how it is folded, its par time, and its ticket — each step with a function
+from the game's measurements to a line, a bar and whether it is done.
+
 ## The marking
 
 Butter is fat with water and milk solids in it. A pat melts at a pace set by
@@ -159,7 +193,10 @@ both for the plate and for the ticket's running commentary:
 | fry | the share golden all round — every face coloured, none burnt — and cooked through, against pale, one-sided, burnt and raw in the middle |
 | eggs | how smooth they were beaten, how much is in curds rather than set flat, and how much is set soft against runny, rubbery or brown |
 | season | salt against right for the potato and for the egg, each by its own volume — a pinch to every eight — and pepper the same, more forgivingly; bitter if the butter burnt |
-| time | from the first thing the cook did to the plate |
+| time | from the first thing the cook did to the plate, against the dish's par |
+| fried eggs | per egg: the white set through, not glassy round the yolk, not brown and leathery; the yolk whole, runny, and turned or not as ordered |
+| omelette | French: just set inside, smooth, unbroken, and pale; diner: set through, golden at most, with its filling folded in |
+| extras | whether they suit the dish, whether onion and pepper were cooked and the cheese melted, how much, and — for a diner omelette — how much went inside |
 
 ## The picture
 

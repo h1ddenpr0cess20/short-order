@@ -10,10 +10,15 @@ import { measure, solidFromBuffers } from '../geometry/slice.js';
 
 const WHITE = hex(0xf3ead2);
 const YOLK = hex(0xf2a71e);
+/** Raw white on dark iron: clear, so mostly the iron showing through, a little milky. */
+const GLASS = hex(0x9a9484);
 
 /** Raw egg of a given yolkiness: 0 all white, 1 all yolk, a third is beaten whole egg. */
 export function rawEgg(yolk) {
-  return mix(WHITE, YOLK, Math.min(1, Math.max(0, yolk * 2.6)));
+  const y = Math.min(1, Math.max(0, yolk * 2.6));
+  /** White on its own, unbeaten, is glass; beaten with any yolk, it is foam and opaque. */
+  if (y < 0.15) return mix(GLASS, WHITE, y / 0.15);
+  return mix(WHITE, YOLK, y);
 }
 
 function icosphere() {
@@ -52,19 +57,25 @@ function icosphere() {
   return { v, f, mid };
 }
 
-/** Subdivided twice: enough vertices for the lumps to read as lumps, not facets. */
-function finer() {
+/** Subdivided once more for every `times`: twice is enough for the lumps to read as lumps, not facets. */
+function finer(times = 1) {
   const once = icosphere();
   const { v, mid } = once;
-  const next = [];
-  for (const [a, b, c] of once.f) {
-    const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
-    next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+  let f = once.f;
+  for (let n = 0; n < times; n++) {
+    const next = [];
+    for (const [a, b, c] of f) {
+      const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
+      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+    }
+    f = next;
   }
-  return { v, f: next };
+  return { v, f };
 }
 
 const BASE = finer();
+/** A fried egg wants more: a round yolk on a wide, thin disc. */
+const FINE = finer(2);
 
 /**
  * A curd holding `volume` of egg, of the given yolkiness. `seed` decides its
@@ -128,4 +139,113 @@ export function curdSolid({ volume = 0.16, yolk = 0.33, seed = 1 } = {}) {
   const k = Math.cbrt(volume / Math.max(1e-6, measure(solid).volume));
   for (let i = 0; i < solid.pos.length; i++) solid.pos[i] *= k;
   return solid;
+}
+
+/** The normals of a deformed sphere, worked out again from its faces. */
+function faceNormals(positions, index) {
+  const normals = new Float64Array(positions.length);
+  for (let k = 0; k < index.length; k += 3) {
+    const p = index[k] * 3, q = index[k + 1] * 3, r = index[k + 2] * 3;
+    const ex = positions[q] - positions[p], ey = positions[q + 1] - positions[p + 1], ez = positions[q + 2] - positions[p + 2];
+    const fx = positions[r] - positions[p], fy = positions[r + 1] - positions[p + 1], fz = positions[r + 2] - positions[p + 2];
+    const nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx;
+    for (const o of [p, q, r]) {
+      normals[o] += nx;
+      normals[o + 1] += ny;
+      normals[o + 2] += nz;
+    }
+  }
+  for (let o = 0; o < normals.length; o += 3) {
+    const l = Math.hypot(normals[o], normals[o + 1], normals[o + 2]) || 1;
+    normals[o] /= l;
+    normals[o + 1] /= l;
+    normals[o + 2] /= l;
+  }
+  return normals;
+}
+
+/** The sphere pushed about by `shape(x, y, z, out)`, coloured by `colour`, scaled to hold `volume`. */
+function moulded({ shape, colour, volume, base = BASE }) {
+  const { v, f } = base;
+  const positions = new Float64Array(v.length * 3);
+  const out = [0, 0, 0];
+  v.forEach(([x, y, z], i) => {
+    shape(x, y, z, out);
+    positions[i * 3] = out[0];
+    positions[i * 3 + 1] = out[1];
+    positions[i * 3 + 2] = out[2];
+  });
+  const index = f.flat();
+  const solid = solidFromBuffers({ positions, normals: faceNormals(positions, index), index, colour });
+  if (volume) {
+    const k = Math.cbrt(volume / Math.max(1e-6, measure(solid).volume));
+    for (let i = 0; i < solid.pos.length; i++) solid.pos[i] *= k;
+  }
+  return solid;
+}
+
+/** The colour a fried egg's yolk is painted with, raw: how its vertices are told from the white's. */
+export const YOLK_RAW = rawEgg(1);
+
+/**
+ * A fried egg: a thin, ragged disc of white `radius` across, with the yolk a
+ * dome on top of it — or, broken, a smear of yolk run through the white.
+ */
+export function friedSolid({ radius = 2.4, thickness = 0.22, yolk = 0.75, whole = true, seed = 1 } = {}) {
+  const white = rawEgg(0.02);
+  const dome = whole ? 0.62 : 0;
+  return moulded({
+    base: FINE,
+    shape: (x, y, z, out) => {
+      const a = Math.atan2(z, x);
+      /** Ragged at the rim, the way white runs out across the iron and stops. */
+      const rim = radius * (1 + 0.1 * Math.sin(a * 3 + seed) + 0.06 * Math.sin(a * 7 + seed * 2.3) + 0.04 * vnoise(x * 3 + seed, 0, z * 3));
+      const px = x * rim, pz = z * rim;
+      const r = Math.hypot(px, pz);
+      let py = y * thickness * (0.75 + 0.5 * Math.max(0, 1 - r / radius));
+      if (y > 0 && r < yolk) py += dome * Math.sqrt(1 - (r / yolk) ** 2);
+      out[0] = px;
+      out[1] = py;
+      out[2] = pz;
+    },
+    colour: (x, y, z) => {
+      const r = Math.hypot(x, z);
+      if (whole && y > thickness * 0.4 && r < yolk * 0.97) return [...YOLK_RAW];
+      /** Broken, the yolk has run out through the white in streaks. */
+      if (!whole && vnoise(x * 1.4 + seed, y, z * 1.4) > 0.25 && r < radius * 0.6) return rawEgg(0.45);
+      return [...white];
+    },
+  });
+}
+
+/**
+ * An omelette: a French one rolled into a plump, tapered cigar with its seam
+ * underneath, or a diner one folded in half into a half-moon. Holds `volume`.
+ */
+export function omeletteSolid({ volume = 10, shape = 'roll', yolk = 0.33, seed = 1 } = {}) {
+  const raw = rawEgg(yolk);
+  return moulded({
+    volume,
+    shape: shape === 'roll'
+      ? (x, y, z, out) => {
+        /** Long along x, tapering to soft points, a little flat where it lies. */
+        const taper = Math.max(0.12, 1 - 0.55 * x * x);
+        out[0] = x * 2.4;
+        out[1] = y * 0.85 * taper * (y < 0 ? 0.8 : 1);
+        out[2] = z * 1.05 * taper;
+      }
+      : (x, y, z, out) => {
+        /** A half disc: round on the far side, nearly straight along the fold, thickest at the fold. */
+        const px = x * 3;
+        const pz = z < 0 ? z * 3 : z * 0.45;
+        const fold = 1 - Math.min(1, Math.hypot(px / 3, (pz + 0.4) / 3));
+        out[0] = px;
+        out[1] = y * (0.32 + 0.38 * fold);
+        out[2] = pz + 0.9;
+      },
+    colour: (x, y, z) => {
+      const m = 1 + 0.08 * vnoise(x * 3 + seed, y * 3, z * 3);
+      return [raw[0] * m, raw[1] * m, raw[2] * m];
+    },
+  });
 }

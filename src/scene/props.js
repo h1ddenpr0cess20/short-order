@@ -192,6 +192,67 @@ export function buildSaltDish(GFX) {
   return { group, height: 1.1 };
 }
 
+/**
+ * A little ramekin of one of the extras, cut and ready: cream china with a
+ * gilt rim, heaped with bits of it. `bits(random)` makes one bit's solid, the
+ * same kind the pan gets, so what is in the dish is what goes in the pan.
+ */
+export function buildRamekin(GFX, { name, bits, count = 26 }) {
+  const { gold, cream, green } = finishes(GFX);
+  const outside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
+    [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
+  ]), 32), cream);
+  outside.name = `ramekin-${name}`;
+  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
+    [0.88, 0.84], [0.8, 0.82], [0.76, 0.3], [0.6, 0.2], [0, 0.18],
+  ]), 32), cream);
+  inside.name = `ramekin-${name}-inside`;
+  const band = new GFX.Mesh(new GFX.CylinderGeometry(0.865, 0.85, 0.12, 32, 1, true), green);
+  band.name = `ramekin-${name}-band`;
+  band.position.y = 0.6;
+  const rim = new GFX.Mesh(new GFX.TorusGeometry(0.86, 0.035, 8, 40), gold);
+  rim.name = `ramekin-${name}-rim`;
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.84;
+
+  /** The heap: bits dropped in one on another, merged into one mesh. */
+  let seed = name.length * 977;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const pos = [], nrm = [], col = [];
+  for (let n = 0; n < count; n++) {
+    const solid = bits(random);
+    const a = random() * Math.PI * 2, r = Math.sqrt(random()) * 0.6;
+    const ox = Math.cos(a) * r, oz = Math.sin(a) * r, oy = 0.3 + (1 - r / 0.6) * 0.35 + random() * 0.18;
+    const yaw = random() * Math.PI, tip = (random() - 0.5) * 0.8;
+    const c = Math.cos(yaw), sn = Math.sin(yaw), ct = Math.cos(tip), st = Math.sin(tip);
+    const turn = (x, y, z) => {
+      const y1 = y * ct - z * st, z1 = y * st + z * ct;
+      return [x * c + z1 * sn, y1, -x * sn + z1 * c];
+    };
+    for (let i = 0; i < solid.pos.length; i += 3) {
+      const p = turn(solid.pos[i], solid.pos[i + 1], solid.pos[i + 2]);
+      pos.push(p[0] + ox, p[1] + oy, p[2] + oz);
+      nrm.push(...turn(solid.nrm[i], solid.nrm[i + 1], solid.nrm[i + 2]));
+      col.push(solid.col[i], solid.col[i + 1], solid.col[i + 2]);
+    }
+  }
+  const geometry = new GFX.BufferGeometry();
+  geometry.setAttribute('position', new GFX.BufferAttribute(Float32Array.from(pos), 3));
+  geometry.setAttribute('normal', new GFX.BufferAttribute(Float32Array.from(nrm), 3));
+  geometry.setAttribute('color', new GFX.BufferAttribute(Float32Array.from(col), 3));
+  geometry.computeBoundingSphere?.();
+  const heap = new GFX.Mesh(geometry, new GFX.MeshStandardMaterial({ name: `heap-${name}`, vertexColors: true, roughness: 0.6, metalness: 0 }));
+  heap.name = `heap-${name}`;
+
+  const group = new GFX.Group();
+  group.name = `ramekin-${name}`;
+  group.add(outside, inside, band, rim, heap);
+  return { group, height: 1.0 };
+}
+
 /** How many pats there are in a stick of butter. */
 export const PATS = 8;
 

@@ -33,6 +33,7 @@ export function createHud({ game, root = document.body }) {
     <div class="group eggs">
       <button class="chip" data-act="egg" title="Crack an egg into the bowl (G)">egg</button>
       <button class="chip" data-act="pour" title="Pour the eggs into the pan (P)">pour</button>
+      <button class="chip" data-act="fold" title="Fold the omelette (L)">fold</button>
     </div>
     <div class="group season">
       <button class="chip" data-act="salt" title="A pinch of salt (A)">salt</button>
@@ -63,6 +64,7 @@ export function createHud({ game, root = document.body }) {
     else if (name === 'scrape') game.scrapeIntoPan();
     else if (name === 'toss') game.startToss();
     else if (name === 'egg') game.crackEgg();
+    else if (name === 'fold') game.fold();
     else if (name === 'pour') game.pourEggs();
   });
   /** A tap on the bar is not a tap on the kitchen behind it. */
@@ -79,6 +81,14 @@ export function createHud({ game, root = document.body }) {
     salt: 'click for a pinch of salt over the pan · drag it to the bowl to salt the eggs',
     pepper: 'click for a twist of pepper over the pan · drag it to the bowl to pepper the eggs',
     butter: 'click to drop a pat of butter in the pan',
+    extra: 'click for a handful in the pan — on the egg to fold it in, or over the food',
+  };
+  /** Over fried eggs, the spatula turns them. */
+  const FRIED_PAN = 'click an egg to turn it over · space tosses them all · a drag through a yolk breaks it';
+  const show = (name, on) => {
+    const b = act(name);
+    if (b.hidden === !on) return;
+    b.hidden = !on;
   };
 
   return {
@@ -89,15 +99,28 @@ export function createHud({ game, root = document.body }) {
       const t = Math.round(game.pan.heat.temp);
       out('temp').textContent = `${t}°`;
       out('temp').dataset.hot = t > 240 ? 'smoking' : t > 160 ? 'hot' : t > 60 ? 'warm' : 'cold';
+      const dish = game.dish;
+      show('turn', dish.potato);
+      show('scrape', dish.potato);
+      show('pour', dish.crack === 'bowl');
+      show('fold', dish.kind === 'omelette');
+      const toss = act('toss');
+      const word = dish.kind === 'fried' ? 'flip' : 'toss';
+      if (toss.textContent !== word) {
+        toss.textContent = word;
+        toss.title = dish.kind === 'fried' ? 'Turn the eggs over (space)' : 'Toss the pan (space)';
+      }
+      act('fold').disabled = game.sheet.empty || game.pan.pieces.some((p) => p.omelette) || game.eggs.pouring;
       act('turn').disabled = game.board.pieces.length === 0;
       /** When the knife is running along the strips rather than across them, the button says so. */
       act('turn').classList.toggle('nudge', /^turn the pile/.test(game.progress?.dice?.next ?? ''));
       act('scrape').disabled = game.board.pieces.length === 0;
-      act('toss').disabled = game.pan.pieces.length === 0;
-      act('egg').disabled = game.eggs.eggsLeft === 0 || game.eggs.bowl.eggs >= 4 || game.eggs.pouring;
+      act('toss').disabled = game.pan.pieces.length === 0 && game.sheet.empty;
+      act('egg').disabled = game.eggs.eggsLeft === 0 || game.eggs.pouring
+        || (dish.crack === 'pan' ? game.sheet.yolks.length >= 4 : game.eggs.bowl.eggs >= 4);
       act('pour').disabled = game.eggs.bowl.eggs === 0 || game.eggs.pouring || game.eggs.cracking;
       act('butter').disabled = game.butterLeft === 0;
-      hint.textContent = HINTS[game.zone.zone] ?? '';
+      hint.textContent = (game.zone.zone === 'pan' && game.sheet.yolks.length ? FRIED_PAN : HINTS[game.zone.zone]) ?? '';
     },
   };
 }

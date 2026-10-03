@@ -11,7 +11,12 @@
  * set no longer runs. Drag the spatula through egg that is setting and it
  * comes away in curds, which are pieces like any other and fry like them;
  * leave it, and it sets into one flat sheet, which is an omelette, not a
- * scramble.
+ * scramble — and folded, it is one.
+ *
+ * An egg broken straight into the pan is its white, run into the sheet, and
+ * its yolk, kept apart: a dome sitting on the white that sets far slower than
+ * it does, cooked only from below, until it is broken — a spatula through
+ * it — or turned face down onto the iron.
  */
 
 import { FLAT } from '../scene/pan.js';
@@ -32,6 +37,22 @@ const RUNS = 0.32;
 
 /** How much egg goes into one curd, roughly. */
 const CURD = 0.16;
+
+/** How much of an egg is yolk, by volume. */
+export const YOLK_SHARE = 0.36;
+
+/**
+ * How long a yolk takes to set at 200°, sitting on its white: cooked through
+ * the white from below, it takes minutes. Face down on the iron, a fraction.
+ */
+const YOLK_TIME = 150;
+const FACE_DOWN = 5;
+
+/** How far an egg's white reaches from its yolk, for telling one fried egg from the next. */
+export const EGG_REACH = 3.2;
+
+/** The white close round a yolk that has not been turned: deep, and slow to set on top. */
+const NEAR_YOLK = 1.15;
 
 export function createBowl() {
   const state = { eggs: 0, mix: 0, yolks: [], salt: 0, pepper: 0 };
@@ -98,6 +119,10 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   const set = new Float32Array(cells);
   const yolk = new Float32Array(cells);
   const brown = new Float32Array(cells);
+  /** How much of a patch is thick white from an egg broken in whole, which barely runs. */
+  const thick = new Float32Array(cells);
+  /** Browning on the face that is up, which only an egg turned over has. */
+  const top = new Float32Array(cells);
   const inside = new Uint8Array(cells);
   const scratch = new Float32Array(cells);
   for (let j = 0; j < N; j++) {
@@ -109,6 +134,10 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   /** Egg that has left the sheet as curds, waiting to be collected. */
   const curds = [];
+  /** Yolks broken in whole: where each sits, how set it is, whether it is still whole and which way up. */
+  const yolks = [];
+  /** What happened to the yolks since the game last asked: 'break', 'flip' and 'tear'. */
+  const events = [];
   /** Salt and pepper in the egg on the floor, all through it. */
   const seasoning = { salt: 0, pepper: 0 };
   /** The summary, until something changes the sheet: it is asked for many times a frame. */
@@ -123,9 +152,8 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   };
 
   /** Liquid egg landing at (x, z), spreading out from there; `yolky` is how much of it is yolk. */
-  function pour(x, z, volume, yolky = 0.33) {
+  function pour(x, z, volume, yolky = 0.33, r = 1.1, viscous = 0) {
     summed = null;
-    const r = 1.1;
     let weight = 0;
     const share = [];
     for (let j = 0; j < N; j++) {
@@ -145,11 +173,43 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       const add = (volume * w) / weight / (size * size);
       const total = amount[k] + add;
       yolk[k] = total > 0 ? (yolk[k] * amount[k] + yolky * add) / total : yolky;
+      thick[k] = total > 0 ? (thick[k] * amount[k] + viscous * add) / total : viscous;
       /** Fresh liquid on top of setting egg dilutes how set the patch is. */
       set[k] = total > 0 ? (set[k] * amount[k]) / total : 0;
       amount[k] = total;
     }
     poured += volume;
+  }
+
+  /**
+   * A whole egg broken in at (x, z): the white runs into the sheet round
+   * where it lands, the yolk sits on it, whole.
+   */
+  function crack(x, z) {
+    pour(x, z, EGG_VOLUME * (1 - YOLK_SHARE), 0.02, 1.3, 1);
+    const yolk = { id: yolks.length, x, z, volume: EGG_VOLUME * YOLK_SHARE, set: 0, whole: true, flips: 0, down: 0 };
+    yolks.push(yolk);
+    return yolk;
+  }
+
+  /** The yolk turned face down, or back up. */
+  const faceDown = (yolk) => yolk.flips % 2 === 1;
+
+  /** The yolk broken: what is not yet set runs out into the sheet. */
+  function breakYolk(yolk) {
+    if (!yolk.whole) return;
+    yolk.whole = false;
+    pour(yolk.x, yolk.z, yolk.volume, 0.95, 0.7);
+    events.push({ type: 'break', yolk });
+  }
+
+  /** How slowly the white at (x, z) sets on top: close round a whole yolk, still face up, it lags. */
+  function lag(x, z) {
+    for (const y of yolks) {
+      if (!y.whole || faceDown(y)) continue;
+      if (Math.hypot(x - y.x, z - y.z) < NEAR_YOLK) return 0.55;
+    }
+    return 1;
   }
 
   /** One step: heat sets and browns it, and what still runs, runs. */
@@ -158,11 +218,13 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     for (let k = 0; k < cells; k++) {
       if (amount[k] <= 1e-5) continue;
       const i = k % N, j = Math.floor(k / N);
-      const r = Math.hypot(-FLAT + (i + 0.5) * size, -FLAT + (j + 0.5) * size);
+      const x = -FLAT + (i + 0.5) * size, z = -FLAT + (j + 0.5) * size;
+      const r = Math.hypot(x, z);
       const t = spread(temp, r, FLAT);
       /** A thin film sets at once; a deep puddle takes longer to set through. */
       const depth = Math.max(0.12, amount[k]);
-      set[k] = Math.min(1.6, set[k] + (setting(t) / SET_TIME) * (0.14 / depth) ** 0.6 * dt);
+      const slow = yolks.length ? lag(x, z) : 1;
+      set[k] = Math.min(1.6, set[k] + (setting(t) / SET_TIME) * (0.14 / depth) ** 0.6 * slow * dt);
       if (set[k] > 0.85) brown[k] += (browning(t) / BROWN_TIME) * dt;
     }
 
@@ -173,7 +235,8 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
         for (let i = 0; i < N; i++) {
           const k = j * N + i;
           if (!inside[k] || amount[k] <= 1e-5) continue;
-          const runs = Math.max(0, 1 - set[k] / RUNS);
+          /** Thick white holds together round its yolk; beaten egg runs freely. */
+          const runs = Math.max(0, 1 - set[k] / RUNS) * (1 - 0.85 * thick[k]);
           if (runs <= 0) continue;
           for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const ni = i + di, nj = j + dj;
@@ -189,10 +252,20 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
             const total = amount[n] + flow;
             yolk[n] = (yolk[n] * amount[n] + yolk[k] * flow) / total;
             set[n] = (set[n] * amount[n] + set[k] * flow) / total;
+            thick[n] = (thick[n] * amount[n] + thick[k] * flow) / total;
           }
         }
       }
       amount.set(scratch);
+    }
+
+    /** The yolks: from below through the white, or straight off the iron once turned onto it. */
+    for (const y of yolks) {
+      if (!y.whole) continue;
+      const t = spread(temp, Math.hypot(y.x, y.z), FLAT);
+      const down = faceDown(y);
+      if (down) y.down += dt;
+      y.set = Math.min(1.6, y.set + (setting(t) / YOLK_TIME) * (down ? FACE_DOWN : 1) * dt);
     }
   }
 
@@ -213,6 +286,13 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     const ux = dx / len, uz = dz / len;
     const reach = width / 2;
     let made = 0;
+    /** A blade through a whole yolk breaks it. */
+    for (const y of yolks) {
+      if (!y.whole) continue;
+      const along = Math.max(0, Math.min(len, (y.x - a[0]) * ux + (y.z - a[1]) * uz));
+      const near = Math.hypot(a[0] + ux * along - y.x, a[1] + uz * along - y.z);
+      if (near < reach * 0.75) breakYolk(y);
+    }
     const steps = Math.max(1, Math.ceil(len / (size * 0.7)));
     for (let s = 1; s <= steps; s++) {
       const px = a[0] + dx * (s / steps), pz = a[1] + dz * (s / steps);
@@ -312,6 +392,149 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     return made;
   }
 
+  /** The cells that are each yolk's egg: nearer that yolk than any other, and within reach of it. */
+  function eggCells() {
+    const owner = new Int16Array(cells).fill(-1);
+    if (!yolks.length) return owner;
+    for (let k = 0; k < cells; k++) {
+      if (!inside[k] || amount[k] <= 1e-4) continue;
+      const x = -FLAT + ((k % N) + 0.5) * size, z = -FLAT + (Math.floor(k / N) + 0.5) * size;
+      let best = -1, near = EGG_REACH;
+      for (const y of yolks) {
+        const d = Math.hypot(x - y.x, z - y.z);
+        if (d < near) { near = d; best = y.id; }
+      }
+      owner[k] = best;
+    }
+    return owner;
+  }
+
+  /**
+   * Each egg broken in whole, as it is now: its white — how much, how set,
+   * how much still runs, how brown on either face — and its yolk.
+   */
+  function fried() {
+    const owner = eggCells();
+    const out = yolks.map((y) => ({
+      id: y.id, x: y.x, z: y.z,
+      white: { volume: 0, set: 0, runny: 0, brown: 0, crisp: 0, radius: 0 },
+      yolk: { whole: y.whole, set: y.set, flipped: faceDown(y), flips: y.flips, down: y.down, volume: y.volume },
+    }));
+    for (let k = 0; k < cells; k++) {
+      const o = owner[k];
+      if (o < 0) continue;
+      const v = amount[k] * size * size;
+      const w = out[o].white;
+      const x = -FLAT + ((k % N) + 0.5) * size, z = -FLAT + (Math.floor(k / N) + 0.5) * size;
+      w.volume += v;
+      w.set += Math.min(1.6, set[k]) * v;
+      w.brown += (brown[k] + top[k]) * v;
+      if (set[k] < 0.8) w.runny += v;
+      if (brown[k] + top[k] > 0.9) w.crisp += v;
+      w.radius = Math.max(w.radius, Math.hypot(x - out[o].x, z - out[o].z) + size / 2);
+    }
+    for (const e of out) {
+      const w = e.white;
+      if (w.volume > 0) {
+        w.set /= w.volume;
+        w.brown /= w.volume;
+        w.runny /= w.volume;
+        w.crisp /= w.volume;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * The spatula under the egg nearest (x, z), and over it goes. White that
+   * has not set enough to hold together tears, and the yolk breaks with it.
+   * Returns what happened: 'flip', 'tear', or null with no egg there.
+   */
+  function flipEgg(x, z) {
+    let egg = null, near = 2.6;
+    for (const y of yolks) {
+      const d = Math.hypot(x - y.x, z - y.z);
+      if (d < near) { near = d; egg = y; }
+    }
+    return egg ? turnOver(egg, eggCells()) : null;
+  }
+
+  /** Every egg in the pan over at once: what a toss does to fried eggs. */
+  function flipAll() {
+    const owner = eggCells();
+    return yolks.map((y) => turnOver(y, owner));
+  }
+
+  function turnOver(egg, owner) {
+    summed = null;
+    let v = 0, s = 0;
+    for (let k = 0; k < cells; k++) {
+      if (owner[k] !== egg.id) continue;
+      const w = amount[k];
+      v += w;
+      s += set[k] * w;
+    }
+    if (v <= 0) return null;
+    if (s / v < RUNS * 1.25) {
+      breakYolk(egg);
+      events.push({ type: 'tear', yolk: egg });
+      return 'tear';
+    }
+    /** The face that was down comes up, browned as it is; the one that was up goes down to the iron. */
+    for (let k = 0; k < cells; k++) {
+      if (owner[k] !== egg.id) continue;
+      const b = brown[k];
+      brown[k] = top[k];
+      top[k] = b;
+    }
+    egg.flips += 1;
+    events.push({ type: 'flip', yolk: egg });
+    return 'flip';
+  }
+
+  /** The whole sheet off the floor at once, folded or rolled — an omelette — or null with too little to fold. */
+  function fold() {
+    const s = summary();
+    if (s.volume < 1.2) return null;
+    let b = 0;
+    for (let k = 0; k < cells; k++) b += (brown[k] + top[k]) * amount[k] * size * size;
+    const out = { volume: s.volume, set: s.set, yolk: s.yolk, brown: b / s.volume, liquid: s.liquid / s.volume, salt: seasoning.salt, pepper: seasoning.pepper };
+    amount.fill(0);
+    set.fill(0);
+    brown.fill(0);
+    top.fill(0);
+    thick.fill(0);
+    seasoning.salt = seasoning.pepper = 0;
+    summed = null;
+    return out;
+  }
+
+  /** Every egg broken in whole, lifted off the floor one by one, for the plate. */
+  function liftFried() {
+    const out = fried();
+    const s = summary();
+    for (const e of out) {
+      const share = s.volume > 0 ? (e.white.volume + (e.yolk.whole ? e.yolk.volume : 0)) / (s.volume + yolks.reduce((a, y) => a + (y.whole ? y.volume : 0), 0)) : 0;
+      e.salt = seasoning.salt * share;
+      e.pepper = seasoning.pepper * share;
+    }
+    amount.fill(0);
+    set.fill(0);
+    brown.fill(0);
+    top.fill(0);
+    thick.fill(0);
+    yolks.length = 0;
+    seasoning.salt = seasoning.pepper = 0;
+    summed = null;
+    return out;
+  }
+
+  /** How deep the egg is at a point on the floor, set or not. */
+  function depthAt(x, z) {
+    const k = index(x, z);
+    return k < 0 ? 0 : amount[k];
+  }
+
   /** How deep liquid egg is at a point on the floor — set egg does not count. */
   function liquidAt(x, z) {
     const k = index(x, z);
@@ -361,7 +584,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       if (v <= 0) continue;
       volume += v;
       setSum += set[k] * v;
-      brownSum += brown[k] * v;
+      brownSum += (brown[k] + top[k]) * v;
       yolkSum += yolk[k] * v;
       if (set[k] < RUNS) liquid += v;
     }
@@ -394,6 +617,9 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     amount.fill(0);
     set.fill(0);
     brown.fill(0);
+    top.fill(0);
+    thick.fill(0);
+    yolks.length = 0;
     return out;
   }
 
@@ -403,15 +629,20 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     set.fill(0);
     yolk.fill(0);
     brown.fill(0);
+    top.fill(0);
+    thick.fill(0);
     curds.length = 0;
+    yolks.length = 0;
+    events.length = 0;
     seasoning.salt = seasoning.pepper = 0;
     torn = tornSet = tornYolk = tornBrown = 0;
     poured = 0;
   }
 
   return {
-    N, size, amount, set, yolk, brown, inside,
-    pour, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season,
+    N, size, amount, set, yolk, brown, top, inside, yolks, events,
+    pour, crack, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season,
+    fried, flipEgg, flipAll, fold, liftFried, breakYolk, depthAt,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },
   };

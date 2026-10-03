@@ -4,24 +4,25 @@
  * served, when the browser lets it.
  */
 
-const BEST = 'short-order:best';
+/** The best plate of each dish; the scramble keeps the key it has always had. */
+const bestKey = (dish) => (!dish || dish === 'hash' ? 'short-order:best' : `short-order:best:${dish}`);
 
-function readBest() {
+function readBest(dish) {
   try {
-    return Number(localStorage.getItem(BEST)) || 0;
+    return Number(localStorage.getItem(bestKey(dish))) || 0;
   } catch {
     return 0;
   }
 }
 
-function writeBest(total) {
+function writeBest(dish, total) {
   try {
-    localStorage.setItem(BEST, String(total));
+    localStorage.setItem(bestKey(dish), String(total));
   } catch {
   }
 }
 
-export function createResult({ game, root = document.body }) {
+export function createResult({ game, onMenu = null, root = document.body }) {
   const panel = document.createElement('section');
   panel.id = 'result';
   panel.className = 'framed';
@@ -39,9 +40,9 @@ export function createResult({ game, root = document.body }) {
     </li>`;
 
   function show(report) {
-    const best = readBest();
+    const best = readBest(report.dish);
     const record = report.total > best;
-    if (record) writeBest(report.total);
+    if (record) writeBest(report.dish, report.total);
     const stars = '★★★★★'.slice(0, report.stars) + '☆☆☆☆☆'.slice(0, 5 - report.stars);
     panel.innerHTML = `
       <header><span class="chip"><i class="star" aria-hidden="true">★</i> order up</span><span class="chip">${record ? 'best yet' : `best ${Math.max(best, report.total)}`}</span></header>
@@ -49,14 +50,18 @@ export function createResult({ game, root = document.body }) {
       <p class="total"><b>${report.total}</b><span>/100</span></p>
       <p class="verdict">${report.verdict}</p>
       <ul>
-        ${row('dice', 'dice', report.dice, report.notes.dice)}
-        ${row('fry', 'fry', report.fry, report.notes.fry)}
-        ${row('eggs', 'eggs', report.eggs, report.notes.eggs)}
-        ${row('season', 'season', report.season, report.notes.season)}
-        ${row('time', 'time', report.time, report.notes.time)}
+        ${report.parts.map((p) => row(p.key, p.label, p, p.note)).join('')}
       </ul>
-      <button class="again" type="button">cook again</button>
+      <div class="next">
+        <button class="again" type="button">cook again</button>
+        ${onMenu ? '<button class="menu-again" type="button">new order</button>' : ''}
+      </div>
     `;
+    panel.querySelector('.menu-again')?.addEventListener('click', (event) => {
+      event.currentTarget.blur();
+      panel.hidden = true;
+      onMenu();
+    });
     panel.querySelector('.again').addEventListener('click', (event) => {
       /** Off the button before it goes, or the next enter would press it again and throw the next plate away. */
       event.currentTarget.blur();
