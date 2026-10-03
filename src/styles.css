@@ -452,3 +452,32 @@ body[data-shape="tall"] #ticket .now {
 body:not([data-playing]) #menu { visibility: hidden; }
 body[data-shape="tall"] #menu { top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); right: 10px; flex-direction: column; align-items: flex-end; }
 body[data-shape="tall"] #menu button { height: 26px; padding: 0 9px; font-size: 9.5px; }
+
+/* ── the cook's notes ────────────────────────────────────────────────────── */
+
+#note {
+  position: fixed;
+  left: 50%;
+  bottom: calc(102px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 6;
+  margin: 0;
+  padding: 9px 16px;
+  max-width: min(520px, calc(100vw - 32px));
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #f3dfb8;
+  color: #4a2b14;
+  box-shadow: 0 8px 22px rgba(60, 30, 10, 0.25);
+  font: 600 13px/1.3 var(--sans);
+  text-align: center;
+  pointer-events: none;
+}
+#note[hidden] { display: none; }
+#note.in { animation: nudge .35s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes nudge { from { opacity: 0; transform: translate(-50%, 8px); } }
+body[data-plated] #note, body:not([data-playing]) #note { display: none; }
+body[data-playing] #hint { bottom: calc(76px + env(safe-area-inset-bottom)); }
+@media (max-width: 719px) {
+  #note { bottom: calc(118px + env(safe-area-inset-bottom)); font-size: 12px; }
+}

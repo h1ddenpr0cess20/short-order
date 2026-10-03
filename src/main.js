@@ -9,6 +9,7 @@ import { createCard } from './ui/card.js';
 import { createHud } from './ui/hud.js';
 import { createIntro } from './ui/intro.js';
 import { createMenu } from './ui/menu.js';
+import { createNotes } from './ui/notes.js';
 import { createResult } from './ui/result.js';
 import { createParticles } from './view/particles.js';
 
@@ -19,6 +20,7 @@ const kitchen = buildKitchen({ stage, GFX });
 const game = createGame({ stage, GFX, kitchen });
 const hud = createHud({ game });
 const card = createCard({ game });
+const notes = createNotes({ game });
 const sound = createSound();
 const cues = wireSound({ game, sound });
 const particles = createParticles({ GFX, room: kitchen.room });
@@ -69,6 +71,7 @@ stage.onFrame = (dt, time) => {
   });
   hud.update();
   card.update();
+  notes.update(dt);
 };
 
 /** For poking at from the console, and for the screenshots. */
