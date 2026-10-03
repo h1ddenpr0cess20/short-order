@@ -34,6 +34,8 @@ npm run dev       # → http://localhost:5173
 It is a static page and nothing else — no server, no keys, no network. `npm run
 build` puts it in `dist/`, and the Pages workflow publishes that on every push
 to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actions).
+It deploys to Vercel as it is, too ([`vercel.json`](vercel.json) pins the
+build), with a preview for every branch.
 
 ## Playing
 
