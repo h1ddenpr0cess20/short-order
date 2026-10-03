@@ -94,6 +94,20 @@ describe('the sheet', () => {
     assert.ok(curds.every((c) => c.set > 0.3));
   });
 
+  it('breaks into big folds when the pan is tossed, leaving the liquid', () => {
+    const sheet = createSheet({ random: seeded(6) });
+    sheet.pour(0, 0, 10);
+    for (let t = 0; t < 5; t += 1 / 60) sheet.update(1 / 60, 200);
+    const before = sheet.summary().volume;
+    const made = sheet.toss();
+    const curds = sheet.takeCurds();
+    assert.equal(made, curds.length);
+    assert.ok(curds.length > 3);
+    const torn = curds.reduce((sum, c) => sum + c.volume, 0);
+    assert.ok(Math.abs(torn + sheet.summary().volume - before) < 1e-3);
+    assert.equal(sheet.summary().liquid, sheet.summary().volume, 'only liquid should be left');
+  });
+
   it('only pushes liquid egg around, rather than tearing it', () => {
     const sheet = createSheet({ random: seeded(2) });
     sheet.pour(0, 0, 10);

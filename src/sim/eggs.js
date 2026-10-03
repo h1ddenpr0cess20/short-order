@@ -257,6 +257,49 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     return made;
   }
 
+  /**
+   * A toss: everything that has begun to set leaves the iron at once and
+   * comes down in big folds, the way a sheet of egg breaks when the pan is
+   * jerked up under it. Liquid stays where it is.
+   */
+  function toss() {
+    let made = 0;
+    let gathered = 0, s = 0, y = 0, b = 0, cx = 0, cz = 0;
+    const flush = () => {
+      if (gathered <= 0) return;
+      curds.push({ x: cx / gathered, z: cz / gathered, volume: gathered, set: s / gathered, yolk: y / gathered, brown: b / gathered });
+      made += 1;
+      gathered = s = y = b = cx = cz = 0;
+    };
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const k = j * N + i;
+        if (!inside[k] || set[k] < RUNS || amount[k] <= 1e-4) continue;
+        const v = amount[k] * size * size;
+        const x = -FLAT + (i + 0.5) * size, z = -FLAT + (j + 0.5) * size;
+        gathered += v;
+        s += set[k] * v;
+        y += yolk[k] * v;
+        b += brown[k] * v;
+        cx += x * v;
+        cz += z * v;
+        amount[k] = set[k] = brown[k] = 0;
+        if (gathered >= CURD * (1.6 + random() * 1.2)) flush();
+      }
+      /** A fold never spans more than a couple of rows of the floor. */
+      if (j % 3 === 2) flush();
+    }
+    flush();
+    return made;
+  }
+
+  /** How deep liquid egg is at a point on the floor — set egg does not count. */
+  function liquidAt(x, z) {
+    const k = index(x, z);
+    if (k < 0 || set[k] >= RUNS) return 0;
+    return amount[k];
+  }
+
   /** The curds made since the last call, for the game to turn into pieces. */
   function takeCurds() {
     return curds.splice(0);
@@ -309,7 +352,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   return {
     N, size, amount, set, yolk, brown, inside,
-    pour, update, stir, takeCurds, summary, lift, clear,
+    pour, update, stir, toss, takeCurds, summary, lift, clear, liquidAt,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },
   };

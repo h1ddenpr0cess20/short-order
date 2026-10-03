@@ -53,6 +53,10 @@ describe('the kitchen', () => {
         bowl: box(layout.bowl.x, layout.bowl.z, (BOWL.rim + BOWL.wall) * 2, (BOWL.rim + BOWL.wall) * 2),
         carton: box(layout.carton.x, layout.carton.z, CARTON.columns * CARTON.pitch + 0.3, CARTON.rows * CARTON.pitch + 0.3),
         oil: box(layout.oil.x, layout.oil.z, 2.4, 2.4),
+        plate: box(layout.plate.x, layout.plate.z, 10.6, 10.6),
+        towel: box(layout.towel.x, layout.towel.z, 7.7, 4.6),
+        mill: box(layout.mill.x, layout.mill.z, 2, 2),
+        salt: box(layout.salt.x, layout.salt.z, 3, 3),
       };
       const names = Object.keys(stations);
       for (let i = 0; i < names.length; i++) {

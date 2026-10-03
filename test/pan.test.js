@@ -149,6 +149,25 @@ describe('the pan', () => {
     assert.ok(whole.core < 0.4, `the whole potato is at ${whole.core}`);
   });
 
+  it('lets food slide when the pan is shaken under it, more on oil than dry', () => {
+    const slid = (oiled) => {
+      const random = seeded(13);
+      const pan = createPan({ random });
+      if (oiled) pan.pour();
+      const pieces = scatter(dice(), random);
+      pan.add(pieces);
+      run(pan, 2);
+      const before = pan.pieces.map((p) => p.pos[0]);
+      /** A jerk to the right and back: the food should be left behind, to the left. */
+      for (let i = 0; i < 6; i++) pan.update(1 / 60, 0, [300, 0]);
+      const after = pan.pieces.map((p) => p.pos[0]);
+      return before.reduce((sum, x, i) => sum + (x - after[i]), 0) / before.length;
+    };
+    const oiled = slid(true), dry = slid(false);
+    assert.ok(oiled > 0.05, `oiled food moved ${oiled}`);
+    assert.ok(oiled > dry, `oiled ${oiled} against dry ${dry}`);
+  });
+
   it('turns things over when the spatula goes through them', () => {
     const random = seeded(11);
     const pan = createPan({ random });

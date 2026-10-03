@@ -33,11 +33,15 @@ to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actio
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
 | **spatula** | Over the pan, drag to stir and click to flip what is under it. `space` tosses the whole pan. |
+| **handle** | Drag the pan's handle to shake it — the food slides — and flick upward as you let go to toss. |
 | **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. |
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
 
 Everything in that list is also a button in the bar along the bottom, so it all
 works on a phone: a tap on the board chops, a drag carries or stirs or whisks.
+And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
+chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg,
+`enter` plates, `M` mutes.
 
 ### What it takes
 

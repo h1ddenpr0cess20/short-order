@@ -12,6 +12,7 @@ import { BOARD, buildBoard, buildGuide, buildKnife } from './board.js';
 import { buildBowl, buildPlate, buildSpatula, buildWhisk } from './cookware.js';
 import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
+import { buildMill, buildSaltDish, buildTowel } from './props.js';
 import { GRATE_TOP, buildStove } from './stove.js';
 import { marble, studio, subwayTile } from './textures.js';
 
@@ -27,8 +28,11 @@ export const LAYOUTS = Object.freeze({
     bowl: { x: -3.1, z: -9.0 },
     carton: { x: -13.9, z: -9.0 },
     oil: { x: -8.45, z: -10.2 },
-    plate: { x: 0.4, z: 11.5 },
+    plate: { x: 1.5, z: 14.2 },
     spatula: { x: 0, z: 6.6, yaw: Math.PI - 0.08 },
+    towel: { x: -11.2, z: 10.6, yaw: 0.12 },
+    mill: { x: 15.4, z: -10.6 },
+    salt: { x: 11.6, z: -10.4 },
     wall: -13.6,
   },
   tall: {
@@ -39,6 +43,9 @@ export const LAYOUTS = Object.freeze({
     oil: { x: 0.5, z: -16.6 },
     plate: { x: 0, z: 24 },
     spatula: { x: -9.2, z: 6.2, yaw: Math.PI + 0.1 },
+    towel: { x: -15, z: 2, yaw: -0.1 },
+    mill: { x: 12.4, z: -17.2 },
+    salt: { x: 13.6, z: -12 },
     wall: -19.6,
   },
 });
@@ -135,6 +142,9 @@ export function buildKitchen({ stage, GFX }) {
   plate.group.visible = false;
   room.add(plate.group);
 
+  const props = { towel: buildTowel(GFX), mill: buildMill(GFX), salt: buildSaltDish(GFX) };
+  for (const p of Object.values(props)) room.add(p.group);
+
   /** Told whenever the stations move, so anything that remembers where they were can catch up. */
   const arranged = new Set();
   let shape = null;
@@ -162,6 +172,10 @@ export function buildKitchen({ stage, GFX }) {
     spatula.group.position.set(spatula.rest.x, spatula.rest.y, spatula.rest.z);
     spatula.group.rotation.set(spatula.rest.pitch, spatula.rest.yaw, 0);
     plate.group.position.set(LAYOUT.plate.x, 0, LAYOUT.plate.z);
+    for (const [key, p] of Object.entries(props)) {
+      p.group.position.set(LAYOUT[key].x, 0, LAYOUT[key].z);
+      p.group.rotation.y = LAYOUT[key].yaw ?? 0;
+    }
     for (const fn of arranged) fn(name);
     return true;
   }

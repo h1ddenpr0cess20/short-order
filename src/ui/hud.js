@@ -66,6 +66,7 @@ export function createHud({ game, root = document.body }) {
     knob: 'click to turn the burner up · right-click to turn it down',
     oil: 'click to oil the pan',
     carton: 'click to crack an egg into the bowl',
+    handle: 'drag to shake the pan · flick up to toss',
     bowl: 'drag round and round to whisk',
   };
 

@@ -22,7 +22,7 @@ import { axisAngle, conjugate, dot3, multiply, normalize, rotate, slerp } from '
 export const GRAVITY = 60;
 
 /** How long it takes to brown a side golden, and to cook a dice-sized piece through, at 200°. */
-export const BROWN_TIME = 17;
+export const BROWN_TIME = 13;
 export const CORE_TIME = 32;
 
 /** The thickness the core time is for; thicker takes longer, by more than the ratio. */
@@ -40,7 +40,11 @@ const SETTLE_TIME = 0.09;
 /** Pieces further out than this are over the edge of the pan. */
 const OUT = COOK_RADIUS + 0.4;
 
-export function createPan({ random = Math.random } = {}) {
+/**
+ * `liquid(x, z)`, if given, says how deep any liquid egg is on the floor there:
+ * a piece sitting in it is held at the egg's temperature and barely browns.
+ */
+export function createPan({ random = Math.random, liquid = null } = {}) {
   const heat = createHeat();
   const pieces = [];
   const events = [];
@@ -195,11 +199,21 @@ export function createPan({ random = Math.random } = {}) {
     return n;
   }
 
-  function physics(dt) {
+  /**
+   * `shove` is how the pan itself is being accelerated across the grate, in
+   * x and z. Food on the floor is only held by friction, so in the pan's own
+   * frame it is pushed the other way — shake the pan and it slides.
+   */
+  function physics(dt, shove = null) {
     const friction = oil > 0.12 ? FRICTION.oiled : FRICTION.dry;
+    const slip = oil > 0.12 ? 0.85 : 0.45;
     for (const piece of [...pieces]) {
       const s = state(piece);
       if (s.landed > 0) s.landed -= dt;
+      if (shove && !s.air) {
+        s.vel[0] -= shove[0] * slip * dt;
+        s.vel[2] -= shove[1] * slip * dt;
+      }
 
       if (s.air) {
         s.vel[1] -= GRAVITY * dt;
@@ -334,7 +348,8 @@ export function createPan({ random = Math.random } = {}) {
 
       const dry = 1 - 0.55 * piece.moisture;
       const oiled = oil > 0.12 ? 1 : 0.8;
-      const brown = (browning(t) / BROWN_TIME) * dry * oiled * dt;
+      const bathed = liquid ? Math.min(1, liquid(piece.pos[0], piece.pos[2]) / 0.06) : 0;
+      const brown = (browning(t) / BROWN_TIME) * dry * oiled * (1 - 0.75 * bathed) * dt;
       for (let k = 0; k < 6; k++) {
         /** The face on the iron takes nearly all of it; the rest get a little through the oil. */
         piece.brown[k] += brown * (weights[k] ** 2 * 0.97 + 0.03);
@@ -363,12 +378,13 @@ export function createPan({ random = Math.random } = {}) {
 
   /**
    * Fixed small steps, so a slow frame does not let pieces tunnel. `extra` is
-   * any other wet load on the floor — egg that has not set yet.
+   * any other wet load on the floor — egg that has not set yet — and `shove`
+   * the pan's own acceleration, if somebody is shaking it.
    */
-  function update(dt, extra = 0) {
+  function update(dt, extra = 0, shove = null) {
     const steps = Math.max(1, Math.ceil(dt / (1 / 120)));
     const h = dt / steps;
-    for (let i = 0; i < steps; i++) physics(h);
+    for (let i = 0; i < steps; i++) physics(h, shove);
     heat.update(dt, load + extra);
     cook(dt);
   }

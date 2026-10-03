@@ -17,8 +17,8 @@ import { curdSolid } from '../food/curd.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { PLATE } from '../scene/cookware.js';
-import { LAYOUT, PAN_Y } from '../scene/kitchen.js';
-import { COOK_RADIUS, RIM_HEIGHT, floorHeight } from '../scene/pan.js';
+import { HANDLE_TURN, LAYOUT, PAN_Y } from '../scene/kitchen.js';
+import { COOK_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
 import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
@@ -49,7 +49,8 @@ export function createGame({ stage, GFX, kitchen }) {
   const pointer = createPointer({ GFX, stage, camera });
   const views = createPieceViews(GFX);
   const board = createBoard();
-  const pan = createPan();
+  /** Potato sitting in egg that is still running is held at the egg's heat, and barely browns. */
+  const pan = createPan({ liquid: (x, z) => sheet.liquidAt(x, z) });
   const listeners = new Set();
 
   /** The board's top, as a frame: where its pieces hang. */
@@ -86,7 +87,11 @@ export function createGame({ stage, GFX, kitchen }) {
     },
   });
 
-  const knife = { mode: 'rest', z: 0, x: 0, chop: null, queued: false };
+  const knife = { mode: 'rest', z: 0, x: 0, chop: null, queued: false, manual: false };
+  /** The pan held by its handle: how far it has been pulled off its spot, and how it is moving. */
+  const shake = { on: false, from: null, offset: new GFX.Vector3(), want: new GFX.Vector3(), last: null, vel: [0, 0], acc: [0, 0], trail: [] };
+  const keys = new Set();
+  let whiskAngle = 0, stirAngle = 0;
   const spatula = { over: false, at: [0, 0], last: null, tilt: 0 };
   const press = { down: false, x: 0, y: 0, zone: null, drag: null, point: null, button: 0 };
   let zone = { zone: null };
@@ -145,6 +150,15 @@ export function createGame({ stage, GFX, kitchen }) {
     if (b) {
       const x = b.x - boardOrigin.x, z = b.z - boardOrigin.z;
       if (Math.abs(x) < BOARD.w / 2 && Math.abs(z) < BOARD.d / 2) return { zone: 'board', point: [x, z] };
+    }
+
+    /** The handle: a strip running out from the rim toward the cook. */
+    const h = pointer.at(PAN_Y + 1.5);
+    if (h) {
+      const dx = -Math.sin(HANDLE_TURN), dz = -Math.cos(HANDLE_TURN);
+      const rx = h.x - panHome.x, rz = h.z - panHome.z;
+      const along = rx * dx + rz * dz, across = Math.abs(rx * dz - rz * dx);
+      if (along > RIM_RADIUS - 0.2 && along < RIM_RADIUS + 6.8 && across < 1.1) return { zone: 'handle' };
     }
 
     const p = pointer.at(PAN_Y + 0.15);
@@ -238,7 +252,7 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function startToss(strength = 0.62) {
-    if (toss || pan.pieces.length === 0) return false;
+    if (toss || (pan.pieces.length === 0 && sheet.empty)) return false;
     toss = { t: 0, strength, thrown: false };
     stats.tosses += 1;
     return true;
@@ -418,11 +432,26 @@ export function createGame({ stage, GFX, kitchen }) {
     if (!live) return;
     pointer.aim(event);
     zone = locate();
+    if (zone.zone === 'board') knife.manual = false;
     if (press.down && !press.drag && Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG) {
       if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp()) press.drag = 'scrape';
       else if (press.zone.zone === 'pan') press.drag = 'stir';
       else if (press.zone.zone === 'bowl') press.drag = 'whisk';
-      else press.drag = 'none';
+      else if (press.zone.zone === 'handle' && !toss) {
+        press.drag = 'shake';
+        shake.on = true;
+        shake.from = pointer.at(PAN_Y + 1.5);
+        shake.trail = [];
+      } else press.drag = 'none';
+    }
+    if (press.drag === 'shake') {
+      const p = pointer.at(PAN_Y + 1.5);
+      if (p && shake.from) {
+        shake.want.set(p.x - shake.from.x, 0, p.z - shake.from.z);
+        if (shake.want.length() > 1.4) shake.want.setLength(1.4);
+      }
+      shake.trail.push({ y: event.clientY, t: performance.now() });
+      if (shake.trail.length > 8) shake.trail.shift();
     }
     if (press.drag === 'scrape') {
       const p = pointer.at(CARRY);
@@ -451,6 +480,17 @@ export function createGame({ stage, GFX, kitchen }) {
     press.down = false;
     if (press.drag === 'scrape') letGo();
     else if (press.drag === 'whisk') eggs.stopBeating();
+    else if (press.drag === 'shake') {
+      /** Let go with a flick upward and the pan throws what is in it. */
+      const t = shake.trail;
+      if (t.length >= 2) {
+        const a = t[0], b = t[t.length - 1];
+        const up = (a.y - b.y) / Math.max(16, b.t - a.t);
+        if (up > 0.9) startToss(Math.min(1, 0.35 + (up - 0.9) * 0.35));
+      }
+      shake.on = false;
+      shake.want.set(0, 0, 0);
+    }
     else if (!press.drag) click(press.zone, event);
     press.drag = null;
     spatula.last = null;
@@ -499,8 +539,33 @@ export function createGame({ stage, GFX, kitchen }) {
     zone = { zone: null };
   }
 
+  function onKeyUp(event) {
+    keys.delete(event.key.toLowerCase());
+    if (event.key.toLowerCase() === 'w') eggs.stopBeating();
+  }
+
   function onKey(event) {
     if (!live || round.plated) return;
+    const held = event.key.toLowerCase();
+    if (held === 'w' || held === 'x') {
+      keys.add(held);
+      return;
+    }
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      /** The knife, aimed from the keys: half a dice at a press, along the pile. */
+      const pile = board.bounds();
+      if (!pile || carried.length) return;
+      event.preventDefault();
+      if (!knife.manual) {
+        knife.manual = true;
+        knife.z = pile.z1 - 0.62;
+      } else {
+        knife.z += event.key === 'ArrowUp' ? -0.31 : 0.31;
+      }
+      knife.z = Math.max(pile.z0 - 0.4, Math.min(pile.z1 + 0.4, knife.z));
+      knife.x = Math.min(BOARD.w / 2 + 1.5, Math.max(-BOARD.w / 2 + 6.1, (pile.x0 + pile.x1) / 2 + 3.8));
+      return;
+    }
     if (event.target && /^(input|textarea|select|button)$/i.test(event.target.tagName) && event.key === ' ') return;
     if (event.target && /^(input|textarea|select)$/i.test(event.target.tagName)) return;
     const key = event.key.toLowerCase();
@@ -525,6 +590,8 @@ export function createGame({ stage, GFX, kitchen }) {
   stage.addEventListener('pointerleave', onLeave);
   stage.addEventListener('contextmenu', onContext);
   window.addEventListener('keydown', onKey);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', () => keys.clear());
 
   // ------------------------------------------------------------ the tools
 
@@ -534,7 +601,7 @@ export function createGame({ stage, GFX, kitchen }) {
   function updateKnife(dt) {
     const pile = board.bounds();
     if (knife.mode !== 'chop' && knife.mode !== 'scrape') {
-      knife.mode = zone.zone === 'board' && pile && !carried.length ? 'hover' : 'rest';
+      knife.mode = (zone.zone === 'board' || knife.manual) && pile && !carried.length ? 'hover' : 'rest';
     }
     if (!pile && knife.mode === 'chop') {
       knife.mode = 'rest';
@@ -612,10 +679,16 @@ export function createGame({ stage, GFX, kitchen }) {
 
   function updateSpatula(dt) {
     spatula.work = (spatula.work ?? 0) * Math.exp(-dt * 8);
+    /** Held X stirs on its own: the spatula sweeps figure-eights across the floor. */
+    const auto = keys.has('x') && !carried.length && !round.plated;
+    if (auto) {
+      stirAngle += dt * 1.6;
+      zone = { zone: 'pan', point: [Math.sin(stirAngle) * 3.4, Math.sin(stirAngle * 2) * 2.2] };
+    }
     const over = zone.zone === 'pan' && !carried.length;
     if (over) {
       const [x, z] = zone.point;
-      if (press.drag === 'stir') {
+      if (press.drag === 'stir' || auto) {
         if (spatula.last) {
           const n = pan.stir(spatula.last, [x, z], dt);
           const torn = sheet.empty ? 0 : sheet.stir(spatula.last, [x, z], 2.4, dt);
@@ -623,6 +696,8 @@ export function createGame({ stage, GFX, kitchen }) {
           spatula.work = Math.min(1, Math.hypot(x - spatula.last[0], z - spatula.last[1]) / Math.max(dt, 1e-3) / 12);
         }
         spatula.last = [x, z];
+      } else {
+        spatula.last = null;
       }
       const r = Math.min(COOK_RADIUS - 0.3, Math.hypot(x, z));
       const yaw = 0.55;
@@ -642,20 +717,29 @@ export function createGame({ stage, GFX, kitchen }) {
     }
   }
 
+  /** Where the rig is being held: home, or pulled off it by the handle. */
+  const held = new GFX.Vector3();
+
   function updateToss(dt) {
+    shake.offset.lerp(shake.want, smoothing(dt, shake.on ? 18 : 7));
+    held.copy(panHome).add(shake.offset);
     if (!toss) {
-      panRig.position.lerp(panHome, smoothing(dt, 12));
+      panRig.position.lerp(held, smoothing(dt, 16));
       panRig.rotation.x *= 1 - smoothing(dt, 12);
+      /** A held pan tips a little the way it is pushed. */
+      const lean = Math.max(-0.07, Math.min(0.07, -shake.vel[0] * 0.012));
+      panRig.rotation.z += (lean - panRig.rotation.z) * smoothing(dt, 10);
       return;
     }
     toss.t += dt;
     const k = toss.t / TOSS.time;
     /** A quick dip, the jerk up and back toward the cook, and down again. */
     const lift = k < 0.12 ? -0.12 * (k / 0.12) : Math.sin(Math.min(1, (k - 0.12) / 0.88) * Math.PI) * (0.55 + 0.5 * toss.strength);
-    panRig.position.set(panHome.x, panHome.y + lift, panHome.z + Math.sin(Math.min(1, k) * Math.PI) * 0.35);
+    panRig.position.set(held.x, held.y + lift, held.z + Math.sin(Math.min(1, k) * Math.PI) * 0.35);
     panRig.rotation.x = Math.sin(Math.min(1, k) * Math.PI) * -0.12;
     if (!toss.thrown && toss.t >= TOSS.launch) {
       toss.thrown = true;
+      if (!sheet.empty) sheet.toss();
       pan.toss(toss.strength);
       emit('toss', { strength: toss.strength });
     }
@@ -669,7 +753,22 @@ export function createGame({ stage, GFX, kitchen }) {
     board.update(dt);
     /** Egg still running on the floor is wet load on the iron, like raw potato. */
     const egg = sheet.empty ? null : sheet.summary();
-    pan.update(dt, egg ? egg.liquid / 0.15 : 0);
+    /** How the pan itself is being thrown about, for the food in it to lag behind. */
+    if (dt > 0) {
+      const p = [panRig.position.x, panRig.position.z];
+      if (shake.last) {
+        const v = [(p[0] - shake.last[0]) / dt, (p[1] - shake.last[1]) / dt];
+        shake.acc = [(v[0] - shake.vel[0]) / dt, (v[1] - shake.vel[1]) / dt];
+        shake.vel = v;
+      }
+      shake.last = p;
+    }
+    const shoving = Math.hypot(shake.acc[0], shake.acc[1]) > 2 && !toss;
+    pan.update(dt, egg ? egg.liquid / 0.15 : 0, shoving ? [Math.max(-400, Math.min(400, shake.acc[0])), Math.max(-400, Math.min(400, shake.acc[1]))] : null);
+    if (keys.has('w') && !round.plated) {
+      whiskAngle += dt * 9;
+      eggs.beat([Math.cos(whiskAngle) * 1.5, Math.sin(whiskAngle) * 1.5]);
+    }
     if (egg) sheet.update(dt, pan.heat.temp);
     eggs.update(dt);
     if (egg || sheetView.mesh.visible) sheetView.update();

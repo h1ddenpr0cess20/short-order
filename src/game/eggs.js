@@ -210,6 +210,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
 
   /** Curds the spatula tore off the sheet, made into pieces and put in the pan. */
   function collectCurds() {
+    const tossed = pan.airborne;
     const made = [];
     for (const c of sheet.takeCurds()) {
       const piece = makePiece({
@@ -225,10 +226,11 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
       made.push(piece);
     }
     if (made.length) {
+      /** Curds come off the blade sitting on the iron; curds thrown by a toss come down from the air. */
       for (const p of made) {
         const s = pan.state(p);
-        s.vel = [(Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5];
-        s.spin = { axis: [1, 0, 0], rate: 0 };
+        s.vel = [(Math.random() - 0.5) * 1.5, tossed ? 6 + Math.random() * 4 : 0, (Math.random() - 0.5) * 1.5];
+        s.spin = tossed ? { axis: [Math.random() - 0.5, 0, Math.random() - 0.5], rate: (Math.random() - 0.5) * 12 } : { axis: [1, 0, 0], rate: 0 };
       }
       pan.add(made);
       emit('curds', { count: made.length });

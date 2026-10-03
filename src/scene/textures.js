@@ -275,3 +275,25 @@ export function studio(GFX) {
   tex.needsUpdate = true;
   return tex;
 }
+
+/** A cotton tea towel: cream, a weave you can just see, and two red stripes near one end. */
+export function towel(GFX, { width = 512, height = 256 } = {}) {
+  const c = canvas(width, height);
+  if (!c) return null;
+  const { ctx } = c;
+  ctx.fillStyle = '#efe7d6';
+  ctx.fillRect(0, 0, width, height);
+  for (let y = 0; y < height; y += 3) {
+    ctx.fillStyle = `rgba(120,100,70,${y % 6 ? 0.04 : 0.07})`;
+    ctx.fillRect(0, y, width, 1);
+  }
+  for (let x = 0; x < width; x += 3) {
+    ctx.fillStyle = `rgba(120,100,70,${x % 6 ? 0.03 : 0.05})`;
+    ctx.fillRect(x, 0, 1, height);
+  }
+  for (const [x, w] of [[0.16, 0.035], [0.22, 0.012], [0.78, 0.012], [0.84, 0.035]]) {
+    ctx.fillStyle = 'rgba(168,46,38,0.85)';
+    ctx.fillRect(x * width, 0, w * width, height);
+  }
+  return texture(GFX, c.el);
+}

@@ -16,8 +16,9 @@ export function createIntro({ root = document.body, onStart }) {
       <ul class="how">
         <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile. Drag the pile to carry it to the pan.</span></li>
         <li><b>Burner</b><span>click the knob, or <kbd>Q</kbd> <kbd>E</kbd>. Cast iron is slow — let it heat. Oil first: click the bottle.</span></li>
-        <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss. Food browns on the side that is down.</span></li>
+        <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
         <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour.</span></li>
+        <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>enter</kbd> plates.</span></li>
       </ul>
       <button class="start" type="button">start cooking</button>
     </div>

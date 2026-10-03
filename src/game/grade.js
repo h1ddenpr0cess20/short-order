@@ -58,10 +58,10 @@ export function fryReport(potato) {
   const look = new Map(potato.map((p) => [p, surfaceOf(p)]));
   const golden = share(potato, (p) => {
     const s = look.get(p);
-    return s.mean >= 0.55 && s.mean <= 1.4 && s.worst < 1.7 && p.core >= 0.8;
+    return s.mean >= 0.5 && s.mean <= 1.5 && s.worst < 1.8 && p.core >= 0.8;
   });
-  const pale = share(potato, (p) => look.get(p).mean < 0.55);
-  const burnt = share(potato, (p) => look.get(p).worst >= 1.7 || look.get(p).mean > 1.4);
+  const pale = share(potato, (p) => look.get(p).mean < 0.5);
+  const burnt = share(potato, (p) => look.get(p).worst >= 1.8 || look.get(p).mean > 1.5);
   const raw = share(potato, (p) => p.core < 0.65);
   /** Crisp: how much of the surface is properly browned, not just touched. */
   const crisp = share(potato, (p) => look.get(p).mean >= 0.8);
