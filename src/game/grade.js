@@ -20,11 +20,18 @@ export function surfaceOf(piece) {
     sum += piece.area[k] * piece.brown[k];
   }
   const mean = area > 0 ? sum / area : 0;
-  /** The worst side that is any real size: a burnt corner is a burnt piece. */
-  let worst = 0;
-  for (let k = 0; k < 6; k++) if (piece.area[k] > area * 0.08) worst = Math.max(worst, piece.brown[k]);
-  return { mean, worst };
+  /** The worst side and the palest that are any real size: a burnt corner is a burnt piece, a raw face a raw-looking one. */
+  let worst = 0, least = Infinity;
+  for (let k = 0; k < 6; k++) {
+    if (piece.area[k] <= area * 0.08) continue;
+    worst = Math.max(worst, piece.brown[k]);
+    least = Math.min(least, piece.brown[k]);
+  }
+  return { mean, worst, least: Number.isFinite(least) ? least : mean };
 }
+
+/** Golden is golden on every face: none still flesh-coloured, none burnt. */
+export const GOLDEN = Object.freeze({ mean: [0.5, 1.5], least: 0.3, worst: 1.8 });
 
 const share = (list, test) => {
   const total = list.reduce((s, p) => s + p.volume, 0);
@@ -54,19 +61,24 @@ export function diceReport(potato) {
 
 /** How it fried: golden all over and cooked through, against pale, burnt and raw. */
 export function fryReport(potato) {
-  if (potato.length === 0) return { golden: 0, pale: 0, burnt: 0, raw: 0, crisp: 0, score: 0 };
+  if (potato.length === 0) return { golden: 0, pale: 0, burnt: 0, sided: 0, raw: 0, crisp: 0, score: 0 };
   const look = new Map(potato.map((p) => [p, surfaceOf(p)]));
   const golden = share(potato, (p) => {
     const s = look.get(p);
-    return s.mean >= 0.5 && s.mean <= 1.5 && s.worst < 1.8 && p.core >= 0.8;
+    return s.mean >= GOLDEN.mean[0] && s.mean <= GOLDEN.mean[1] && s.least >= GOLDEN.least && s.worst < GOLDEN.worst && p.core >= 0.8;
   });
-  const pale = share(potato, (p) => look.get(p).mean < 0.5);
-  const burnt = share(potato, (p) => look.get(p).worst >= 1.8 || look.get(p).mean > 1.5);
+  const pale = share(potato, (p) => look.get(p).mean < GOLDEN.mean[0]);
+  const burnt = share(potato, (p) => look.get(p).worst >= GOLDEN.worst || look.get(p).mean > GOLDEN.mean[1]);
+  /** Brown enough overall but with a face never turned to the iron. */
+  const sided = share(potato, (p) => {
+    const s = look.get(p);
+    return s.mean >= GOLDEN.mean[0] && s.least < GOLDEN.least && s.worst < GOLDEN.worst;
+  });
   const raw = share(potato, (p) => p.core < 0.65);
   /** Crisp: how much of the surface is properly browned, not just touched. */
   const crisp = share(potato, (p) => look.get(p).mean >= 0.8);
   const score = Math.round(100 * Math.max(0, Math.min(1, golden + 0.15 * crisp - 0.6 * burnt - 0.35 * raw)));
-  return { golden, pale, burnt, raw, crisp, score };
+  return { golden, pale, burnt, sided, raw, crisp, score };
 }
 
 /**
@@ -150,6 +162,7 @@ function fryNote(f, n) {
   if (f.raw > 0.3) return 'Raw in the middle — it needed longer.';
   if (f.golden >= 0.8) return f.crisp > 0.6 ? 'Golden and crisp all round.' : 'Golden all round.';
   if (f.pale > 0.4) return 'Pale. Hotter, or longer, and turn it more.';
+  if (f.sided > 0.3) return 'Brown on one side, pale on the rest — toss it more.';
   if (f.burnt > 0.1) return 'Mostly golden, a few scorched.';
   return 'Patchy — some golden, some pale.';
 }

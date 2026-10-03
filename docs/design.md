@@ -89,7 +89,8 @@ up whatever is under the spatula with half a turn, and the spatula pushed
 through the pan shoves pieces along and rolls some of them onto the next face.
 
 Cooking: the side down browns at the heat of the iron under it, slowed while
-the piece is still wet; the other sides get a little through the oil. The
+the piece is still wet; the sides standing up from it are half in the oil and
+take a fifth as much (less on a dry pan), and the top only a trace. The
 middle cooks through at a pace that goes with thickness to a power more than
 one, so dice are done in half a minute and a whole potato is not done at all.
 Water cooks out over time, and the wet load on the floor is what pulls the
@@ -125,7 +126,7 @@ both for the plate and for the ticket's running commentary:
 | | |
 |---|---|
 | dice | the share of the potato, by volume, in pieces no side of which is a sliver or longer than a mouthful; and how alike those are |
-| fry | the share golden all round and cooked through, against pale, burnt — one bad side is enough — and raw in the middle |
+| fry | the share golden all round — every face coloured, none burnt — and cooked through, against pale, one-sided, burnt and raw in the middle |
 | eggs | how smooth they were beaten, how much is in curds rather than set flat, and how much is set soft against runny, rubbery or brown |
 | time | from the first thing the cook did to the plate |
 

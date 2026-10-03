@@ -25,7 +25,7 @@ import { createSheet } from '../sim/eggs.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
 import { makePiece } from '../sim/piece.js';
-import { axisAngle } from '../sim/quat.js';
+import { axisAngle, multiply, slerp } from '../sim/quat.js';
 import { createSheetView } from '../view/eggs.js';
 import { createPieceViews } from '../view/pieces.js';
 import { createEggStation } from './eggs.js';
@@ -305,7 +305,12 @@ export function createGame({ stage, GFX, kitchen }) {
       piece.brown.fill(c.brown * 0.5);
       return piece;
     });
-    const all = [...taken.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'potato' ? -1 : 1)), ...slabs];
+    /** Shuffled, so potato and egg come out folded through each other rather than in the order they went in. */
+    const all = [...taken, ...slabs];
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
 
     plateGroup.visible = true;
     const golden = 2.399963;
@@ -315,8 +320,11 @@ export function createGame({ stage, GFX, kitchen }) {
       const r = Math.sqrt(u) * (PLATE.well - 0.3);
       const a = i * golden;
       const mound = 0.9 * (1 - (r / PLATE.well) ** 2);
-      const to = [Math.cos(a) * r, PLATE.floor + 0.2 + mound + (piece.kind === 'egg' ? 0.25 : 0) + Math.random() * 0.15, Math.sin(a) * r];
-      return { piece, from, to, delay: u * 1.1, done: false };
+      const to = [Math.cos(a) * r, PLATE.floor + 0.2 + mound + (piece.kind === 'egg' ? 0.1 : 0) + Math.random() * 0.15, Math.sin(a) * r];
+      /** Each piece turns over on the way: off the spatula the faces that were down show as often as the tops. */
+      const axis = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
+      const turn = multiply(axisAngle(axis, Math.PI * (0.5 + Math.random())), piece.rot);
+      return { piece, from, to, rot: [...piece.rot], turn, delay: u * 1.1, done: false };
     });
     for (const f of flights) flying.push(f.piece);
     plating = { t: 0, flights };
@@ -341,6 +349,7 @@ export function createGame({ stage, GFX, kitchen }) {
         continue;
       }
       const e = k * k * (3 - 2 * k);
+      f.piece.rot = slerp(f.rot, f.turn, e);
       const to = new GFX.Vector3(base.x + f.to[0], base.y + f.to[1], base.z + f.to[2]);
       f.piece.pos = [
         f.from.x + (to.x - f.from.x) * e,

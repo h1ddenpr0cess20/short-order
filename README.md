@@ -51,9 +51,10 @@ the rounds into strips. Turn the pile and cut across the strips. The knife does
 not know any of that — it only ever makes one flat cut — so how even the dice
 come out is how evenly you cut.
 
-In the pan a piece browns on the face that is down, and only that face. Leave
-it and it is golden on one side and pale on five; toss it, or stir it, and it
-comes down on another. Small pieces cook through in half a minute; a whole
+In the pan a piece browns hardest on the face that is down; the faces
+standing up from it sit in the oil and colour slowly, and the top hardly at
+all. Leave it and it is dark underneath and pale on top; toss it, or stir it,
+and it comes down on another. Small pieces cook through in half a minute; a whole
 potato never does. Wet potato on iron that is not hot yet steams instead of
 browning, and a pan full of it pulls the iron's temperature down until the
 water is gone. Oil first. Too hot and the faces that stay down burn.

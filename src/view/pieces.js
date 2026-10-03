@@ -16,15 +16,23 @@ import { hex, ramp } from '../food/colour.js';
 import { sideWeights } from '../sim/piece.js';
 import { eggColour } from './eggs.js';
 
-/** Flesh as it fries: cream, a buttery yellow, gold, a deep fried brown, and burnt. */
+/**
+ * Flesh as it fries: buttery yellow, gold, golden brown, a deep fried brown,
+ * and burnt. Paced to the marking: anywhere the grade calls golden (half a
+ * side's worth to one and a half) reads as gold to golden brown.
+ */
 const FRIED = ramp([
-  [0.35, hex(0xf2dc96)],
-  [0.75, hex(0xedc469)],
-  [1.0, hex(0xe0a94a)],
-  [1.3, hex(0xb8742c)],
-  [1.6, hex(0x6e3d17)],
-  [2.1, hex(0x21150c)],
+  [0.2, hex(0xf0d494)],
+  [0.5, hex(0xeabd62)],
+  [0.8, hex(0xdda049)],
+  [1.1, hex(0xc8873a)],
+  [1.45, hex(0x98582a)],
+  [1.8, hex(0x4e2b13)],
+  [2.2, hex(0x1c120a)],
 ]);
+
+/** Below this the flesh is still more its own colour than the pan's. */
+const FIRST = 0.2;
 
 /** How a piece cooked through looks against raw: a little more yellow, a little less chalky. */
 const COOKED = [1.0, 0.95, 0.78];
@@ -138,9 +146,9 @@ export function createPieceViews(GFX) {
         colour[i * 3 + 2] = bl * k;
       } else {
         const cr = r * (1 + (COOKED[0] - 1) * core), cg = g * (1 + (COOKED[1] - 1) * core), cb = bl * (1 + (COOKED[2] - 1) * core);
-        if (t < 0.35) {
-          FRIED(0.35, fried);
-          const k = t / 0.35;
+        if (t < FIRST) {
+          FRIED(FIRST, fried);
+          const k = t / FIRST;
           colour[i * 3] = cr + (fried[0] - cr) * k * k;
           colour[i * 3 + 1] = cg + (fried[1] - cg) * k * k;
           colour[i * 3 + 2] = cb + (fried[2] - cb) * k * k;

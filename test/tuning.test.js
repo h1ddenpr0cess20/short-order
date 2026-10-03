@@ -53,7 +53,7 @@ function cook({ level, tossEvery, seconds, oil = true, seed = 5 }) {
       if (r.golden > best.golden) Object.assign(best, { golden: r.golden, at: t, burnt: r.burnt });
     }
   }
-  return { best, end: fryReport(pan.pieces) };
+  return { best, end: fryReport(pan.pieces), pan };
 }
 
 describe('the fry, cooked by a careful cook', () => {
@@ -79,5 +79,25 @@ describe('the fry, cooked by a careless cook', () => {
   it('never gets golden on low', () => {
     const { best } = cook({ level: 1, tossEvery: 4, seconds: 120 });
     assert.ok(best.golden < 0.3, `${best.golden} golden`);
+  });
+
+  it('comes out brown underneath and pale on top on medium when it is never turned', () => {
+    const { best, end } = cook({ level: 3, tossEvery: 0, seconds: 150 });
+    assert.ok(best.golden < 0.2, `at best ${best.golden} golden`);
+    assert.ok(end.sided + end.burnt > 0.8, `${end.sided} one-sided, ${end.burnt} burnt`);
+  });
+});
+
+describe('the fry, as the plate sees it', () => {
+  it('leaves no face of a golden batch the colour of raw potato', () => {
+    const { pan } = cook({ level: 3, tossEvery: 4, seconds: 120 });
+    let area = 0, pale = 0;
+    for (const p of pan.pieces) {
+      for (let k = 0; k < 6; k++) {
+        area += p.area[k];
+        if (p.brown[k] < 0.2) pale += p.area[k];
+      }
+    }
+    assert.ok(pale / area < 0.03, `${(100 * pale / area).toFixed(1)}% of the surface still pale`);
   });
 });

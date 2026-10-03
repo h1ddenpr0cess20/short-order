@@ -22,7 +22,16 @@ import { axisAngle, conjugate, dot3, multiply, normalize, rotate, slerp } from '
 export const GRAVITY = 60;
 
 /** How long it takes to brown a side golden, and to cook a dice-sized piece through, at 200°. */
-export const BROWN_TIME = 13;
+export const BROWN_TIME = 17;
+
+/**
+ * How browning shares out round a piece: the face on the iron takes it all;
+ * the faces standing up from it are half in the oil and take some (less on
+ * dry iron); every face, even the top one, catches a trace.
+ */
+const IRON = 0.97;
+const IN_OIL = { oiled: 0.2, dry: 0.06 };
+const TRACE = 0.02;
 export const CORE_TIME = 32;
 
 /** The thickness the core time is for; thicker takes longer, by more than the ratio. */
@@ -350,9 +359,11 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
       const oiled = oil > 0.12 ? 1 : 0.8;
       const bathed = liquid ? Math.min(1, liquid(piece.pos[0], piece.pos[2]) / 0.06) : 0;
       const brown = (browning(t) / BROWN_TIME) * dry * oiled * (1 - 0.75 * bathed) * dt;
+      const fry = oil > 0.12 ? IN_OIL.oiled : IN_OIL.dry;
       for (let k = 0; k < 6; k++) {
-        /** The face on the iron takes nearly all of it; the rest get a little through the oil. */
-        piece.brown[k] += brown * (weights[k] ** 2 * 0.97 + 0.03);
+        /** How upright this face stands: one for a wall of the cube, none for its top or bottom. */
+        const wall = 1 - down[k >> 1] ** 2;
+        piece.brown[k] += brown * (weights[k] ** 2 * IRON + wall * fry + TRACE);
       }
 
       const thick = Math.min(e.max[0] - e.min[0], e.max[1] - e.min[1], e.max[2] - e.min[2]);
