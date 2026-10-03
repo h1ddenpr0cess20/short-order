@@ -21,8 +21,12 @@ import { cutPiece, extents } from './piece.js';
 /** How far the blade pushes the two sides of a cut apart. */
 const KERF = 0.05;
 
-/** A piece this much taller than it is thin will not stand on its cut face. */
-const TIPPY = 1.3;
+/**
+ * A piece this much taller than it is thin will not stand on its cut face. Only
+ * a real slice: a round falls flat, but a potato halved lengthwise, or with a
+ * side taken off it, still stands where the knife left it.
+ */
+const TIPPY = 2.4;
 
 /** How long a slice takes to fall over, and the pile to turn. */
 const TOPPLE_TIME = 0.22;
@@ -41,6 +45,7 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
 
   function add(piece) {
     pieces.push(piece);
+    keepOn(piece);
     settle(piece, true);
     return piece;
   }

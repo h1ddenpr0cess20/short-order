@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { measure, split } from '../src/geometry/slice.js';
 import { fleshAt, potatoSolid } from '../src/food/potato.js';
-import { COOK_RADIUS } from '../src/scene/pan.js';
+import { COOK_RADIUS, LIP_RADIUS, floorHeight } from '../src/scene/pan.js';
 import { createHeat, SETTINGS } from '../src/sim/heat.js';
 import { createPan } from '../src/sim/pan.js';
 import { dimensions, extents, makePiece, sideDown } from '../src/sim/piece.js';
@@ -87,6 +87,42 @@ describe('the pan', () => {
     }
   });
 
+  it('keeps every piece wholly inside the iron, however hard it is shaken and tossed', () => {
+    const random = seeded(21);
+    const pan = createPan({ random });
+    pan.pour();
+    pan.add(scatter(dice(), random));
+    let worstFloor = -Infinity, worstAir = -Infinity;
+    for (let i = 0; i < 60 * 20; i++) {
+      /** Jerked back and forth across the grate, and thrown hard now and then. */
+      const jerk = Math.sin(i * 0.35) * 420;
+      pan.update(1 / 60, 0, [jerk, Math.cos(i * 0.21) * 300]);
+      if (i % 90 === 89) pan.toss(1);
+      for (const p of pan.pieces) {
+        const e = extents(p);
+        const rho = ((e.max[0] - e.min[0]) + (e.max[2] - e.min[2])) * 0.25;
+        const r = Math.hypot(p.pos[0], p.pos[2]);
+        if (!pan.state(p).air) worstFloor = Math.max(worstFloor, r + rho - COOK_RADIUS);
+        else if (r + rho > COOK_RADIUS && r - rho < LIP_RADIUS) {
+          /** In the air out by the wall: its bottom has to be above the iron there. */
+          worstAir = Math.max(worstAir, floorHeight(Math.min(r + rho, LIP_RADIUS)) - (p.pos[1] + e.min[1]));
+        }
+      }
+    }
+    assert.ok(worstFloor < 0.02, `a piece on the floor reached ${worstFloor.toFixed(2)} into the wall`);
+    assert.ok(worstAir < 0.1, `a piece in the air was ${worstAir.toFixed(2)} into the wall`);
+  });
+
+  it('keeps the food in the pan through an ordinary toss', () => {
+    const random = seeded(23);
+    const pan = createPan({ random });
+    pan.pour();
+    pan.add(scatter(dice(), random));
+    const before = pan.pieces.length;
+    run(pan, 60, (t, i) => { if (i % 240 === 239) pan.toss(0.62); });
+    assert.equal(pan.pieces.length, before, `${before - pan.pieces.length} pieces went over the side`);
+  });
+
   it('keeps pieces on the floor out of each other', () => {
     const random = seeded(3);
     const pan = createPan({ random });
@@ -107,7 +143,7 @@ describe('the pan', () => {
     assert.ok(worst > 0.6, `two pieces are ${worst} of the way into each other`);
   });
 
-  it('browns only the face that is down, until something turns it over', () => {
+  it('browns the face that is down far the most, until something turns it over', () => {
     const random = seeded(5);
     const pan = createPan({ random });
     pan.heat.set(4);

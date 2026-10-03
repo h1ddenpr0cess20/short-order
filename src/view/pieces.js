@@ -14,6 +14,7 @@
 
 import { hex, ramp } from '../food/colour.js';
 import { sideWeights } from '../sim/piece.js';
+import { multiply } from '../sim/quat.js';
 import { eggColour } from './eggs.js';
 
 /**
@@ -166,12 +167,17 @@ export function createPieceViews(GFX) {
   return {
     material,
 
-    /** The mesh for a piece, made the first time it is asked for, hung off `parent`. */
-    show(piece, parent) {
+    /**
+     * The mesh for a piece, made the first time it is asked for, hung off
+     * `parent`. `lean` is a turn on top of the piece's own, for a piece tipped
+     * against the curve of the pan's wall.
+     */
+    show(piece, parent, lean = null) {
       const view = views.get(piece.id) ?? build(piece);
       if (view.mesh.parent !== parent) parent.add(view.mesh);
       view.mesh.position.set(piece.pos[0], piece.pos[1], piece.pos[2]);
-      view.mesh.quaternion.set(piece.rot[0], piece.rot[1], piece.rot[2], piece.rot[3]);
+      const q = lean ? multiply(lean, piece.rot) : piece.rot;
+      view.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
       view.seen = true;
       return view.mesh;
     },

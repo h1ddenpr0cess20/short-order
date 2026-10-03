@@ -35,6 +35,13 @@ import { createPointer } from './pointer.js';
 /** How far the pointer has to travel before a press is a drag rather than a click. */
 const DRAG = 7;
 
+/**
+ * On the pile it has to go further: a press there is nearly always a chop
+ * being aimed, and a hand that drifts while it clicks should still chop
+ * rather than pick the whole pile up.
+ */
+const LIFT = 18;
+
 /** How high over the counter a scraped pile is carried: clear of the pan's rim. */
 const CARRY = PAN_Y + RIM_HEIGHT + 1.3;
 
@@ -93,7 +100,7 @@ export function createGame({ stage, GFX, kitchen }) {
   const keys = new Set();
   let whiskAngle = 0, stirAngle = 0;
   const spatula = { last: null, work: 0 };
-  const press = { down: false, x: 0, y: 0, zone: null, drag: null };
+  const press = { down: false, x: 0, y: 0, zone: null, drag: null, grab: [0, 0] };
   let zone = { zone: null };
   let toss = null;
   /** Off until the cook has started: the kitchen is there to look at behind the title. */
@@ -205,6 +212,8 @@ export function createGame({ stage, GFX, kitchen }) {
     centre.multiplyScalar(1 / list.length);
     for (const p of list) {
       p.carry = [(p.pos[0] - centre.x) * 0.72, p.pos[1] + 0.25, (p.pos[2] - centre.z) * 0.72];
+      /** Where it lay, so a pile that does not go in the pan goes back exactly as it was. */
+      p.home = { pos: [...p.pos], rot: [...p.rot] };
       carried.push(p);
     }
     carryAt.set(boardOrigin.x + centre.x, CARRY, boardOrigin.z + centre.z);
@@ -213,7 +222,7 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
-  /** Lets go of the pile: into the pan if it is over the pan, back onto the board if not. */
+  /** Lets go of the pile: into the pan if it is over the pan, back where it came from if not. */
   function letGo() {
     if (!carried.length) return;
     const list = carried.splice(0);
@@ -226,17 +235,21 @@ export function createGame({ stage, GFX, kitchen }) {
         s.vel = [(Math.random() - 0.5) * 5, -1 - Math.random() * 2, (Math.random() - 0.5) * 5];
         area += p.volume / 0.6;
         delete p.carry;
+        delete p.home;
       }
       pan.add(list, { area });
       stats.scrapes += 1;
       emit('scrape', { count: list.length });
     } else {
-      const x = carryAt.x - boardOrigin.x, z = carryAt.z - boardOrigin.z;
+      /** Lowest first, so each piece finds what it was lying on already back under it. */
+      list.sort((a, b) => a.home.pos[1] - b.home.pos[1]);
       for (const p of list) {
-        p.pos = [x + p.carry[0] / 0.72, p.carry[1] + 0.5, z + p.carry[2] / 0.72];
+        p.pos = [...p.home.pos];
+        p.rot = [...p.home.rot];
+        p.version += 1;
         delete p.carry;
+        delete p.home;
         board.add(p);
-        p.pos[1] = p.rest + 0.6;
       }
       emit('putback', { count: list.length });
     }
@@ -472,8 +485,14 @@ export function createGame({ stage, GFX, kitchen }) {
     pointer.aim(event);
     zone = locate();
     if (zone.zone === 'board') knife.manual = false;
-    if (press.down && !press.drag && Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG) {
-      if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp()) press.drag = 'scrape';
+    const moved = press.down ? Math.hypot(event.clientX - press.x, event.clientY - press.y) : 0;
+    if (press.down && !press.drag && moved > (press.zone.zone === 'board' ? LIFT : DRAG)) {
+      if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp()) {
+        press.drag = 'scrape';
+        /** The pile stays where it is under the pointer, rather than jumping to it. */
+        const p = pointer.at(CARRY);
+        press.grab = p ? [carryAt.x - p.x, carryAt.z - p.z] : [0, 0];
+      }
       else if (press.zone.zone === 'pan') press.drag = 'stir';
       else if (press.zone.zone === 'bowl') press.drag = 'whisk';
       else if (press.zone.zone === 'handle' && !toss) {
@@ -489,12 +508,13 @@ export function createGame({ stage, GFX, kitchen }) {
         shake.want.set(p.x - shake.from.x, 0, p.z - shake.from.z);
         if (shake.want.length() > 1.4) shake.want.setLength(1.4);
       }
-      shake.trail.push({ y: event.clientY, t: performance.now() });
-      if (shake.trail.length > 8) shake.trail.shift();
+      /** Timed by when the hand moved, not when this frame got to it: a hitch must not slow a flick down. */
+      shake.trail.push({ y: event.clientY, t: event.timeStamp || performance.now() });
+      if (shake.trail.length > 24) shake.trail.shift();
     }
     if (press.drag === 'scrape') {
       const p = pointer.at(CARRY);
-      if (p) carryAt.copy(p);
+      if (p) carryAt.set(p.x + press.grab[0], CARRY, p.z + press.grab[1]);
     } else if (press.drag === 'whisk') {
       const p = eggs.inBowl(pointer);
       if (p) eggs.beat(p);
@@ -510,7 +530,11 @@ export function createGame({ stage, GFX, kitchen }) {
     press.y = event.clientY;
     press.zone = zone;
     press.drag = null;
-    stage.setPointerCapture?.(event.pointerId);
+    try {
+      stage.setPointerCapture?.(event.pointerId);
+    } catch {
+      /** A pointer already gone by the time this runs: nothing to hold on to. */
+    }
   }
 
   function onUp(event) {
@@ -520,8 +544,12 @@ export function createGame({ stage, GFX, kitchen }) {
     if (press.drag === 'scrape') letGo();
     else if (press.drag === 'whisk') eggs.stopBeating();
     else if (press.drag === 'shake') {
-      /** Let go with a flick upward and the pan throws what is in it. */
-      const t = shake.trail;
+      /**
+       * Let go with a flick upward and the pan throws what is in it. Only the
+       * last moment of the drag counts: a slow shake and then a flick is a flick.
+       */
+      const now = event.timeStamp || performance.now();
+      const t = shake.trail.filter((m) => now - m.t < 150);
       if (t.length >= 2) {
         const a = t[0], b = t[t.length - 1];
         const up = (a.y - b.y) / Math.max(16, b.t - a.t);
@@ -533,6 +561,22 @@ export function createGame({ stage, GFX, kitchen }) {
     else if (!press.drag) click(press.zone, event);
     press.drag = null;
     spatula.last = null;
+  }
+
+  /**
+   * Aims the knife from the keys: the first time a slice in from the near end
+   * of the pile, then `by` along it. Ready to come down at once.
+   */
+  function aimFromKeys(by = null) {
+    const pile = board.bounds();
+    if (!pile || carried.length) return false;
+    if (by === null || !knife.manual) knife.z = pile.z1 - 0.62;
+    else knife.z += by;
+    knife.manual = true;
+    knife.z = Math.max(pile.z0 - 0.4, Math.min(pile.z1 + 0.4, knife.z));
+    knife.x = Math.min(BOARD.w / 2 + 1.5, Math.max(-BOARD.w / 2 + 6.1, (pile.x0 + pile.x1) / 2 + 3.8));
+    if (knife.mode === 'rest') knife.mode = 'hover';
+    return true;
   }
 
   /** Puts the knife over a point on the board, the way hovering does: blade centred on it. */
@@ -592,17 +636,10 @@ export function createGame({ stage, GFX, kitchen }) {
     }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       /** The knife, aimed from the keys: half a dice at a press, along the pile. */
-      const pile = board.bounds();
-      if (!pile || carried.length) return;
+      if (!board.bounds() || carried.length) return;
       event.preventDefault();
-      if (!knife.manual) {
-        knife.manual = true;
-        knife.z = pile.z1 - 0.62;
-      } else {
-        knife.z += event.key === 'ArrowUp' ? -0.31 : 0.31;
-      }
-      knife.z = Math.max(pile.z0 - 0.4, Math.min(pile.z1 + 0.4, knife.z));
-      knife.x = Math.min(BOARD.w / 2 + 1.5, Math.max(-BOARD.w / 2 + 6.1, (pile.x0 + pile.x1) / 2 + 3.8));
+      if (!knife.manual) aimFromKeys();
+      else aimFromKeys(event.key === 'ArrowUp' ? -0.31 : 0.31);
       return;
     }
     if (event.target && /^(input|textarea|select|button)$/i.test(event.target.tagName) && event.key === ' ') return;
@@ -612,7 +649,11 @@ export function createGame({ stage, GFX, kitchen }) {
       event.preventDefault();
       startToss();
     } else if (key === 'r') turn();
-    else if (key === 'c') chop();
+    else if (key === 'c') {
+      /** C chops where the keys have the knife — or, if they have not aimed it, a slice off the end. */
+      if (zone.zone !== 'board' && !knife.manual) aimFromKeys();
+      chop();
+    }
     else if (key === 's') scrapeIntoPan();
     else if (key === 'o') oil();
     else if (key === 'g') eggs.crack();
@@ -827,7 +868,7 @@ export function createGame({ stage, GFX, kitchen }) {
     }
 
     for (const p of board.pieces) views.show(p, boardTop);
-    for (const p of pan.pieces) views.show(p, panRig);
+    for (const p of pan.pieces) views.show(p, panRig, pan.state(p).lean);
     for (const p of carried) views.show(p, carry);
     for (const p of flying) views.show(p, carry);
     for (const p of plated) views.show(p, plateGroup);

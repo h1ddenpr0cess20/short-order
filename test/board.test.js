@@ -55,6 +55,32 @@ describe('the board', () => {
     assert.ok(board.box(round).y0 > -1e-3, 'it went through the board');
   });
 
+  it('leaves a potato halved lengthwise standing where the knife left it', () => {
+    const board = createBoard();
+    potatoOnBoard(board);
+    board.turn();
+    run(board);
+    const tall = board.box(board.pieces[0]).y1;
+    board.chop({ z: 0, flesh: FLESH });
+    run(board);
+    assert.equal(board.pieces.length, 2);
+    for (const half of board.pieces) {
+      const b = board.box(half);
+      assert.ok(b.y1 - b.y0 > tall * 0.9, `a half fell over: ${(b.y1 - b.y0).toFixed(2)} tall of ${tall.toFixed(2)}`);
+    }
+  });
+
+  it('keeps the pile on the board, whatever is put down on it', () => {
+    const board = createBoard();
+    const potato = potatoOnBoard(board);
+    board.remove(potato);
+    potato.pos[0] = 40;
+    potato.pos[2] = -30;
+    board.add(potato);
+    const b = board.box(potato);
+    assert.ok(b.x1 <= board.halfWidth + 1e-6 && b.z0 >= -board.halfDepth - 1e-6, `it is at ${JSON.stringify(b)}`);
+  });
+
   it('will not cut while the pile is turning', () => {
     const board = createBoard();
     potatoOnBoard(board);

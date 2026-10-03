@@ -14,7 +14,7 @@
  * side and raw on five.
  */
 
-import { COOK_RADIUS, FLAT, floorHeight, floorSlope } from '../scene/pan.js';
+import { COOK_RADIUS, FLAT, LIP_RADIUS, floorHeight, floorSlope } from '../scene/pan.js';
 import { browning, cooking, createHeat, spread } from './heat.js';
 import { SIDES, extents, sideWeights } from './piece.js';
 import { axisAngle, conjugate, dot3, multiply, normalize, rotate, slerp } from './quat.js';
@@ -77,11 +77,86 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
     return ((e.max[0] - e.min[0]) + (e.max[2] - e.min[2])) * 0.25;
   }
 
-  /** Where the floor is under a piece's middle, and how high its middle sits off it. */
-  function rest(piece) {
+  /**
+   * How a piece lies on the floor where it is: how high its middle sits, and
+   * how far it leans. Out by the wall the floor under its outer edge is higher
+   * than under its inner one, so it rests on both and tips in toward the
+   * middle, rather than sinking its outer edge into the iron.
+   */
+  function lie(piece) {
     const e = extents(piece);
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
-    return floorHeight(Math.min(r, COOK_RADIUS)) - e.min[1];
+    const rho = reach(piece);
+    const inner = floorHeight(Math.max(0, r - rho));
+    const outer = floorHeight(Math.min(r + rho, COOK_RADIUS));
+    const angle = Math.atan2(outer - inner, 2 * rho);
+    return { height: (inner + outer) / 2 - e.min[1] * Math.cos(angle), angle, r };
+  }
+
+  function rest(piece) {
+    return lie(piece).height;
+  }
+
+  /**
+   * A piece in the air that has run into the wall below the rim, or come down
+   * on the rim, is put back where it clears the iron: inside the pan if it is
+   * still more in than out, over the outside if not. Returns which way it went.
+   */
+  function offWall(piece, s) {
+    const e = extents(piece);
+    const r = Math.hypot(piece.pos[0], piece.pos[2]);
+    const rho = reach(piece);
+    if (r < 1e-6 || r + rho <= COOK_RADIUS || r - rho >= LIP_RADIUS) return 0;
+    const bottom = piece.pos[1] + e.min[1];
+    const clear = (x) => floorHeight(Math.min(x + rho, LIP_RADIUS)) <= bottom;
+    if (clear(r)) return 0;
+    const nx = piece.pos[0] / r, nz = piece.pos[2] / r;
+    let to, way;
+    if (r < LIP_RADIUS) {
+      /** Back in: the furthest out it can be at this height without touching the wall. */
+      let lo = COOK_RADIUS - rho, hi = r;
+      for (let k = 0; k < 14; k++) {
+        const mid = (lo + hi) / 2;
+        if (clear(mid)) lo = mid;
+        else hi = mid;
+      }
+      to = lo;
+      way = -1;
+    } else {
+      to = LIP_RADIUS + rho;
+      way = 1;
+    }
+    piece.pos[0] = nx * to;
+    piece.pos[2] = nz * to;
+    const vr = s.vel[0] * nx + s.vel[2] * nz;
+    if (vr * way < 0) {
+      s.vel[0] -= 1.45 * vr * nx;
+      s.vel[2] -= 1.45 * vr * nz;
+    }
+    return way;
+  }
+
+  /**
+   * Keeps a piece on the floor inside the wall — its whole footprint, not just
+   * its middle — and sits it on the floor, leaning where the floor curves up.
+   */
+  function contain(piece, s) {
+    const rho = reach(piece);
+    const limit = COOK_RADIUS - rho;
+    const r = Math.hypot(piece.pos[0], piece.pos[2]);
+    if (r > limit && r > 1e-6) {
+      const nx = piece.pos[0] / r, nz = piece.pos[2] / r;
+      piece.pos[0] = nx * limit;
+      piece.pos[2] = nz * limit;
+      const vr = s.vel[0] * nx + s.vel[2] * nz;
+      if (vr > 0) {
+        s.vel[0] -= 1.3 * vr * nx;
+        s.vel[2] -= 1.3 * vr * nz;
+      }
+    }
+    const { height, angle, r: at } = lie(piece);
+    piece.pos[1] = height;
+    s.lean = angle > 0.01 && at > 1e-6 ? axisAngle([-piece.pos[2] / at, 0, piece.pos[0] / at], angle) : null;
   }
 
   /**
@@ -225,6 +300,7 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
       }
 
       if (s.air) {
+        s.lean = null;
         s.vel[1] -= GRAVITY * dt;
         piece.pos[0] += s.vel[0] * dt;
         piece.pos[1] += s.vel[1] * dt;
@@ -232,10 +308,12 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
         if (s.spin && s.spin.rate) {
           piece.rot = normalize(multiply(axisAngle(s.spin.axis, s.spin.rate * dt), piece.rot));
         }
+        /** Below the rim the wall is in the way: it comes off it, back in toward the middle. */
+        offWall(piece, s);
         const r = Math.hypot(piece.pos[0], piece.pos[2]);
-        if (r > OUT + 1.5) {
+        if (r - reach(piece) >= LIP_RADIUS) {
           /** Over the rim and gone: on the stove, and in the bin. */
-          if (piece.pos[1] < -3) {
+          if (piece.pos[1] < -1) {
             remove(piece);
             dropped += 1;
             events.push({ type: 'drop', piece });
@@ -274,21 +352,14 @@ export function createPan({ random = Math.random, liquid = null } = {}) {
       }
       piece.pos[0] += s.vel[0] * dt;
       piece.pos[2] += s.vel[2] * dt;
-      const limit = COOK_RADIUS - rho * 0.6;
-      const r2 = Math.hypot(piece.pos[0], piece.pos[2]);
-      if (r2 > limit) {
-        const nx = piece.pos[0] / r2, nz = piece.pos[2] / r2;
-        piece.pos[0] = nx * limit;
-        piece.pos[2] = nz * limit;
-        const vr = s.vel[0] * nx + s.vel[2] * nz;
-        if (vr > 0) {
-          s.vel[0] -= 1.3 * vr * nx;
-          s.vel[2] -= 1.3 * vr * nz;
-        }
-      }
-      piece.pos[1] = rest(piece);
+      contain(piece, s);
     }
     collide();
+    /** Bumping can push a piece out against the wall again: back inside, and down onto the floor. */
+    for (const piece of pieces) {
+      const s = state(piece);
+      if (!s.air) contain(piece, s);
+    }
   }
 
   /** Pieces on the floor keep out of each other: discs, pushed apart, a little bounce. */

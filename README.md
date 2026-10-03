@@ -32,7 +32,7 @@ to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actio
 |---|---|
 | **knife** | Over the board the knife follows the pointer. Click to chop where the blade is — it goes through whatever is under it. |
 | **turn** | Right-click the board, or `R`, turns the pile a quarter turn so the next cuts go the other way. |
-| **carry** | Drag the pile and it comes up on the flat of the knife; let go over the pan to drop it in. `S` scrapes the board straight in. |
+| **carry** | Drag the pile and it comes up on the flat of the knife; let go over the pan to drop it in, anywhere else and it goes back just as it was. `S` scrapes the board straight in. |
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
 | **spatula** | Over the pan, drag to stir and click to flip what is under it. `space` tosses the whole pan. |

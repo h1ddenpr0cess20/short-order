@@ -55,6 +55,9 @@ const KNEE = -0.55;
 const BEAD = 0.28;
 const LIP = { x: RIM_RADIUS - BEAD, y: RIM_HEIGHT - BEAD };
 
+/** How far out the inside of the wall goes before the rim rolls over: past this is over the edge. */
+export const LIP_RADIUS = LIP.x;
+
 /** Inside: the base rolls up into the wall, and the wall flares to the lip. */
 const INSIDE = [
   [0, 0],

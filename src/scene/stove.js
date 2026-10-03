@@ -1,6 +1,6 @@
 /**
- * The range: a brushed steel top set into the counter, one big burner under a
- * cast iron grate, and the knob that runs it.
+ * The range: a black enamel top in a brushed steel trim, set into the
+ * counter, one big burner under a cast iron grate, and the knob that runs it.
  *
  * The grate is what the pan stands on, so its height is the one number the
  * rest of the kitchen needs from here: `GRATE_TOP`.
@@ -9,8 +9,9 @@
 import { flameGeometry, flameMaterial } from './flame.js';
 import { brushed, halo } from './textures.js';
 
-/** The steel top, as it sits in the counter. */
+/** The top, as it sits in the counter, and the steel trim round its edge. */
 export const TOP = Object.freeze({ w: 17, d: 16, y: 0.1 });
+const TRIM = { width: 0.42, rise: 0.035 };
 
 /** Where the fingers of the grate come to, which is where the bottom of a pan sits. */
 export const GRATE_TOP = 1.25;
@@ -81,11 +82,33 @@ export function buildStove(GFX) {
     metalness: 0.8,
   });
 
-  /** The top, with a shallow drip tray pressed into it round the burner. */
-  const top = new GFX.Mesh(new GFX.BoxGeometry(TOP.w, 0.5, TOP.d), steel);
+  /**
+   * The top: black porcelain enamel, which is what a range top under a grate
+   * is — a steel one mirrors the bright room and reads as a white slab — with
+   * a brushed steel trim round it and a drip bowl pressed in round the burner.
+   */
+  const porcelain = new GFX.MeshStandardMaterial({
+    name: 'range-enamel',
+    color: 0x17171a,
+    roughness: 0.3,
+    metalness: 0.05,
+  });
+  const top = new GFX.Mesh(new GFX.BoxGeometry(TOP.w, 0.5, TOP.d), porcelain);
   top.name = 'range-top';
   top.position.y = TOP.y - 0.25;
   stove.add(top);
+
+  for (const [w, d, x, z] of [
+    [TOP.w, TRIM.width, 0, -(TOP.d - TRIM.width) / 2],
+    [TOP.w, TRIM.width, 0, (TOP.d - TRIM.width) / 2],
+    [TRIM.width, TOP.d - 2 * TRIM.width, -(TOP.w - TRIM.width) / 2, 0],
+    [TRIM.width, TOP.d - 2 * TRIM.width, (TOP.w - TRIM.width) / 2, 0],
+  ]) {
+    const trim = new GFX.Mesh(new GFX.BoxGeometry(w, 0.5 + TRIM.rise, d), steel);
+    trim.name = 'range-trim';
+    trim.position.set(x, TOP.y - 0.25 + TRIM.rise / 2, z);
+    stove.add(trim);
+  }
 
   const bowl = new GFX.Mesh(new GFX.CylinderGeometry(3.2, 3.5, 0.06, 64), enamel);
   bowl.name = 'drip-bowl';
@@ -152,7 +175,11 @@ export function buildStove(GFX) {
   glow.renderOrder = 1;
   stove.add(glow);
 
-  /** The knob, at the front right of the top: a chrome skirt and a black grip with a pointer. */
+  /**
+   * The knob, at the front left of the top, clear of the pan's handle — which
+   * runs out to the front right, and has to be grabbable all along it — a
+   * chrome skirt and a black grip with a pointer.
+   */
   const knob = new GFX.Group();
   knob.name = 'knob';
   const chrome = new GFX.MeshStandardMaterial({ name: 'knob-chrome', color: 0xe6e6e6, roughness: 0.18, metalness: 1 });
@@ -171,7 +198,7 @@ export function buildStove(GFX) {
   pointer.position.set(0, 0.75, -0.34);
   dial.add(pointer);
   knob.add(dial);
-  knob.position.set(TOP.w / 2 - 1.6, TOP.y, TOP.d / 2 - 1.6);
+  knob.position.set(-(TOP.w / 2 - 1.6), TOP.y, TOP.d / 2 - 1.6);
   stove.add(knob);
 
   /** Markings round the knob: off, and a fan of ticks for the heat. */
