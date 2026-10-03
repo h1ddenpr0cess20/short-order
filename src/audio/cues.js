@@ -22,7 +22,6 @@ export function wireSound({ game, sound }) {
       case 'egg-drop': sound.play('plop'); break;
       case 'egg-in-pan': sound.play('splash', heat(), 0.35); break;
       case 'yolk-flip': sound.play('flip'); break;
-      case 'yolk-tear': sound.play('flip'); break;
       case 'fold': sound.play('flip'); break;
       case 'whisk':
         whiskTick += e.speed;

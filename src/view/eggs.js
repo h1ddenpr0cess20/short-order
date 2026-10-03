@@ -80,6 +80,59 @@ export function createSheetView(GFX, sheet) {
 
   const c = [0, 0, 0];
 
+  /**
+   * Pepper on the egg: dark specks lying on its surface, as many as it has
+   * had twists, each kept where it fell. The egg under one torn away as a
+   * curd takes it along, so a speck with no egg under it any more is not drawn.
+   */
+  const SPECKS = 140;
+  const speckPos = new Float32Array(SPECKS * 3 * 3);
+  const speckGeometry = new GFX.BufferGeometry();
+  speckGeometry.setAttribute('position', new GFX.BufferAttribute(speckPos, 3));
+  speckGeometry.setAttribute('normal', new GFX.BufferAttribute(upward(SPECKS * 3), 3));
+  speckGeometry.boundingSphere = new GFX.Sphere(new GFX.Vector3(0, 0, 0), FLAT * 1.5);
+  const specks = new GFX.Mesh(speckGeometry, pepperMaterial(GFX));
+  specks.name = 'pepper-on-egg';
+  mesh.add(specks);
+  const fallen = [];
+  let speckSeed = 91;
+  const speckRandom = () => {
+    speckSeed = (speckSeed * 16807) % 2147483647;
+    return speckSeed / 2147483647;
+  };
+
+  function updateSpecks() {
+    const want = Math.min(SPECKS, Math.round((sheet.empty ? 0 : sheet.summary().pepper) * 28));
+    if (want < fallen.length) fallen.length = want;
+    /** New specks land on egg, more where there is more of it. */
+    for (let tries = 0; fallen.length < want && tries < want * 20; tries++) {
+      const k = Math.floor(speckRandom() * N * N);
+      if (sheet.amount[k] < 0.02) continue;
+      const x = -FLAT + ((k % N) + speckRandom()) * size, z = -FLAT + (Math.floor(k / N) + speckRandom()) * size;
+      fallen.push({ x, z, a: speckRandom() * Math.PI * 2, s: 0.035 + speckRandom() * 0.04 });
+    }
+    speckPos.fill(0);
+    for (let n = 0; n < fallen.length; n++) {
+      const f = fallen[n];
+      const k = Math.floor((f.z + FLAT) / size) * N + Math.floor((f.x + FLAT) / size);
+      const hide = sheet.amount[k] < 0.008 || (owner && hidden.has(owner[k]));
+      const y = hide ? -1 : 0.025 + sheet.amount[k] * 0.9;
+      const o = n * 9;
+      for (let c = 0; c < 3; c++) {
+        const a = f.a + (c * Math.PI * 2) / 3;
+        speckPos[o + c * 3] = f.x + Math.cos(a) * f.s;
+        speckPos[o + c * 3 + 1] = y;
+        speckPos[o + c * 3 + 2] = f.z + Math.sin(a) * f.s;
+      }
+    }
+    speckGeometry.attributes.position.needsUpdate = true;
+    specks.visible = fallen.length > 0;
+  }
+
+  /** Eggs in the air, being turned: their patches of the sheet are not drawn until they come down. */
+  const hidden = new Set();
+  let owner = null;
+
   /** The yolks of eggs broken in whole: a glossy dome each, sitting on the white. */
   const yolkGeometry = new GFX.SphereGeometry(0.62, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2);
   const domes = [];
@@ -96,7 +149,7 @@ export function createSheetView(GFX, sheet) {
     }
     domes.forEach((dome, i) => {
       const y = sheet.yolks[i];
-      dome.visible = Boolean(y && y.whole);
+      dome.visible = Boolean(y && y.whole && !hidden.has(y.id));
       if (!dome.visible) return;
       const k = Math.floor((y.z + FLAT) / size) * N + Math.floor((y.x + FLAT) / size);
       const under = sheet.amount[k] ?? 0;
@@ -114,6 +167,7 @@ export function createSheetView(GFX, sheet) {
 
   function update() {
     updateYolks();
+    owner = hidden.size ? sheet.eggCells() : null;
     let any = false;
     for (let j = 0; j < V; j++) {
       for (let i = 0; i < V; i++) {
@@ -124,7 +178,7 @@ export function createSheetView(GFX, sheet) {
           if (ci < 0 || cj < 0 || ci >= N || cj >= N) continue;
           const k = cj * N + ci;
           if (!sheet.inside[k]) continue;
-          const w = sheet.amount[k];
+          const w = owner && hidden.has(owner[k]) ? 0 : sheet.amount[k];
           a += w;
           s += sheet.set[k] * w;
           y += sheet.yolk[k] * w;
@@ -158,10 +212,30 @@ export function createSheetView(GFX, sheet) {
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.normal.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
+    updateSpecks();
     mesh.visible = any || sheet.yolks.some((y) => y.whole);
   }
 
-  return { mesh, update };
+  return {
+    mesh, update,
+    /** Stops drawing the egg with yolk `id` while it is turned over in the air, or starts again. */
+    hide(id, on) {
+      if (on) hidden.add(id);
+      else hidden.delete(id);
+    },
+  };
+}
+
+/** Normals for `n` vertices, all straight up: for specks lying flat on a surface. */
+function upward(n) {
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) out[i * 3 + 1] = 1;
+  return out;
+}
+
+/** Ground pepper, seen from both sides since a speck is a single flat triangle. */
+function pepperMaterial(GFX) {
+  return new GFX.MeshStandardMaterial({ name: 'pepper-specks', color: 0x1f1813, roughness: 0.85, metalness: 0, side: GFX.DoubleSide });
 }
 
 /** How high beaten egg comes up the bowl for a given amount of it. */
@@ -218,6 +292,26 @@ export function createBowlView(GFX, bowlGroup, bowlState, floor) {
   const yolkGeometry = new GFX.SphereGeometry(0.5, 24, 16);
   const yolks = [];
 
+  /** Pepper ground into the eggs: specks on the surface, carried round as the whisk swirls it. */
+  const BOWL_SPECKS = 60;
+  const bowlSpeckPos = new Float32Array(BOWL_SPECKS * 9);
+  const bowlSpeckGeometry = new GFX.BufferGeometry();
+  bowlSpeckGeometry.setAttribute('position', new GFX.BufferAttribute(bowlSpeckPos, 3));
+  bowlSpeckGeometry.setAttribute('normal', new GFX.BufferAttribute(upward(BOWL_SPECKS * 3), 3));
+  bowlSpeckGeometry.boundingSphere = new GFX.Sphere(new GFX.Vector3(0, 1, 0), BOWL.rim + 1);
+  const bowlSpecks = new GFX.Mesh(bowlSpeckGeometry, pepperMaterial(GFX));
+  bowlSpecks.name = 'pepper-in-bowl';
+  bowlSpecks.visible = false;
+  bowlGroup.add(bowlSpecks);
+  /** Where each speck sits, as a share of the way out and an angle: fixed, so they do not jump about. */
+  const speckAt = Array.from({ length: BOWL_SPECKS }, (_, i) => {
+    const h = (k) => {
+      const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    return { r: Math.sqrt(h(1)) * 0.88, a: h(2) * Math.PI * 2, s: 0.035 + h(3) * 0.035 };
+  });
+
   const WHITE = hex(0xe9dec2);
   const BEATEN = hex(0xf2bf3c);
   const FOAM = hex(0xf8e7a6);
@@ -237,6 +331,7 @@ export function createBowlView(GFX, bowlGroup, bowlState, floor) {
     while (yolks.length > bowlState.yolks.length) yolks.pop().removeFromParent();
     if (!surface.visible) {
       for (const y of yolks) y.visible = false;
+      bowlSpecks.visible = false;
       return;
     }
     const level = fillHeight(volume);
@@ -262,6 +357,22 @@ export function createBowlView(GFX, bowlGroup, bowlState, floor) {
     }
     geometry.attributes.position.needsUpdate = true;
     geometry.attributes.color.needsUpdate = true;
+
+    const showing = Math.min(BOWL_SPECKS, Math.round((bowlState.pepper ?? 0) * 24));
+    bowlSpeckPos.fill(0);
+    for (let n = 0; n < showing; n++) {
+      const sp = speckAt[n];
+      const a = sp.a + phase * 0.6 * (1 - sp.r * 0.4);
+      const cx = Math.cos(a) * sp.r * R, cz = Math.sin(a) * sp.r * R;
+      for (let c = 0; c < 3; c++) {
+        const t = a * 3 + (c * Math.PI * 2) / 3;
+        bowlSpeckPos[n * 9 + c * 3] = cx + Math.cos(t) * sp.s;
+        bowlSpeckPos[n * 9 + c * 3 + 1] = floor + level + 0.03;
+        bowlSpeckPos[n * 9 + c * 3 + 2] = cz + Math.sin(t) * sp.s;
+      }
+    }
+    bowlSpeckGeometry.attributes.position.needsUpdate = true;
+    bowlSpecks.visible = showing > 0;
 
     /** The yolks sit proud of the white until the whisk breaks them into it. */
     const whole = 1 - Math.min(1, m / 0.4);

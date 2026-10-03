@@ -141,8 +141,8 @@ deep there and its top never touches the iron. A spatula drawn through a yolk
 breaks it, and it runs out into the sheet. Turning an egg over takes every
 patch nearer its yolk than any other: if they have set enough to hold, the
 browning on their two faces swaps and the yolk is face down, setting five
-times as fast; if not, the white tears and the yolk breaks. A toss turns
-every egg at once.
+times as fast; if not, the spatula only slides under runny white and nothing
+happens. A toss turns every egg at once.
 
 Folding lifts the whole sheet off the floor as one piece — rolled, or in
 half — with how set it was as its middle and its underside's browning as its

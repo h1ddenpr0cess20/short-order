@@ -136,7 +136,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   const curds = [];
   /** Yolks broken in whole: where each sits, how set it is, whether it is still whole and which way up. */
   const yolks = [];
-  /** What happened to the yolks since the game last asked: 'break', 'flip' and 'tear'. */
+  /** What happened to the yolks since the game last asked: 'break', 'flip', and 'soft' for one too runny to turn. */
   const events = [];
   /** Salt and pepper in the egg on the floor, all through it. */
   const seasoning = { salt: 0, pepper: 0 };
@@ -446,9 +446,10 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   }
 
   /**
-   * The spatula under the egg nearest (x, z), and over it goes. White that
-   * has not set enough to hold together tears, and the yolk breaks with it.
-   * Returns what happened: 'flip', 'tear', or null with no egg there.
+   * The spatula under the egg nearest (x, z), and over it goes — once its
+   * white has set enough to hold together; before that the spatula only
+   * slides under runny white, and nothing happens. Returns what happened:
+   * 'flip', 'soft', or null with no egg there.
    */
   function flipEgg(x, z) {
     let egg = null, near = 2.6;
@@ -476,9 +477,8 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     }
     if (v <= 0) return null;
     if (s / v < RUNS * 1.25) {
-      breakYolk(egg);
-      events.push({ type: 'tear', yolk: egg });
-      return 'tear';
+      events.push({ type: 'soft', yolk: egg });
+      return 'soft';
     }
     /** The face that was down comes up, browned as it is; the one that was up goes down to the iron. */
     for (let k = 0; k < cells; k++) {
@@ -641,7 +641,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   return {
     N, size, amount, set, yolk, brown, top, inside, yolks, events,
-    pour, crack, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season,
+    pour, crack, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season, eggCells,
     fried, flipEgg, flipAll, fold, liftFried, breakYolk, depthAt,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },

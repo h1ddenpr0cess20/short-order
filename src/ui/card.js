@@ -32,7 +32,7 @@ export function createCard({ game, root = document.body }) {
       <span class="chip"><i class="star" aria-hidden="true">★</i> today's order</span>
       <span class="chip no"></span>
     </header>
-    <h1></h1>
+    <h1><button type="button" class="dish" title="Change the order"></button></h1>
     <p class="tag"></p>
     <ol></ol>
     <p class="now" aria-hidden="true"></p>
@@ -45,6 +45,8 @@ export function createCard({ game, root = document.body }) {
 
   const plate = card.querySelector('[data-act="plate"]');
   plate.addEventListener('click', () => game.plateIt());
+  /** The dish's name is the way back to the menu: tap it for another order. */
+  card.querySelector('.dish').addEventListener('click', () => api.onChange?.());
   for (const type of ['pointerdown', 'pointerup', 'pointermove']) card.addEventListener(type, (e) => e.stopPropagation());
 
   let written = null;
@@ -55,7 +57,7 @@ export function createCard({ game, root = document.body }) {
     written = dish;
     last = '';
     card.querySelector('.no').textContent = `no. ${dish.no}`;
-    card.querySelector('h1').textContent = dish.name;
+    card.querySelector('.dish').textContent = dish.name;
     card.querySelector('.tag').textContent = dish.tag;
     card.querySelector('ol').innerHTML = dish.steps.map((s) => `
       <li data-step="${s.id}"><span class="what">${escape(s.what)}</span><span class="short">${escape(s.short)}</span><span class="how"></span>${s.id === 'plate' ? '' : '<i class="bar"><b></b></i>'}</li>`).join('');
@@ -71,7 +73,9 @@ export function createCard({ game, root = document.body }) {
     li.dataset.done = done ? 'true' : 'false';
   }
 
-  return {
+  const api = {
+    /** Set by whoever owns the menu: what a tap on the dish's name does. */
+    onChange: null,
     update() {
       const dish = game.dish;
       if (dish !== written) write(dish);
@@ -92,4 +96,5 @@ export function createCard({ game, root = document.body }) {
       card.querySelector('.now').textContent = `${li.querySelector('.what').textContent} — ${next.how || 'ready when you are'}`;
     },
   };
+  return api;
 }

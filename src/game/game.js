@@ -45,6 +45,9 @@ import { createPointer } from './pointer.js';
 /** How far the pointer has to travel before a press is a drag rather than a click. */
 const DRAG = 7;
 
+/** A fingertip wanders further than a mouse in a tap: further still before it is a drag. */
+const DRAG_TOUCH = 16;
+
 /**
  * On the pile it has to go further: a press there is nearly always a chop
  * being aimed, and a hand that drifts while it clicks should still chop
@@ -411,6 +414,51 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
+  /** Fried eggs going over: each lifted on the spatula, turned in the air and laid back down, for the cook to see. */
+  const turning = [];
+  const TURN_TIME = 0.42;
+
+  function startTurn(yolk) {
+    const e = sheet.fried().find((f) => f.id === yolk.id);
+    if (!e) return;
+    const piece = makePiece({
+      solid: friedSolid({ radius: Math.max(1.5, Math.min(2.4, e.white.radius * 0.9)), whole: yolk.whole, seed: 7 + yolk.id * 13 }),
+      kind: 'egg',
+      pos: [yolk.x, 0.1, yolk.z],
+    });
+    piece.fried = true;
+    piece.core = e.white.set;
+    piece.yolk = 0.02;
+    piece.yolkSet = yolk.set;
+    piece.brown.fill(e.white.brown * 0.5);
+    /** Turned an odd number of times now: it was yolk up, and goes over onto its face. */
+    const from = yolk.flips % 2 === 1 ? [0, 0, 0, 1] : axisAngle([1, 0, 0], Math.PI);
+    turning.push({ yolk, piece, from, t: 0 });
+    sheetView.hide(yolk.id, true);
+  }
+
+  function updateTurning(dt) {
+    for (const turn of [...turning]) {
+      turn.t += dt;
+      const k = Math.min(1, turn.t / TURN_TIME);
+      const e = k * k * (3 - 2 * k);
+      turn.piece.rot = multiply(axisAngle([1, 0, 0], Math.PI * e), turn.from);
+      turn.piece.pos = [turn.yolk.x, 0.1 + Math.sin(k * Math.PI) * 2.4, turn.yolk.z - Math.sin(k * Math.PI) * 0.6];
+      turn.piece.version += 1;
+      if (k >= 1) {
+        turning.splice(turning.indexOf(turn), 1);
+        sheetView.hide(turn.yolk.id, false);
+      } else {
+        views.show(turn.piece, panRig);
+      }
+    }
+  }
+
+  function stopTurning() {
+    for (const turn of turning) sheetView.hide(turn.yolk.id, false);
+    turning.length = 0;
+  }
+
   /** The next egg from the carton: into the bowl, or for fried eggs straight into the pan. */
   function crackEgg() {
     if (round.plated) return false;
@@ -488,6 +536,7 @@ export function createGame({ stage, GFX, kitchen }) {
   function plateIt() {
     if (plating || round.plated || carried.length || eggs.pouring) return false;
     if (pan.pieces.length === 0 && sheet.empty) return false;
+    stopTurning();
     const taken = pan.takeAll();
     const poured = round.pours.reduce((a, p) => ({ eggs: a.eggs + p.eggs, mix: a.mix + p.mix * p.eggs }), { eggs: 0, mix: 0 });
     const seconds = round.started === null ? 0 : elapsed - round.started;
@@ -613,6 +662,7 @@ export function createGame({ stage, GFX, kitchen }) {
   function reset() {
     plating = null;
     report = null;
+    stopTurning();
     plated.length = 0;
     flying.length = 0;
     carried.length = 0;
@@ -813,7 +863,7 @@ export function createGame({ stage, GFX, kitchen }) {
     zone = locate();
     if (zone.zone === 'board') knife.manual = false;
     const moved = press.down ? Math.hypot(event.clientX - press.x, event.clientY - press.y) : 0;
-    if (press.down && !press.drag && moved > (press.zone.zone === 'board' ? LIFT : DRAG)) {
+    if (press.down && !press.drag && moved > (press.zone.zone === 'board' ? LIFT : press.touch ? DRAG_TOUCH : DRAG)) {
       if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp()) {
         press.drag = 'scrape';
         /** The pile stays where it is under the pointer, rather than jumping to it. */
@@ -866,6 +916,7 @@ export function createGame({ stage, GFX, kitchen }) {
     zone = locate();
     press.down = true;
     press.id = event.pointerId;
+    press.touch = event.pointerType === 'touch';
     press.x = event.clientX;
     press.y = event.clientY;
     press.zone = zone;
@@ -1262,7 +1313,11 @@ export function createGame({ stage, GFX, kitchen }) {
       eggs.beat([Math.cos(whiskAngle) * 1.5, Math.sin(whiskAngle) * 1.5]);
     }
     if (egg) sheet.update(dt, pan.heat.temp);
-    for (const e of sheet.events.splice(0)) emit(`yolk-${e.type}`, { yolk: e.yolk });
+    for (const e of sheet.events.splice(0)) {
+      if (e.type === 'flip') startTurn(e.yolk);
+      emit(`yolk-${e.type}`, { yolk: e.yolk });
+    }
+    updateTurning(dt);
     eggs.update(dt);
     if (egg || sheetView.mesh.visible) sheetView.update();
 
@@ -1331,7 +1386,7 @@ export function createGame({ stage, GFX, kitchen }) {
      */
     get quiet() {
       if (performance.now() - lastActivity < 1500) return false;
-      if (toss || plating || carried.length || knife.chop || eggs.pouring || eggs.cracking || shake.on) return false;
+      if (toss || plating || carried.length || knife.chop || eggs.pouring || eggs.cracking || shake.on || turning.length) return false;
       if (shake.offset.lengthSq() > 1e-4 || pan.airborne || !board.still()) return false;
       if (pan.heat.level > 0 || Object.values(hops).some((h) => h > 0)) return false;
       const cold = pan.heat.temp < 50;

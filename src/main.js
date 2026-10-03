@@ -78,13 +78,13 @@ const intro = createIntro({
     document.body.dataset.playing = 'true';
   },
 });
-createResult({
-  game,
-  onMenu() {
-    game.live = false;
-    intro.show();
-  },
-});
+/** Back to the menu for another order — from the verdict, or the ticket's name. */
+function menu() {
+  game.live = false;
+  intro.show();
+}
+createResult({ game, onMenu: menu });
+card.onChange = menu;
 createMenu({ game, sound, intro });
 
 /**

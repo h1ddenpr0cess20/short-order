@@ -50,11 +50,12 @@ describe('eggs broken in whole', () => {
     assert.ok(sheet.events.some((e) => e.type === 'break'));
   });
 
-  it('tear if turned before the white has set, and turn whole once it has', () => {
+  it('will not turn before the white has set, and turn whole once it has', () => {
     const early = createSheet({ random: seeded() });
     early.crack(0, 0);
-    assert.equal(early.flipEgg(0, 0), 'tear');
-    assert.equal(early.yolks[0].whole, false);
+    assert.equal(early.flipEgg(0, 0), 'soft');
+    assert.equal(early.yolks[0].whole, true, 'a spatula under runny white breaks nothing');
+    assert.equal(early.yolks[0].flips, 0);
 
     const later = createSheet({ random: seeded() });
     later.crack(0, 0);

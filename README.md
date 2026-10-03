@@ -51,7 +51,8 @@ build), with a preview for every branch.
 | **spatula** | Over the pan, drag to stir and click to flip what is under it. `space` tosses the whole pan. |
 | **handle** | Drag the pan's handle to shake it — the food slides — and flick upward as you let go to toss. |
 | **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. For fried eggs the carton breaks them straight into the pan instead. |
-| **turn an egg** | Click a fried egg to slide the spatula under it and turn it over; `space` turns them all. Too soon, before the white holds, and it tears. A spatula dragged through a yolk breaks it. |
+| **turn an egg** | Click a fried egg to slide the spatula under it and turn it over; `space` turns them all. Not before the white has set enough to hold. A spatula dragged through a yolk breaks it. |
+| **order** | The dish's name on the ticket, or **change order** in the menu, for another dish. |
 | **fold** | `L`, or the bar's **fold**, folds the sheet of egg: rolled for a French omelette, in half for a diner one. Whatever is lying on the egg goes inside. |
 | **extras** | Click a ramekin for a handful in the pan — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6`. Onto the egg before folding is a filling; over the food after is a topping. |
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
