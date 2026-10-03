@@ -13,8 +13,10 @@
  * whatever those want. A click and a drag mean different things at each.
  */
 
+import { curdSolid } from '../food/curd.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
+import { PLATE } from '../scene/cookware.js';
 import { LAYOUT, PAN_Y } from '../scene/kitchen.js';
 import { COOK_RADIUS, RIM_HEIGHT, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
@@ -27,6 +29,7 @@ import { axisAngle } from '../sim/quat.js';
 import { createSheetView } from '../view/eggs.js';
 import { createPieceViews } from '../view/pieces.js';
 import { createEggStation } from './eggs.js';
+import { diceReport, eggReport, fryReport, grade } from './grade.js';
 import { createPointer } from './pointer.js';
 
 /** How far the pointer has to travel before a press is a drag rather than a click. */
@@ -70,16 +73,40 @@ export function createGame({ stage, GFX, kitchen }) {
   const sheet = createSheet();
   const sheetView = createSheetView(GFX, sheet);
   panRig.add(sheetView.mesh);
-  const eggs = createEggStation({ GFX, kitchen, sheet, pan, emit: (type, detail) => emit(type, detail) });
+  const eggs = createEggStation({
+    GFX, kitchen, sheet, pan,
+    emit: (type, detail) => {
+      if (type === 'poured') round.pours.push(detail);
+      if (type === 'egg-in' || type === 'pour-start') begin();
+      emit(type, detail);
+    },
+  });
 
   const knife = { mode: 'rest', z: 0, x: 0, chop: null, queued: false };
   const spatula = { over: false, at: [0, 0], last: null, tilt: 0 };
   const press = { down: false, x: 0, y: 0, zone: null, drag: null, point: null, button: 0 };
   let zone = { zone: null };
   let toss = null;
+  /** Off until the cook has started: the kitchen is there to look at behind the title. */
+  let live = false;
   let elapsed = 0;
 
   const stats = { chops: 0, tosses: 0, stirs: 0, scrapes: 0 };
+
+  /** This attempt at the dish: when it started, what went into the pan from the bowl, whether it is served. */
+  let round = { started: null, pours: [], plated: false };
+  const plateGroup = kitchen.plate.group;
+  const plated = [];
+  /** Pieces on their way from the pan to the plate, in the room's frame. */
+  const flying = [];
+  let plating = null;
+  let report = null;
+  let progressAt = -1;
+
+  /** The clock starts at the first thing the cook does, not when the page loads. */
+  function begin() {
+    if (round.started === null) round.started = elapsed;
+  }
 
   function emit(type, detail = {}) {
     for (const fn of listeners) fn({ type, ...detail });
@@ -141,6 +168,7 @@ export function createGame({ stage, GFX, kitchen }) {
     }
     knife.chop = { t: 0, cut: false, z: knife.z, x0: knife.x - 7.6, x1: knife.x };
     knife.mode = 'chop';
+    begin();
     return true;
   }
 
@@ -213,6 +241,8 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function heat(delta) {
+    if (round.plated) return pan.heat.level;
+    begin();
     const before = pan.heat.level;
     const after = pan.heat.set(before + delta);
     if (after !== before) emit('heat', { level: after, setting: SETTINGS[after] });
@@ -220,14 +250,168 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function oil() {
+    if (round.plated) return false;
+    begin();
     pan.pour(0.6);
     emit('oil');
     return true;
   }
 
+  // ------------------------------------------------------------ the plate
+
+  /**
+   * Everything in the pan onto the plate, and the plate marked. The marking
+   * happens now, off the food as it comes out of the pan; the flight onto the
+   * plate is for the cook to watch.
+   */
+  function plateIt() {
+    if (plating || round.plated || carried.length) return false;
+    if (pan.pieces.length === 0 && sheet.empty) return false;
+    const flat = sheet.summary();
+    const taken = pan.takeAll();
+    const poured = round.pours.reduce((a, p) => ({ eggs: a.eggs + p.eggs, mix: a.mix + p.mix * p.eggs }), { eggs: 0, mix: 0 });
+    const seconds = round.started === null ? 0 : elapsed - round.started;
+    report = grade({
+      pieces: taken,
+      sheet: flat.volume > 0.05 ? flat : null,
+      beaten: poured.eggs ? poured.mix / poured.eggs : 0,
+      eggs: poured.eggs,
+      seconds,
+    });
+
+    /** Egg left set flat comes up in a few wide pieces, the way an omelette breaks. */
+    const slabs = sheet.lift(Math.max(1, Math.min(6, Math.round(flat.volume / 0.8)))).map((c, i) => {
+      const piece = makePiece({ solid: curdSolid({ volume: c.volume, yolk: c.yolk, seed: 40 + i }), kind: 'egg', pos: [c.x, 0.2, c.z] });
+      piece.core = c.set;
+      piece.yolk = c.yolk;
+      piece.brown.fill(c.brown * 0.5);
+      return piece;
+    });
+    const all = [...taken.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'potato' ? -1 : 1)), ...slabs];
+
+    plateGroup.visible = true;
+    const golden = 2.399963;
+    const flights = all.map((piece, i) => {
+      const from = panRig.localToWorld(new GFX.Vector3(...piece.pos));
+      const u = (i + 0.5) / all.length;
+      const r = Math.sqrt(u) * (PLATE.well - 0.3);
+      const a = i * golden;
+      const mound = 0.9 * (1 - (r / PLATE.well) ** 2);
+      const to = [Math.cos(a) * r, PLATE.floor + 0.2 + mound + (piece.kind === 'egg' ? 0.25 : 0) + Math.random() * 0.15, Math.sin(a) * r];
+      return { piece, from, to, delay: u * 1.1, done: false };
+    });
+    for (const f of flights) flying.push(f.piece);
+    plating = { t: 0, flights };
+    round.plated = true;
+    pan.heat.set(0);
+    kitchen.focus(plateGroup.getWorldPosition(new GFX.Vector3()).add(new GFX.Vector3(0, 0.5, 0)), { distance: 26, pitch: 0.98 });
+    emit('plating', { count: all.length });
+    return true;
+  }
+
+  function updatePlating(dt) {
+    if (!plating) return;
+    plating.t += dt;
+    const base = plateGroup.getWorldPosition(new GFX.Vector3());
+    let left = 0;
+    for (const f of plating.flights) {
+      if (f.done) continue;
+      const k = Math.min(1, Math.max(0, (plating.t - f.delay) / 0.55));
+      if (k <= 0) {
+        left += 1;
+        f.piece.pos = [f.from.x, f.from.y, f.from.z];
+        continue;
+      }
+      const e = k * k * (3 - 2 * k);
+      const to = new GFX.Vector3(base.x + f.to[0], base.y + f.to[1], base.z + f.to[2]);
+      f.piece.pos = [
+        f.from.x + (to.x - f.from.x) * e,
+        f.from.y + (to.y - f.from.y) * e + Math.sin(e * Math.PI) * 4,
+        f.from.z + (to.z - f.from.z) * e,
+      ];
+      if (k >= 1) {
+        f.done = true;
+        f.piece.pos = [...f.to];
+        flying.splice(flying.indexOf(f.piece), 1);
+        plated.push(f.piece);
+        emit('land-plate');
+      } else {
+        left += 1;
+      }
+    }
+    if (left === 0 && plating.t > 0.4) {
+      plating = null;
+      emit('plated', { report });
+    }
+  }
+
+  /** Clears the kitchen for another go: a new potato, a full carton, a cold pan. */
+  function reset() {
+    plating = null;
+    report = null;
+    plated.length = 0;
+    flying.length = 0;
+    carried.length = 0;
+    board.clear();
+    pan.clear();
+    sheet.clear();
+    eggs.reset();
+    plateGroup.visible = false;
+    kitchen.release();
+    knife.mode = 'rest';
+    knife.chop = null;
+    knife.queued = false;
+    toss = null;
+    round = { started: null, pours: [], plated: false };
+    for (const k of Object.keys(stats)) stats[k] = 0;
+    progressAt = -1;
+    newPotato();
+    emit('reset');
+  }
+
+  /** Where the dish has got to, for the recipe card. Worked out a few times a second. */
+  let progress = null;
+  function measureProgress() {
+    /** Once it is on the plate the ticket stands as it was when it went. */
+    if (round.plated && progress) {
+      progress.plated = true;
+      return progress;
+    }
+    const potato = [...board.pieces, ...pan.pieces, ...carried].filter((p) => p.kind === 'potato');
+    const inPan = pan.pieces.filter((p) => p.kind === 'potato');
+    const curds = pan.pieces.filter((p) => p.kind === 'egg');
+    const dice = diceReport(potato);
+    const fry = fryReport(inPan);
+    const poured = round.pours.reduce((a, p) => ({ eggs: a.eggs + p.eggs, mix: a.mix + p.mix * p.eggs }), { eggs: 0, mix: 0 });
+    const flat = sheet.summary();
+    const egg = poured.eggs
+      ? eggReport({ curds, sheet: flat.volume > 0.05 ? flat : null, beaten: poured.mix / poured.eggs, eggs: poured.eggs })
+      : null;
+    const bowlEggs = eggs.bowl.eggs;
+    progress = {
+      dice: { pieces: dice.pieces, bite: dice.bite, done: dice.pieces > 12 && dice.bite >= 0.7 },
+      fry: { inPan: inPan.length, golden: fry.golden, cooked: inPan.length ? 1 - fry.raw : 0, burnt: fry.burnt, done: inPan.length > 0 && fry.golden >= 0.7 },
+      whisk: {
+        eggs: bowlEggs + poured.eggs,
+        mix: bowlEggs ? eggs.bowl.mix : poured.eggs ? poured.mix / poured.eggs : 0,
+        done: (bowlEggs >= 3 && eggs.bowl.mix >= 0.9) || (poured.eggs >= 3 && poured.mix / poured.eggs >= 0.9),
+      },
+      scramble: {
+        poured: poured.eggs,
+        scrambled: egg ? egg.scrambled : 0,
+        soft: egg ? egg.soft : 0,
+        done: Boolean(egg) && egg.scrambled >= 0.6 && egg.soft >= 0.6,
+      },
+      ready: pan.pieces.length > 0 || !sheet.empty,
+      plated: round.plated,
+    };
+    return progress;
+  }
+
   // ------------------------------------------------------------ input
 
   function onMove(event) {
+    if (!live) return;
     pointer.aim(event);
     zone = locate();
     if (press.down && !press.drag && Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG) {
@@ -246,7 +430,7 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function onDown(event) {
-    if (event.button === 2) return;
+    if (event.button === 2 || round.plated || !live) return;
     pointer.aim(event);
     zone = locate();
     press.down = true;
@@ -281,6 +465,7 @@ export function createGame({ stage, GFX, kitchen }) {
 
   function onContext(event) {
     event.preventDefault();
+    if (!live || round.plated) return;
     pointer.aim(event);
     const at = locate();
     if (at.zone === 'board') turn();
@@ -293,6 +478,8 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function onKey(event) {
+    if (!live || round.plated) return;
+    if (event.target && /^(input|textarea|select|button)$/i.test(event.target.tagName) && event.key === ' ') return;
     if (event.target && /^(input|textarea|select)$/i.test(event.target.tagName)) return;
     const key = event.key.toLowerCase();
     if (key === ' ') {
@@ -303,6 +490,7 @@ export function createGame({ stage, GFX, kitchen }) {
     else if (key === 's') scrapeIntoPan();
     else if (key === 'o') oil();
     else if (key === 'g') eggs.crack();
+    else if (key === 'enter') plateIt();
     else if (key === 'p') eggs.startPour();
     else if (key === 'e' || key === '+' || key === '=' || key === ']') heat(1);
     else if (key === 'q' || key === '-' || key === '[') heat(-1);
@@ -400,6 +588,7 @@ export function createGame({ stage, GFX, kitchen }) {
   const spatulaMesh = kitchen.spatula.group;
 
   function updateSpatula(dt) {
+    spatula.work = (spatula.work ?? 0) * Math.exp(-dt * 8);
     const over = zone.zone === 'pan' && !carried.length;
     if (over) {
       const [x, z] = zone.point;
@@ -408,6 +597,7 @@ export function createGame({ stage, GFX, kitchen }) {
           const n = pan.stir(spatula.last, [x, z], dt);
           const torn = sheet.empty ? 0 : sheet.stir(spatula.last, [x, z], 2.4, dt);
           if (n || torn) stats.stirs += dt;
+          spatula.work = Math.min(1, Math.hypot(x - spatula.last[0], z - spatula.last[1]) / Math.max(dt, 1e-3) / 12);
         }
         spatula.last = [x, z];
       }
@@ -425,7 +615,7 @@ export function createGame({ stage, GFX, kitchen }) {
       const r = kitchen.spatula.rest;
       spatulaMesh.position.lerp(new GFX.Vector3(r.x, r.y, r.z), smoothing(dt, 10));
       spatulaMesh.rotation.y += (r.yaw - spatulaMesh.rotation.y) * smoothing(dt, 10);
-      spatulaMesh.rotation.x += (0 - spatulaMesh.rotation.x) * smoothing(dt, 10);
+      spatulaMesh.rotation.x += (r.pitch - spatulaMesh.rotation.x) * smoothing(dt, 10);
     }
   }
 
@@ -464,6 +654,8 @@ export function createGame({ stage, GFX, kitchen }) {
     updateKnife(dt);
     updateSpatula(dt);
     updateToss(dt);
+    updatePlating(dt);
+    kitchen.updateCamera(dt);
 
     /** The pile in the hand follows it, a little behind. */
     if (carried.length) {
@@ -476,6 +668,8 @@ export function createGame({ stage, GFX, kitchen }) {
     for (const p of board.pieces) views.show(p, boardTop);
     for (const p of pan.pieces) views.show(p, panRig);
     for (const p of carried) views.show(p, carry);
+    for (const p of flying) views.show(p, carry);
+    for (const p of plated) views.show(p, plateGroup);
     views.repaint(10);
     views.sweep();
 
@@ -488,19 +682,30 @@ export function createGame({ stage, GFX, kitchen }) {
     floor.metalness = 0.62 - 0.2 * sheen;
 
     for (const e of pan.events.splice(0)) emit(e.type, e);
+    if (elapsed - progressAt > 0.3) {
+      progressAt = elapsed;
+      measureProgress();
+    }
   }
 
   newPotato();
 
   return {
-    update, chop, turn, scrapeIntoPan, startToss, heat, oil, newPotato,
+    update, chop, turn, scrapeIntoPan, startToss, heat, oil, newPotato, plateIt, reset,
     crackEgg: () => eggs.crack(),
     pourEggs: () => eggs.startPour(),
     board, pan, sheet, eggs, stats, views,
     get zone() { return zone; },
+    get live() { return live; },
+    get stirring() { return spatula.work ?? 0; },
+    set live(on) { live = Boolean(on); },
     get knife() { return knife; },
     get carrying() { return carried.length > 0; },
     get elapsed() { return elapsed; },
+    get progress() { return progress ?? measureProgress(); },
+    get report() { return report; },
+    get plated() { return round.plated; },
+    get clock() { return round.started === null ? 0 : (round.plated && report ? report.time.seconds : elapsed - round.started); },
     on(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);

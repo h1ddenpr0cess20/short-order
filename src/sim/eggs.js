@@ -59,6 +59,12 @@ export function createBowl() {
       return state.mix;
     },
 
+    clear() {
+      state.eggs = 0;
+      state.mix = 0;
+      state.yolks = [];
+    },
+
     /** Empties the bowl: what came out, and how well beaten it was. */
     pour() {
       const out = { volume: state.eggs * EGG_VOLUME, mix: state.mix, eggs: state.eggs };
@@ -291,9 +297,19 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     return out;
   }
 
+  function clear() {
+    amount.fill(0);
+    set.fill(0);
+    yolk.fill(0);
+    brown.fill(0);
+    curds.length = 0;
+    torn = tornSet = tornYolk = tornBrown = 0;
+    poured = 0;
+  }
+
   return {
     N, size, amount, set, yolk, brown, inside,
-    pour, update, stir, takeCurds, summary, lift,
+    pour, update, stir, takeCurds, summary, lift, clear,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },
   };

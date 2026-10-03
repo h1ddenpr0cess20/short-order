@@ -44,6 +44,17 @@ export function createPieceViews(GFX) {
     clearcoatRoughness: 0.35,
   });
 
+  /** Egg is soft and only a little glossy: no lacquer of oil on it the way fried potato has. */
+  const eggMaterial = new GFX.MeshPhysicalMaterial({
+    name: 'egg',
+    vertexColors: true,
+    roughness: 0.62,
+    metalness: 0,
+    sheen: 0.5,
+    sheenColor: new GFX.Color(0xfff2c4),
+    sheenRoughness: 0.6,
+  });
+
   const views = new Map();
   let cursor = 0;
 
@@ -69,7 +80,7 @@ export function createPieceViews(GFX) {
       wobble[i] = 0.9 + 0.2 * jitter(solid.pos[i * 3] * 0.6, solid.pos[i * 3 + 1] * 0.6, solid.pos[i * 3 + 2] * 0.6);
     }
 
-    const mesh = new GFX.Mesh(geometry, material);
+    const mesh = new GFX.Mesh(geometry, piece.kind === 'egg' ? eggMaterial : material);
     mesh.name = `piece-${piece.id}`;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -87,15 +98,18 @@ export function createPieceViews(GFX) {
     const b = piece.brown;
     const base = piece.solid.col;
     const n = colour.length / 3;
+    let rawG = 0;
+    for (let i = 0; i < n; i++) rawG += base[i * 3 + 1] / n;
     for (let i = 0; i < n; i++) {
       const o = i * 6;
       let t = 0;
       for (let k = 0; k < 6; k++) t += weights[o + k] * b[k];
       eggColour(piece.core, piece.yolk ?? 0.33, t * wobble[i], fried);
-      const m = base[i * 3] / (base[i * 3] + base[i * 3 + 1] + base[i * 3 + 2] + 1e-6) * 3;
-      colour[i * 3] = fried[0] * (0.97 + 0.03 * m);
-      colour[i * 3 + 1] = fried[1];
-      colour[i * 3 + 2] = fried[2];
+      /** The streaks the curd was made with, carried through however cooked it gets. */
+      const k = base[i * 3 + 1] / Math.max(1e-6, rawG);
+      colour[i * 3] = fried[0] * (0.96 + 0.04 * k);
+      colour[i * 3 + 1] = fried[1] * k;
+      colour[i * 3 + 2] = fried[2] * (0.9 + 0.1 * k);
     }
     view.geometry.attributes.color.needsUpdate = true;
   }

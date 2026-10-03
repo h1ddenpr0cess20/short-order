@@ -235,8 +235,27 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
     collectCurds();
   }
 
+  /** Back to a full carton, a clean bowl and the whisk in it. */
+  function reset() {
+    eggsLeft.length = 0;
+    for (const egg of kitchen.carton.eggs) {
+      egg.visible = true;
+      eggsLeft.push(egg);
+    }
+    pending = 0;
+    bowl.clear();
+    bowl.state.draining = 1;
+    pour = null;
+    stream.visible = false;
+    stopBeating();
+    bowlGroup.position.copy(bowlHome);
+    bowlGroup.rotation.set(0, 0, 0);
+    whisk.position.copy(whiskRest.position);
+    whisk.rotation.copy(whiskRest.rotation);
+  }
+
   return {
-    bowl, crack, inBowl, onCarton, beat, stopBeating, startPour, update,
+    bowl, crack, inBowl, onCarton, beat, stopBeating, startPour, update, reset,
     get pouring() { return Boolean(pour); },
     get eggsLeft() { return eggsLeft.length; },
     get cracking() { return cracker.busy; },

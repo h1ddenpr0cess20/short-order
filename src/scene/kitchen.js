@@ -12,7 +12,7 @@ import { BOARD, buildBoard, buildGuide, buildKnife } from './board.js';
 import { buildBowl, buildPlate, buildSpatula, buildWhisk } from './cookware.js';
 import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
-import { GRATE_TOP, TOP, buildStove } from './stove.js';
+import { GRATE_TOP, buildStove } from './stove.js';
 import { marble, studio, subwayTile } from './textures.js';
 
 /** Where each station stands on the counter, in the room's frame. */
@@ -112,9 +112,9 @@ export function buildKitchen({ stage, GFX }) {
 
   /** The spatula waits on the counter in front, between the board and the range. */
   const spatula = buildSpatula(GFX);
-  spatula.rest = { x: 0.6, y: 0.02, z: 5.4, yaw: -0.18 };
+  spatula.rest = { x: 0.0, y: 0.03, z: 6.6, yaw: Math.PI - 0.08, pitch: 0 };
   spatula.group.position.set(spatula.rest.x, spatula.rest.y, spatula.rest.z);
-  spatula.group.rotation.set(0, spatula.rest.yaw, 0);
+  spatula.group.rotation.set(spatula.rest.pitch, spatula.rest.yaw, 0);
   room.add(spatula.group);
 
   const plate = buildPlate(GFX);
@@ -133,7 +133,12 @@ export function buildKitchen({ stage, GFX }) {
 
   const camera = stage._camera;
   const controls = stage._controls;
+  /**
+   * The camera is the kitchen's, not the orbit controls': switched off, they
+   * still re-aim it at their own target every frame, so they are told to stop.
+   */
   controls.enabled = false;
+  controls.update = () => false;
 
   /**
    * What has to be in shot: the board, the whole of the range and the pan's
@@ -144,8 +149,11 @@ export function buildKitchen({ stage, GFX }) {
     for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) keep.push(new GFX.Vector3(x, y, z));
   };
   corners(LAYOUT.board.x - BOARD.w / 2, LAYOUT.board.x + BOARD.w / 2, 0, BOARD.h + 2.5, LAYOUT.board.z - BOARD.d / 2, LAYOUT.board.z + BOARD.d / 2);
-  corners(LAYOUT.stove.x - TOP.w / 2, LAYOUT.stove.x + TOP.w / 2, 0, PAN_Y + 2, LAYOUT.stove.z - TOP.d / 2, LAYOUT.stove.z + TOP.d / 2);
-  corners(LAYOUT.carton.x - 4, LAYOUT.bowl.x + 4, 0, 3.5, LAYOUT.bowl.z - 4, LAYOUT.bowl.z + 2);
+  /** The pan to its rim, and its handle out to the hole in the end: the steel round it can be cropped. */
+  corners(LAYOUT.stove.x - 6.6, LAYOUT.stove.x + 6.6, 0, PAN_Y + 2, LAYOUT.stove.z - 6.6, LAYOUT.stove.z + 6.6);
+  const reach = 6.35 + 6.6;
+  keep.push(new GFX.Vector3(LAYOUT.stove.x - Math.sin(HANDLE_TURN) * reach, PAN_Y + 1.6, LAYOUT.stove.z - Math.cos(HANDLE_TURN) * reach));
+  corners(LAYOUT.carton.x - 3.6, LAYOUT.bowl.x + 3.8, 0, 3.5, LAYOUT.bowl.z - 3.8, LAYOUT.bowl.z + 2);
 
   const view = { pitch: 0.88, yaw: 0, fov: 34 };
   const scratch = new GFX.Vector3();
@@ -168,7 +176,7 @@ export function buildKitchen({ stage, GFX }) {
   function fits(margin) {
     return keep.every((p) => {
       const ndc = scratch.copy(p).project(camera);
-      return Math.abs(ndc.x) <= 1 - margin.x && ndc.y >= -1 + margin.bottom && ndc.y <= 1 - margin.top;
+      return ndc.x >= -1 + margin.left && ndc.x <= 1 - margin.right && ndc.y >= -1 + margin.bottom && ndc.y <= 1 - margin.top;
     });
   }
 
@@ -182,9 +190,21 @@ export function buildKitchen({ stage, GFX }) {
     const box = new GFX.Box3().setFromPoints(keep);
     box.getCenter(target);
     target.y = 0;
-    const narrow = stage.clientWidth < 720;
-    const margin = { x: 0.03, top: narrow ? 0.2 : 0.12, bottom: narrow ? 0.24 : 0.14 };
+    const width = stage.clientWidth || 1, height = stage.clientHeight || 1;
+    const narrow = width < 720;
+    /**
+     * On a wide window the ticket stands down the left, so the shot keeps out
+     * of that strip; on a narrow one it sits across the top instead.
+     */
+    const ticket = narrow ? 0 : Math.min(0.5, ((16 + 290 + 18) / width) * 2);
+    const margin = {
+      left: narrow ? 0.03 : ticket,
+      right: 0.03,
+      top: narrow ? 0.34 : 0.06,
+      bottom: (narrow ? 150 : 96) / height * 2,
+    };
     const want = (margin.bottom - margin.top) / 2;
+    const side = (margin.left - margin.right) / 2;
     let dist = 20;
     for (let pass = 0; pass < 4; pass++) {
       dist = 20;
@@ -204,19 +224,67 @@ export function buildKitchen({ stage, GFX }) {
         lo = Math.min(lo, y);
         hi = Math.max(hi, y);
       }
+      let left = Infinity, right = -Infinity;
+      for (const p of keep) {
+        const x = scratch.copy(p).project(camera).x;
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+      }
       const off = (lo + hi) / 2 - want;
-      if (Math.abs(off) < 0.004) break;
+      const offX = (left + right) / 2 - side;
+      if (Math.abs(off) < 0.004 && Math.abs(offX) < 0.004) break;
       target.z -= off * dist * 0.45;
+      target.x += offX * dist * 0.3;
     }
     place(dist);
   }
 
-  frame();
-  const observer = new ResizeObserver(() => frame());
+  /**
+   * Where the framed shot puts the camera, kept so the camera can go and look
+   * at something else for a while — the plate — and come back.
+   */
+  const home = { position: new GFX.Vector3(), target: new GFX.Vector3() };
+  const look = { position: new GFX.Vector3(), target: new GFX.Vector3() };
+  let away = null;
+
+  function frameHome() {
+    frame();
+    home.position.copy(camera.position);
+    home.target.copy(target);
+    if (!away) {
+      look.position.copy(home.position);
+      look.target.copy(home.target);
+    }
+  }
+
+  /** Swings the camera round to look at `point` from `distance` away. */
+  function focus(point, { distance = 24, pitch = 0.9 } = {}) {
+    away = {
+      target: point.clone(),
+      position: point.clone().add(new GFX.Vector3(0, Math.sin(pitch) * distance, Math.cos(pitch) * distance)),
+    };
+  }
+
+  function release() {
+    away = null;
+  }
+
+  function updateCamera(dt) {
+    const want = away ?? home;
+    const k = 1 - Math.exp(-dt * 3.2);
+    look.position.lerp(want.position, k);
+    look.target.lerp(want.target, k);
+    camera.position.copy(look.position);
+    camera.lookAt(look.target);
+    camera.updateMatrixWorld(true);
+  }
+
+  frameHome();
+  const observer = new ResizeObserver(() => frameHome());
   observer.observe(stage);
 
   return {
-    room, camera, frame,
+    room, camera, frame: frameHome, focus, release, updateCamera,
     stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate,
   };
 }

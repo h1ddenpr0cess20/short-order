@@ -22,7 +22,7 @@ import { axisAngle, conjugate, dot3, multiply, normalize, rotate, slerp } from '
 export const GRAVITY = 60;
 
 /** How long it takes to brown a side golden, and to cook a dice-sized piece through, at 200°. */
-export const BROWN_TIME = 15;
+export const BROWN_TIME = 17;
 export const CORE_TIME = 32;
 
 /** The thickness the core time is for; thicker takes longer, by more than the ratio. */
@@ -384,9 +384,21 @@ export function createPan({ random = Math.random } = {}) {
     return all;
   }
 
+  /** Empty, unoiled and cold, the burner off. */
+  function clear() {
+    pieces.length = 0;
+    events.length = 0;
+    oil = 0;
+    sizzle = steam = smoke = 0;
+    dropped = 0;
+    load = 0;
+    heat.set(0);
+    heat.state.temp = 22;
+  }
+
   return {
     pieces, heat, events,
-    add, remove, toss, stir, flip, update, pour, takeAll,
+    add, remove, toss, stir, flip, update, pour, takeAll, clear,
     get oil() { return oil; },
     get sizzle() { return sizzle; },
     get steam() { return steam; },

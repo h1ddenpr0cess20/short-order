@@ -145,7 +145,7 @@ export const PLATE = Object.freeze({ radius: 5.2, well: 3.3, floor: 0.18 });
 
 export function buildPlate(GFX) {
   const porcelain = new GFX.MeshPhysicalMaterial({
-    name: 'plate', color: 0xf6f3ee, roughness: 0.2, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.15,
+    name: 'plate', color: 0xe6e1d8, roughness: 0.32, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18,
   });
   const R = PLATE.radius, W = PLATE.well;
   const profile = [

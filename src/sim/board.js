@@ -279,8 +279,16 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
     return !turning && moves.size === 0 && pieces.every((p) => Math.abs(p.pos[1] - p.rest) < 1e-3);
   }
 
+  /** Bare, as it started. */
+  function clear() {
+    pieces.length = 0;
+    moves.clear();
+    turning = null;
+    chops = 0;
+  }
+
   return {
-    pieces, add, remove, chop, turn, update, takeAll, bounds, still, box,
+    pieces, add, remove, chop, turn, update, takeAll, bounds, still, box, clear,
     get turning() { return Boolean(turning); },
     get chops() { return chops; },
     halfWidth, halfDepth,

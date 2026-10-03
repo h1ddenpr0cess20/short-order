@@ -49,10 +49,22 @@ function icosphere() {
     next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
   }
   f = next;
-  return { v, f };
+  return { v, f, mid };
 }
 
-const BASE = icosphere();
+/** Subdivided twice: enough vertices for the lumps to read as lumps, not facets. */
+function finer() {
+  const once = icosphere();
+  const { v, mid } = once;
+  const next = [];
+  for (const [a, b, c] of once.f) {
+    const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
+    next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+  }
+  return { v, f: next };
+}
+
+const BASE = finer();
 
 /**
  * A curd holding `volume` of egg, of the given yolkiness. `seed` decides its
@@ -73,9 +85,11 @@ export function curdSolid({ volume = 0.16, yolk = 0.33, seed = 1 } = {}) {
   const twist = r(4) * Math.PI;
   const positions = new Float64Array(v.length * 3);
   v.forEach(([x, y, z], i) => {
-    const n = 1 + 0.42 * vnoise(x * 1.6 + seed * 3.1, y * 1.6 + seed * 1.3, z * 1.6 + seed * 7.7)
-      + 0.2 * vnoise(x * 3.9 + seed, y * 3.9, z * 3.9 - seed)
-      + 0.08 * vnoise(x * 9 - seed, y * 9 + seed, z * 9);
+    /** Big soft folds, then the cauliflower lumps, then a little roughness. */
+    const n = 1 + 0.45 * vnoise(x * 1.5 + seed * 3.1, y * 1.5 + seed * 1.3, z * 1.5 + seed * 7.7)
+      + 0.26 * Math.abs(vnoise(x * 3.6 + seed, y * 3.6, z * 3.6 - seed))
+      + 0.12 * vnoise(x * 8 - seed, y * 8 + seed, z * 8)
+      + 0.05 * vnoise(x * 17 + seed, y * 17, z * 17 + seed);
     const px = x * a * n * stretch, pz = z * a * n / stretch;
     const cx = px * Math.cos(twist) - pz * Math.sin(twist), cz = px * Math.sin(twist) + pz * Math.cos(twist);
     positions[i * 3] = cx;
@@ -105,7 +119,8 @@ export function curdSolid({ volume = 0.16, yolk = 0.33, seed = 1 } = {}) {
   const solid = solidFromBuffers({
     positions, normals, index,
     colour: (x, y, z) => {
-      const m = 1 + 0.1 * vnoise(x * 4 + seed, y * 4, z * 4);
+      /** Beaten egg sets in streaks — paler where the white was, deeper where the yolk was. */
+      const m = 1 + 0.12 * vnoise(x * 4 + seed, y * 4, z * 4) + 0.06 * vnoise(x * 11, y * 11 + seed, z * 11);
       return [raw[0] * m, raw[1] * m, raw[2] * m];
     },
   });
