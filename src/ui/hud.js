@@ -83,8 +83,9 @@ export function createHud({ game, root = document.body }) {
     butter: 'click to drop a pat of butter in the pan',
     extra: 'click for a handful in the pan — on the egg to fold it in, or over the food',
   };
-  /** Over fried eggs, the spatula turns them. */
+  /** Over fried eggs, the spatula turns them; under an omelette not yet folded, it turns the whole thing. */
   const FRIED_PAN = 'click an egg to turn it over · space tosses them all · a drag through a yolk breaks it';
+  const OMELETTE_PAN = 'drag to stir while it runs · click to turn it over once it has set · L folds it';
   const show = (name, on) => {
     const b = act(name);
     if (b.hidden === !on) return;
@@ -105,10 +106,11 @@ export function createHud({ game, root = document.body }) {
       show('pour', dish.crack === 'bowl');
       show('fold', dish.kind === 'omelette');
       const toss = act('toss');
-      const word = dish.kind === 'fried' ? 'flip' : 'toss';
+      /** Fried eggs and an omelette go over whole when the pan is tossed: for them it is a flip. */
+      const word = dish.kind === 'fried' || dish.kind === 'omelette' ? 'flip' : 'toss';
       if (toss.textContent !== word) {
         toss.textContent = word;
-        toss.title = dish.kind === 'fried' ? 'Turn the eggs over (space)' : 'Toss the pan (space)';
+        toss.title = dish.kind === 'fried' ? 'Turn the eggs over (space)' : dish.kind === 'omelette' ? 'Turn the omelette over (space)' : 'Toss the pan (space)';
       }
       act('fold').disabled = game.sheet.empty || game.pan.pieces.some((p) => p.omelette) || game.eggs.pouring;
       act('turn').disabled = game.board.pieces.length === 0;
@@ -120,7 +122,8 @@ export function createHud({ game, root = document.body }) {
         || (dish.crack === 'pan' ? game.sheet.yolks.length >= 4 : game.eggs.bowl.eggs >= 4);
       act('pour').disabled = game.eggs.bowl.eggs === 0 || game.eggs.pouring || game.eggs.cracking;
       act('butter').disabled = game.butterLeft === 0;
-      hint.textContent = (game.zone.zone === 'pan' && game.sheet.yolks.length ? FRIED_PAN : HINTS[game.zone.zone]) ?? '';
+      const pan = game.zone.zone === 'pan' && (game.sheet.yolks.length ? FRIED_PAN : dish.kind === 'omelette' && !game.sheet.empty ? OMELETTE_PAN : null);
+      hint.textContent = (pan || HINTS[game.zone.zone]) ?? '';
     },
   };
 }

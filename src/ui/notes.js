@@ -28,7 +28,8 @@ export function createNotes({ game, root = document.body }) {
   game.on((e) => {
     if (e.type === 'season-nothing') tell('Nothing to season yet — the food in the pan, or the eggs in the bowl.');
     else if (e.type === 'yolk-break') tell('A yolk broke.');
-    else if (e.type === 'yolk-soft') tell('Not yet — the white has to set before it will turn.');
+    else if (e.type === 'yolk-soft') tell(e.yolk ? 'Not yet — the white has to set before it will turn.' : 'Not yet — let it set before it will turn over.');
+    else if (e.type === 'yolk-turn') tell('Over it goes.', 1.2);
     else if (e.type === 'extra') tell(EXTRA[e.kind] ?? 'In it goes.', 1.4);
     else if (e.type === 'fold') tell(e.liquid > 0.45 ? 'Folded with a lot still running — it will want a moment.' : e.shape === 'roll' ? 'Rolled.' : 'Folded.', 1.8);
   });

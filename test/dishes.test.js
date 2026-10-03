@@ -103,6 +103,29 @@ describe('the omelette', () => {
     assert.ok(sheet.empty);
   });
 
+  it('turns over whole once set, mirrored, with the browned face up', () => {
+    const sheet = createSheet({ random: seeded() });
+    sheet.pour(0, 2, EGG_VOLUME * 3, 0.33);
+    assert.equal(sheet.flipSheet(), 'soft', 'still running: it will not hold together to turn');
+    cook(sheet, 190, 40);
+    const before = sheet.summary();
+    let under = 0, front = 0;
+    for (let k = 0; k < sheet.amount.length; k++) {
+      under += sheet.brown[k];
+      if (Math.floor(k / sheet.N) >= sheet.N / 2) front += sheet.amount[k];
+    }
+    assert.equal(sheet.flipSheet(), 'flip');
+    const after = sheet.summary();
+    assert.ok(Math.abs(after.volume - before.volume) < 1e-6, 'none of it lost');
+    let top = 0, back = 0;
+    for (let k = 0; k < sheet.amount.length; k++) {
+      top += sheet.top[k];
+      if (Math.floor(k / sheet.N) < sheet.N / 2) back += sheet.amount[k];
+    }
+    assert.ok(Math.abs(top - under) < 1e-3, 'what was underneath is on top');
+    assert.ok(Math.abs(back - front) < 1e-3, 'what was at the front is at the back');
+  });
+
   it('is a closed solid holding what it was made to, rolled or folded', () => {
     for (const shape of ['roll', 'half']) {
       const m = measure(omeletteSolid({ volume: 10.8, shape }));

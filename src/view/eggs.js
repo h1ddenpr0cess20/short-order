@@ -115,7 +115,7 @@ export function createSheetView(GFX, sheet) {
     for (let n = 0; n < fallen.length; n++) {
       const f = fallen[n];
       const k = Math.floor((f.z + FLAT) / size) * N + Math.floor((f.x + FLAT) / size);
-      const hide = sheet.amount[k] < 0.008 || (owner && hidden.has(owner[k]));
+      const hide = veiled || sheet.amount[k] < 0.008 || (owner && hidden.has(owner[k]));
       const y = hide ? -1 : 0.025 + sheet.amount[k] * 0.9;
       const o = n * 9;
       for (let c = 0; c < 3; c++) {
@@ -132,6 +132,8 @@ export function createSheetView(GFX, sheet) {
   /** Eggs in the air, being turned: their patches of the sheet are not drawn until they come down. */
   const hidden = new Set();
   let owner = null;
+  /** The whole sheet in the air, an omelette being turned: none of it drawn until it comes down. */
+  let veiled = false;
 
   /** The yolks of eggs broken in whole: a glossy dome each, sitting on the white. */
   const yolkGeometry = new GFX.SphereGeometry(0.62, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -178,7 +180,7 @@ export function createSheetView(GFX, sheet) {
           if (ci < 0 || cj < 0 || ci >= N || cj >= N) continue;
           const k = cj * N + ci;
           if (!sheet.inside[k]) continue;
-          const w = owner && hidden.has(owner[k]) ? 0 : sheet.amount[k];
+          const w = veiled || (owner && hidden.has(owner[k])) ? 0 : sheet.amount[k];
           a += w;
           s += sheet.set[k] * w;
           y += sheet.yolk[k] * w;
@@ -222,6 +224,10 @@ export function createSheetView(GFX, sheet) {
     hide(id, on) {
       if (on) hidden.add(id);
       else hidden.delete(id);
+    },
+    /** Stops drawing the whole sheet while it is in the air, or starts again. */
+    veil(on) {
+      veiled = on;
     },
   };
 }

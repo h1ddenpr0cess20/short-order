@@ -220,13 +220,24 @@ export function friedSolid({ radius = 2.4, thickness = 0.22, yolk = 0.75, whole 
 
 /**
  * An omelette: a French one rolled into a plump, tapered cigar with its seam
- * underneath, or a diner one folded in half into a half-moon. Holds `volume`.
+ * underneath, or a diner one folded in half into a half-moon — or 'flat', the
+ * sheet before it is folded, `radius` across. Holds `volume`, or for a flat
+ * one is as wide as it is told.
  */
-export function omeletteSolid({ volume = 10, shape = 'roll', yolk = 0.33, seed = 1 } = {}) {
+export function omeletteSolid({ volume = 10, shape = 'roll', yolk = 0.33, seed = 1, radius = 4 } = {}) {
   const raw = rawEgg(yolk);
-  return moulded({
-    volume,
-    shape: shape === 'roll'
+  const solid = moulded({
+    volume: shape === 'flat' ? 0 : volume,
+    shape: shape === 'flat'
+      ? (x, y, z, out) => {
+        /** Not yet folded: the round sheet as it lay, thin and a little ragged at the edge. */
+        const a = Math.atan2(z, x);
+        const rim = 1 + 0.05 * Math.sin(a * 5 + seed) + 0.03 * Math.sin(a * 11 + seed);
+        out[0] = x * 4 * rim;
+        out[1] = y * 0.18;
+        out[2] = z * 4 * rim;
+      }
+      : shape === 'roll'
       ? (x, y, z, out) => {
         /** Long along x, tapering to soft points, a little flat where it lies. */
         const taper = Math.max(0.12, 1 - 0.55 * x * x);
@@ -248,4 +259,11 @@ export function omeletteSolid({ volume = 10, shape = 'roll', yolk = 0.33, seed =
       return [raw[0] * m, raw[1] * m, raw[2] * m];
     },
   });
+  if (shape === 'flat') {
+    for (let i = 0; i < solid.pos.length; i += 3) {
+      solid.pos[i] *= radius / 4;
+      solid.pos[i + 2] *= radius / 4;
+    }
+  }
+  return solid;
 }

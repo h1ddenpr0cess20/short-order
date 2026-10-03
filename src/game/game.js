@@ -418,6 +418,21 @@ export function createGame({ stage, GFX, kitchen }) {
   const turning = [];
   const TURN_TIME = 0.42;
 
+  /** The whole sheet going over: a flat round of omelette in the air while the sheet itself is not drawn. */
+  function startSheetTurn() {
+    const s = sheet.summary();
+    const piece = makePiece({
+      solid: omeletteSolid({ shape: 'flat', yolk: s.yolk, radius: Math.max(2, Math.sqrt(sheet.area() / Math.PI)), seed: 3 }),
+      kind: 'egg',
+      pos: [0, 0.1, 0],
+    });
+    piece.core = s.set;
+    piece.yolk = s.yolk;
+    piece.brown.fill(s.brown * 0.5);
+    turning.push({ yolk: { x: 0, z: 0, id: -1 }, piece, from: [0, 0, 0, 1], t: 0, sheet: true });
+    sheetView.veil(true);
+  }
+
   function startTurn(yolk) {
     const e = sheet.fried().find((f) => f.id === yolk.id);
     if (!e) return;
@@ -447,7 +462,8 @@ export function createGame({ stage, GFX, kitchen }) {
       turn.piece.version += 1;
       if (k >= 1) {
         turning.splice(turning.indexOf(turn), 1);
-        sheetView.hide(turn.yolk.id, false);
+        if (turn.sheet) sheetView.veil(false);
+        else sheetView.hide(turn.yolk.id, false);
       } else {
         views.show(turn.piece, panRig);
       }
@@ -455,6 +471,7 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function stopTurning() {
+    sheetView.veil(false);
     for (const turn of turning) sheetView.hide(turn.yolk.id, false);
     turning.length = 0;
   }
@@ -1008,6 +1025,8 @@ export function createGame({ stage, GFX, kitchen }) {
       case 'pan':
         /** Over a fried egg, the spatula goes under it and turns it; anywhere else it flicks over what is there. */
         if (sheet.yolks.length && sheet.flipEgg(at.point[0], at.point[1])) break;
+        /** Under an omelette not yet folded, the spatula turns the whole of it. */
+        if (dish.kind === 'omelette' && sheet.depthAt(at.point[0], at.point[1]) > 0.01 && sheet.flipSheet()) break;
         if (pan.flip(at.point[0], at.point[1])) emit('flip');
         break;
       case 'knob': heat(pan.heat.level >= SETTINGS.length - 1 ? -(SETTINGS.length - 1) : 1); break;
@@ -1278,9 +1297,13 @@ export function createGame({ stage, GFX, kitchen }) {
     panRig.rotation.x = Math.sin(Math.min(1, k) * Math.PI) * -0.12;
     if (!toss.thrown && toss.t >= TOSS.launch) {
       toss.thrown = true;
-      /** Fried eggs go over whole, if they have set enough to hold; anything else in sheet breaks into folds. */
+      /**
+       * Fried eggs go over whole, and so does an omelette, if they have set
+       * enough to hold; egg for scrambling breaks into folds.
+       */
       if (!sheet.empty) {
         if (sheet.yolks.length) sheet.flipAll();
+        else if (dish.kind === 'omelette') sheet.flipSheet();
         else sheet.toss();
       }
       pan.toss(toss.strength);
@@ -1315,6 +1338,7 @@ export function createGame({ stage, GFX, kitchen }) {
     if (egg) sheet.update(dt, pan.heat.temp);
     for (const e of sheet.events.splice(0)) {
       if (e.type === 'flip') startTurn(e.yolk);
+      if (e.type === 'turn') startSheetTurn();
       emit(`yolk-${e.type}`, { yolk: e.yolk });
     }
     updateTurning(dt);

@@ -492,6 +492,40 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     return 'flip';
   }
 
+  /**
+   * The whole sheet turned over in one piece, the way a pan flicked up turns
+   * an omelette: it lands mirrored front to back, the face that was on the
+   * iron now up. Only once it has set enough to hold together — before that
+   * nothing happens. Returns 'flip', 'soft', or null with no sheet to turn.
+   */
+  function flipSheet() {
+    const s = summary();
+    if (s.volume < 0.3) return null;
+    if (s.set < RUNS * 1.25) {
+      events.push({ type: 'soft', yolk: null });
+      return 'soft';
+    }
+    summed = null;
+    for (let j = 0; j < N / 2; j++) {
+      for (let i = 0; i < N; i++) {
+        const k = j * N + i, m = (N - 1 - j) * N + i;
+        for (const a of [amount, set, yolk, thick]) {
+          const t = a[k];
+          a[k] = a[m];
+          a[m] = t;
+        }
+        /** Mirrored, and turned: what was the underside here is the top over there. */
+        const bk = brown[k], tk = top[k];
+        brown[k] = top[m];
+        top[k] = brown[m];
+        brown[m] = tk;
+        top[m] = bk;
+      }
+    }
+    events.push({ type: 'turn', yolk: null });
+    return 'flip';
+  }
+
   /** The whole sheet off the floor at once, folded or rolled — an omelette — or null with too little to fold. */
   function fold() {
     const s = summary();
@@ -642,7 +676,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   return {
     N, size, amount, set, yolk, brown, top, inside, yolks, events,
     pour, crack, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season, eggCells,
-    fried, flipEgg, flipAll, fold, liftFried, breakYolk, depthAt,
+    fried, flipEgg, flipAll, flipSheet, fold, liftFried, breakYolk, depthAt,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },
   };

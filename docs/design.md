@@ -144,6 +144,11 @@ browning on their two faces swaps and the yolk is face down, setting five
 times as fast; if not, the spatula only slides under runny white and nothing
 happens. A toss turns every egg at once.
 
+An omelette not yet folded turns over whole, the same way, once it holds
+together: the sheet mirrored front to back and its two faces' browning
+swapped — a toss does that rather than break it up, which is what a toss
+does to egg meant for scrambling.
+
 Folding lifts the whole sheet off the floor as one piece — rolled, or in
 half — with how set it was as its middle and its underside's browning as its
 outside, and from then on it is a piece like any other.
