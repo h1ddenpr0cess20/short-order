@@ -92,8 +92,8 @@ export function createGame({ stage, GFX, kitchen }) {
   const shake = { on: false, from: null, offset: new GFX.Vector3(), want: new GFX.Vector3(), last: null, vel: [0, 0], acc: [0, 0], trail: [] };
   const keys = new Set();
   let whiskAngle = 0, stirAngle = 0;
-  const spatula = { over: false, at: [0, 0], last: null, tilt: 0 };
-  const press = { down: false, x: 0, y: 0, zone: null, drag: null, point: null, button: 0 };
+  const spatula = { last: null, work: 0 };
+  const press = { down: false, x: 0, y: 0, zone: null, drag: null };
   let zone = { zone: null };
   let toss = null;
   /** Off until the cook has started: the kitchen is there to look at behind the title. */
@@ -283,7 +283,7 @@ export function createGame({ stage, GFX, kitchen }) {
    * plate is for the cook to watch.
    */
   function plateIt() {
-    if (plating || round.plated || carried.length) return false;
+    if (plating || round.plated || carried.length || eggs.pouring) return false;
     if (pan.pieces.length === 0 && sheet.empty) return false;
     const flat = sheet.summary();
     const taken = pan.takeAll();
@@ -380,6 +380,12 @@ export function createGame({ stage, GFX, kitchen }) {
     knife.chop = null;
     knife.queued = false;
     toss = null;
+    shake.on = false;
+    shake.want.set(0, 0, 0);
+    shake.offset.set(0, 0, 0);
+    keys.clear();
+    press.down = false;
+    press.drag = null;
     round = { started: null, pours: [], plated: false };
     for (const k of Object.keys(stats)) stats[k] = 0;
     progressAt = -1;
@@ -678,7 +684,7 @@ export function createGame({ stage, GFX, kitchen }) {
   const spatulaMesh = kitchen.spatula.group;
 
   function updateSpatula(dt) {
-    spatula.work = (spatula.work ?? 0) * Math.exp(-dt * 8);
+    spatula.work *= Math.exp(-dt * 8);
     /** Held X stirs on its own: the spatula sweeps figure-eights across the floor. */
     const auto = keys.has('x') && !carried.length && !round.plated;
     if (auto) {
@@ -819,7 +825,7 @@ export function createGame({ stage, GFX, kitchen }) {
     board, pan, sheet, eggs, stats, views,
     get zone() { return zone; },
     get live() { return live; },
-    get stirring() { return spatula.work ?? 0; },
+    get stirring() { return spatula.work; },
     set live(on) { live = Boolean(on); },
     get knife() { return knife; },
     get carrying() { return carried.length > 0; },

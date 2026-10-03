@@ -146,6 +146,8 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
    * pieces were cut.
    */
   function chop({ z, x0 = -Infinity, x1 = Infinity, flesh }) {
+    /** Not mid-turn: the pieces it would leave would be left out of the turn. */
+    if (turning) return 0;
     let cut = 0;
     const created = [];
     for (const piece of [...pieces]) {

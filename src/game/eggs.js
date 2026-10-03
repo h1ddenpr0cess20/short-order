@@ -249,6 +249,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
 
   /** Back to a full carton, a clean bowl and the whisk in it. */
   function reset() {
+    cracker.clear();
     eggsLeft.length = 0;
     for (const egg of kitchen.carton.eggs) {
       egg.visible = true;

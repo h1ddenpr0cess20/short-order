@@ -75,3 +75,4 @@ stage.onFrame = (dt, time) => {
 window.kitchen = kitchen;
 window.game = game;
 window.sound = sound;
+window.particles = particles;

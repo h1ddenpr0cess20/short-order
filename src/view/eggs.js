@@ -346,5 +346,15 @@ export function createCracker(GFX, { room, rimPoint }) {
     return events;
   }
 
-  return { start, update, get busy() { return active.length > 0; } };
+  /** Drops every egg in the air, unbroken into anything. */
+  function clear() {
+    for (const a of active) {
+      a.group.removeFromParent();
+      a.yolk.removeFromParent();
+      a.white.removeFromParent();
+    }
+    active.length = 0;
+  }
+
+  return { start, update, clear, get busy() { return active.length > 0; } };
 }

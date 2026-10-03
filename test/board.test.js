@@ -55,6 +55,16 @@ describe('the board', () => {
     assert.ok(board.box(round).y0 > -1e-3, 'it went through the board');
   });
 
+  it('will not cut while the pile is turning', () => {
+    const board = createBoard();
+    potatoOnBoard(board);
+    board.turn(1);
+    board.update(0.05);
+    assert.equal(board.chop({ z: 0.1, flesh: FLESH }), 0);
+    run(board, 1);
+    assert.equal(board.chop({ z: 0.1, flesh: FLESH }), 1);
+  });
+
   it('turns the whole pile a quarter turn', () => {
     const board = createBoard();
     const potato = potatoOnBoard(board);
