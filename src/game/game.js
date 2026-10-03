@@ -18,7 +18,7 @@ import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { PLATE } from '../scene/cookware.js';
 import { HANDLE_TURN, LAYOUT, PAN_Y } from '../scene/kitchen.js';
-import { COOK_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
+import { COOK_RADIUS, FLAT, LIP_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
 import { PATS } from '../scene/props.js';
 import { createBoard } from '../sim/board.js';
@@ -875,6 +875,48 @@ export function createGame({ stage, GFX, kitchen }) {
 
   const spatulaMesh = kitchen.spatula.group;
 
+  /**
+   * Where the spatula goes for the pointer at (x, z) on the pan's floor: the
+   * blade's middle under the pointer, but pulled in so the whole blade is on
+   * the floor rather than through the wall; and how far the handle has to be
+   * tipped up for the neck and handle to clear the wall and the rim wherever
+   * they cross it. `front` is the blade's front edge, in the pan's frame.
+   */
+  const SPATULA = Object.freeze({ yaw: 0.55, half: 1.55, side: 1.3, length: 9.2, heel: 3.1, rise: Math.tan(0.32) });
+  function spatulaPose(x, z) {
+    const { yaw, half, side } = SPATULA;
+    const dx = Math.sin(yaw), dz = Math.cos(yaw), sx = Math.cos(yaw), sz = -Math.sin(yaw);
+    const reach = FLAT + 0.4;
+    let cx = x, cz = z;
+    for (let k = 0; k < 4; k++) {
+      let worst = 0, wx = 0, wz = 0;
+      for (const a of [-1, 1]) {
+        for (const b of [-1, 1]) {
+          const px = cx + dx * half * a + sx * side * b, pz = cz + dz * half * a + sz * side * b;
+          const r = Math.hypot(px, pz);
+          if (r > worst) { worst = r; wx = px; wz = pz; }
+        }
+      }
+      if (worst <= reach) break;
+      cx -= (wx / worst) * (worst - reach) * 1.02;
+      cz -= (wz / worst) * (worst - reach) * 1.02;
+    }
+    const fx = cx - dx * half, fz = cz - dz * half;
+    const y0 = floorHeight(Math.min(COOK_RADIUS, Math.hypot(fx, fz))) + 0.03;
+    /** Along the spatula, wherever it is over the pan's wall, it has to be above it with a little to spare. */
+    let lift = 0;
+    for (let s = SPATULA.heel; s <= SPATULA.length; s += 0.35) {
+      const px = fx + dx * s, pz = fz + dz * s;
+      const r = Math.hypot(px, pz);
+      if (r > RIM_RADIUS + 0.3) break;
+      const wall = r >= LIP_RADIUS ? RIM_HEIGHT : floorHeight(Math.min(r, LIP_RADIUS));
+      const own = y0 + (s - SPATULA.heel) * SPATULA.rise;
+      const need = wall + 0.3 - own;
+      if (need > 0) lift = Math.max(lift, Math.asin(Math.min(0.95, need / s)));
+    }
+    return { front: [fx, y0, fz], lift };
+  }
+
   function updateSpatula(dt) {
     spatula.work *= Math.exp(-dt * 8);
     /** Held X stirs on its own: the spatula sweeps figure-eights across the floor. */
@@ -897,16 +939,14 @@ export function createGame({ stage, GFX, kitchen }) {
       } else {
         spatula.last = null;
       }
-      const r = Math.min(COOK_RADIUS - 0.3, Math.hypot(x, z));
-      const yaw = 0.55;
-      const target = new GFX.Vector3(
-        panRig.position.x + x - Math.sin(yaw) * 1.55,
-        panRig.position.y + floorHeight(r) + 0.03,
-        panRig.position.z + z - Math.cos(yaw) * 1.55,
-      );
+      const { front, lift } = spatulaPose(x, z);
+      const yaw = SPATULA.yaw;
+      const target = new GFX.Vector3(panRig.position.x + front[0], panRig.position.y + front[1], panRig.position.z + front[2]);
       spatulaMesh.position.lerp(target, smoothing(dt, 22));
       spatulaMesh.rotation.y += (yaw - spatulaMesh.rotation.y) * smoothing(dt, 12);
-      spatulaMesh.rotation.x += ((press.drag === 'stir' ? 0.12 : 0.04) - spatulaMesh.rotation.x) * smoothing(dt, 12);
+      /** Handle up: a little always, and as much more as it takes to clear the rim. */
+      const tilt = -(lift + (press.drag === 'stir' ? 0.04 : 0.1));
+      spatulaMesh.rotation.x += (tilt - spatulaMesh.rotation.x) * smoothing(dt, 12);
     } else {
       const r = kitchen.spatula.rest;
       spatulaMesh.position.lerp(new GFX.Vector3(r.x, r.y, r.z), smoothing(dt, 10));

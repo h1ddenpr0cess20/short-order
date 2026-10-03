@@ -23,13 +23,14 @@ import { marble, studio, subwayTile } from './textures.js';
  */
 export const LAYOUTS = Object.freeze({
   wide: {
-    board: { x: -8.6, z: 1.6 },
-    stove: { x: 9.4, z: 0.4 },
+    /** Far enough apart for the spatula to lie between them, clear of both and of the knob. */
+    board: { x: -9.2, z: 1.6 },
+    stove: { x: 10.0, z: 0.4 },
     bowl: { x: -3.1, z: -9.0 },
     carton: { x: -13.9, z: -9.0 },
     oil: { x: -8.45, z: -10.2 },
     plate: { x: 1.5, z: 14.2 },
-    spatula: { x: 0, z: 6.6, yaw: Math.PI - 0.08 },
+    spatula: { x: -0.1, z: 6.6, yaw: Math.PI },
     towel: { x: -11.2, z: 10.6, yaw: 0.12 },
     mill: { x: 15.4, z: -10.6 },
     salt: { x: 11.6, z: -10.4 },
@@ -43,7 +44,8 @@ export const LAYOUTS = Object.freeze({
     carton: { x: -5.1, z: -15.6 },
     oil: { x: 0.5, z: -16.6 },
     plate: { x: 0, z: 24 },
-    spatula: { x: -9.2, z: 6.2, yaw: Math.PI + 0.1 },
+    /** Beside the board, the blade up by it and the handle down past the range, clear of both. */
+    spatula: { x: -9.2, z: -3.6, yaw: 0 },
     towel: { x: -15, z: 2, yaw: -0.1 },
     mill: { x: 9.2, z: -1.4 },
     salt: { x: 9.1, z: -6.6 },
@@ -138,6 +140,8 @@ export function buildKitchen({ stage, GFX }) {
   /** The spatula waits on the counter, between the board and the range. */
   const spatula = buildSpatula(GFX);
   spatula.rest = { x: 0, y: 0.03, z: 0, yaw: 0, pitch: 0 };
+  /** Turned first, then tipped along its own length: the handle lifts straight up, not off to one side. */
+  spatula.group.rotation.order = 'YXZ';
   room.add(spatula.group);
 
   const plate = buildPlate(GFX);

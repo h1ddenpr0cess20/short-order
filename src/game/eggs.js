@@ -35,6 +35,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   const cracker = createCracker(GFX, {
     room: kitchen.room,
     rimPoint: () => rim.set(bowlGroup.position.x - BOWL.rim * 0.82, kitchen.bowl.floor + BOWL.depth + 0.05, bowlGroup.position.z + 0.9),
+    centre: () => bowlGroup.position,
   });
   const eggsLeft = [...kitchen.carton.eggs];
   let pending = 0;

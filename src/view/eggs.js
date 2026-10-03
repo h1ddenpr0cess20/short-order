@@ -243,7 +243,13 @@ export function createBowlView(GFX, bowlGroup, bowlState, floor) {
  * carried over, a tap, and the two halves of the shell pulled apart while the
  * egg drops out between them. `onIn` is called as it lands in the bowl.
  */
-export function createCracker(GFX, { room, rimPoint }) {
+/**
+ * An egg from the carton cracked into the bowl: carried over to the rim,
+ * knocked on it, and opened over the bowl, the egg falling out between the
+ * halves. `rimPoint()` is where on the rim it is knocked and `centre()` the
+ * middle of the bowl, so the egg is always opened over the inside of it.
+ */
+export function createCracker(GFX, { room, rimPoint, centre }) {
   const halves = crackedHalves(GFX);
   const material = shellMaterial(GFX);
   const active = [];
@@ -287,6 +293,11 @@ export function createCracker(GFX, { room, rimPoint }) {
       a.t += dt;
       const t = a.t;
       const rim = rimPoint();
+      /** Which way is into the bowl from the rim, across the counter; the egg is turned to face it. */
+      const c = centre();
+      const ix0 = c.x - rim.x, iz0 = c.z - rim.z, il = Math.hypot(ix0, iz0) || 1;
+      const ix = ix0 / il, iz = iz0 / il;
+      const yaw = Math.atan2(-iz, ix);
       /** Over to just above the rim, tipped toward the bowl. */
       if (t < 0.42) {
         const k = ease(t / 0.42);
@@ -295,19 +306,27 @@ export function createCracker(GFX, { room, rimPoint }) {
           a.from.y + (rim.y + 1.6 - a.from.y) * k + Math.sin(k * Math.PI) * 1.4,
           a.from.z + (rim.z - a.from.z) * k,
         );
-        a.group.rotation.set(0, 0, k * 0.9);
+        a.group.rotation.set(0, yaw, -k * 0.6);
       } else if (t < 0.52) {
         /** The knock on the rim. */
         const k = (t - 0.42) / 0.1;
         a.group.position.set(rim.x, rim.y + 1.6 - Math.sin(k * Math.PI) * 0.5, rim.z);
+        a.group.rotation.set(0, yaw, -0.6);
         if (!a.cracked && k > 0.5) {
           a.cracked = true;
           events.push('tap');
         }
       } else if (t < 0.95) {
-        /** Pulled apart over the bowl, egg falling out between. */
+        /**
+         * Brought in over the bowl and pulled apart, the egg falling out
+         * between the halves into the middle of it: the half nearer the rim
+         * lifts back toward it, the other opens over the bowl.
+         */
         const k = ease(Math.min(1, (t - 0.52) / 0.3));
-        a.group.position.set(rim.x - 1.2 * k, rim.y + 1.6 + 0.4 * k, rim.z);
+        const over = 1.5 * k;
+        const ox = rim.x + ix * over, oz = rim.z + iz * over;
+        a.group.position.set(ox, rim.y + 1.6 + 0.4 * k, oz);
+        a.group.rotation.set(0, yaw, -0.6 * (1 - k));
         a.top.position.set(-0.9 * k, 0.5 * k, 0);
         a.top.rotation.set(0, 0, 1.4 * k);
         a.bottom.position.set(0.9 * k, -0.2 * k, 0);
@@ -315,9 +334,9 @@ export function createCracker(GFX, { room, rimPoint }) {
         const fall = Math.max(0, t - 0.56);
         const y = rim.y + 1.3 - 18 * fall * fall;
         a.yolk.visible = a.white.visible = y > rim.y - 1.4;
-        a.yolk.position.set(rim.x - 1.2 * k, y, rim.z);
+        a.yolk.position.set(ox, y, oz);
         a.yolk.scale.set(0.8, 0.8, 0.8);
-        a.white.position.set(rim.x - 1.2 * k, y + 0.25, rim.z);
+        a.white.position.set(ox, y + 0.25, oz);
         a.white.scale.set(1.2, 1.5 + fall * 3, 1.2);
         if (!a.landed && y < rim.y - 1.2) {
           a.landed = true;
