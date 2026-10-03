@@ -3,7 +3,27 @@
  * and the button that starts it — which is also what lets the page make sound.
  */
 
+const POINTER = `
+  <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile. Drag the pile to carry it to the pan.</span></li>
+  <li><b>Burner</b><span>click the knob, or <kbd>Q</kbd> <kbd>E</kbd>. Cast iron is slow — let it heat. Oil first: click the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
+  <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
+  <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour.</span></li>
+  <li><b>Season</b><span>click the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
+  <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>B</kbd> butters, <kbd>A</kbd> salts, <kbd>F</kbd> peppers, <kbd>enter</kbd> plates.</span></li>
+`;
+
+/** The same, for a finger: no right button, no keys, and the bar along the bottom for everything. */
+const TOUCH = `
+  <li><b>Knife</b><span>tap the board to chop where you tap. <i>Turn</i> turns the pile. Drag the pile to carry it to the pan, or <i>into pan</i>.</span></li>
+  <li><b>Burner</b><span>tap the knob, or <i>+</i> and <i>−</i>. Cast iron is slow — let it heat. Oil first: tap the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
+  <li><b>Pan</b><span>drag to stir with the spatula, tap to flip, <i>toss</i> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
+  <li><b>Eggs</b><span>tap the carton to crack one into the bowl, drag round in the bowl to whisk, <i>pour</i> to pour.</span></li>
+  <li><b>Season</b><span>tap the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
+`;
+
 export function createIntro({ root = document.body, onStart }) {
+  /** A screen with no mouse over it is read the touch instructions. */
+  const touch = globalThis.matchMedia?.('(hover: none) and (pointer: coarse)').matches ?? false;
   const scrim = document.createElement('section');
   scrim.id = 'intro';
   scrim.setAttribute('aria-label', 'Short Order');
@@ -32,14 +52,7 @@ export function createIntro({ root = document.body, onStart }) {
       <div class="page">
         <p class="lede">The breakfast rush has one ticket on it: a potato and egg scramble. Dice it,
         fry it golden, beat the eggs and scramble them in, season it — and plate it before it goes cold.</p>
-        <ul class="how">
-          <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile. Drag the pile to carry it to the pan.</span></li>
-          <li><b>Burner</b><span>click the knob, or <kbd>Q</kbd> <kbd>E</kbd>. Cast iron is slow — let it heat. Oil first: click the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
-          <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
-          <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour.</span></li>
-          <li><b>Season</b><span>click the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
-          <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>B</kbd> butters, <kbd>A</kbd> salts, <kbd>F</kbd> peppers, <kbd>enter</kbd> plates.</span></li>
-        </ul>
+        <ul class="how">${touch ? TOUCH : POINTER}</ul>
       </div>
       <button class="start" type="button">start cooking</button>
       <p class="small chip">service: quick <i>|</i> salt: to taste <i>|</i> butter: brown, never burnt</p>

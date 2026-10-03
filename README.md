@@ -44,7 +44,8 @@ to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actio
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
 
 Everything in that list is also a button in the bar along the bottom, so it all
-works on a phone: a tap on the board chops, a drag carries or stirs or whisks.
+works on a phone: a tap on the board chops, a drag carries or stirs or whisks, upright or
+on its side.
 And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
 chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg,
 `B` butters, `A` salts, `F` peppers, `enter` plates, `M` mutes.

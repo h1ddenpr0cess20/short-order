@@ -263,6 +263,9 @@ export function buildKitchen({ stage, GFX }) {
     }
   }
 
+  /** A wide window too low for the full ticket and bar: a phone turned on its side. */
+  const isShort = (width, height) => width / height >= 0.85 && height < 520;
+
   const view = { pitch: 0.88, yaw: 0, fov: 34 };
   const scratch = new GFX.Vector3();
   const target = new GFX.Vector3();
@@ -305,14 +308,17 @@ export function buildKitchen({ stage, GFX }) {
     /**
      * On a wide window the ticket stands down the left, so the shot keeps out
      * of that strip; on a tall one it sits across the top instead, and the bar
-     * along the bottom wraps onto two rows on a narrow one.
+     * along the bottom wraps onto two rows on a narrow one. A short one — a
+     * phone on its side — has the ticket folded small in the corner and the
+     * bar slim along the bottom.
      */
-    const ticket = tall ? 0 : Math.min(0.5, ((16 + 290 + 18) / width) * 2);
+    const short = isShort(width, height);
+    const ticket = tall ? 0 : short ? Math.min(0.85, ((10 + 264 + 10) / width) * 2) : Math.min(0.5, ((16 + 290 + 18) / width) * 2);
     const margin = {
       left: tall ? 0.03 : ticket,
       right: 0.03,
-      top: tall ? (128 / height) * 2 : 0.06,
-      bottom: ((narrow ? 128 : 96) / height) * 2,
+      top: tall ? (128 / height) * 2 : short ? 0.03 : 0.06,
+      bottom: ((short ? 58 : narrow ? 128 : 96) / height) * 2,
     };
     const want = (margin.bottom - margin.top) / 2;
     const side = (margin.left - margin.right) / 2;
@@ -361,7 +367,11 @@ export function buildKitchen({ stage, GFX }) {
   function frameHome() {
     const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
     arrange(w / h < 0.85 ? 'tall' : 'wide');
-    if (typeof document !== 'undefined') document.body.dataset.shape = shape;
+    if (typeof document !== 'undefined') {
+      document.body.dataset.shape = shape;
+      if (isShort(w, h)) document.body.dataset.short = 'true';
+      else delete document.body.dataset.short;
+    }
     frame();
     home.position.copy(camera.position);
     home.target.copy(target);
