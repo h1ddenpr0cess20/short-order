@@ -69,7 +69,7 @@ export function buildKnife(GFX) {
   group.name = 'knife';
 
   const steel = new GFX.MeshPhysicalMaterial({
-    name: 'knife-steel', color: 0xdfe3e8, roughness: 0.16, metalness: 1, clearcoat: 0.4, clearcoatRoughness: 0.2,
+    name: 'knife-steel', color: 0xd2d6dc, roughness: 0.3, metalness: 0.78, clearcoat: 0.5, clearcoatRoughness: 0.15,
   });
   const black = new GFX.MeshStandardMaterial({ name: 'knife-handle', color: 0x161514, roughness: 0.48, metalness: 0.05 });
   const rivet = new GFX.MeshStandardMaterial({ name: 'knife-rivet', color: 0xcfd2d6, roughness: 0.25, metalness: 1 });

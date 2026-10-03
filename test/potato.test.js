@@ -36,7 +36,7 @@ describe('the potato', () => {
     const size = m.max.map((v, i) => v - m.min[i]);
     assert.ok(size[0] > HALF.x * 1.6 && size[0] < HALF.x * 2.4, `length ${size[0]}`);
     assert.ok(size[0] > size[1] && size[0] > size[2], 'it should lie along its length');
-    assert.ok(m.volume > 6 && m.volume < 14, `volume ${m.volume}`);
+    assert.ok(m.volume > 10 && m.volume < 24, `volume ${m.volume}`);
   });
 
   it('lies on its belly at y = 0', () => {

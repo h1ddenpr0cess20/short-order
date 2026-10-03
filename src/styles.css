@@ -25,3 +25,91 @@ three-d-stage {
   height: 100dvh;
   touch-action: none;
 }
+
+.chip {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+button {
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ── the bar ─────────────────────────────────────────────────────────────── */
+
+#bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(24, 20, 16, 0.78);
+  border: 1px solid rgba(255, 240, 220, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+}
+
+#bar .group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#bar .heat, #bar .moves {
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 240, 220, 0.1);
+}
+
+#bar button {
+  white-space: nowrap;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 240, 220, 0.12);
+  background: rgba(255, 240, 220, 0.06);
+  transition: background .15s, opacity .15s;
+}
+#bar button:hover:not(:disabled) { background: rgba(255, 240, 220, 0.14); }
+#bar button:disabled { opacity: .35; cursor: default; }
+#bar button.round { width: 34px; padding: 0; font-size: 16px; }
+
+#bar .dial, #bar .thermo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 84px;
+}
+#bar .label { opacity: .45; font-size: 9px; }
+#bar .level { font: 600 13px/1 var(--sans); letter-spacing: .02em; }
+#bar .level[data-level="0"] { opacity: .5; }
+#bar .temp { font: 600 15px/1 var(--mono); }
+#bar .temp[data-hot="cold"] { color: #9fb6c9; }
+#bar .temp[data-hot="warm"] { color: #f2d49b; }
+#bar .temp[data-hot="hot"] { color: #f2a65a; }
+#bar .temp[data-hot="smoking"] { color: #f06a4a; }
+
+#hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 4;
+  margin: 0;
+  font: 500 11px/1.4 var(--mono);
+  letter-spacing: .06em;
+  color: rgba(40, 30, 22, 0.75);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  white-space: nowrap;
+}

@@ -76,24 +76,23 @@ export function buildCarton(GFX) {
 }
 
 /**
- * A bottle of oil: thick green glass, gold inside, a black pourer in the neck.
- * The glass and the oil are drawn as one, refracting what is behind it.
+ * A bottle of oil: green glass, gold inside, a black pourer in the neck. Drawn
+ * as see-through rather than refracting — a refracting bottle costs the whole
+ * kitchen drawn twice a frame, and from across the counter nobody can tell.
  */
 export function buildBottle(GFX) {
   const group = new GFX.Group();
   group.name = 'oil';
   const glass = new GFX.MeshPhysicalMaterial({
     name: 'oil-bottle',
-    color: 0xffffff,
-    roughness: 0.06,
+    color: 0xc2a32a,
+    roughness: 0.08,
     metalness: 0,
-    transmission: 0.92,
-    thickness: 1.6,
-    ior: 1.47,
-    attenuationColor: new GFX.Color(0xb39a1c),
-    attenuationDistance: 1.2,
+    transparent: true,
+    opacity: 0.82,
     clearcoat: 1,
     clearcoatRoughness: 0.05,
+    depthWrite: false,
   });
   const R = 1.15, H = 5.2;
   const profile = [[0, 0], [R - 0.15, 0], [R, 0.18], [R, H * 0.72], [R * 0.86, H * 0.82], [0.42, H * 0.95], [0.4, H + 0.9], [0.46, H + 1.0], [0, H + 1.0]];

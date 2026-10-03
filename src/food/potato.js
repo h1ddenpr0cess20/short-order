@@ -19,10 +19,11 @@ import { vnoise } from './noise.js';
 import { solidFromBuffers } from '../geometry/slice.js';
 
 /**
- * Half its length, height and depth. About 9 cm end to end at the scale the
- * pan is drawn at, where a unit is a little under two and a half centimetres.
+ * Half its length, height and depth. A big russet, about 11 cm end to end at
+ * the scale the pan is drawn at, where a unit is a little under two and a half
+ * centimetres: enough, diced, to cover a good part of a twelve-inch skillet.
  */
-export const HALF = Object.freeze({ x: 1.95, y: 1.28, z: 1.16 });
+export const HALF = Object.freeze({ x: 2.3, y: 1.5, z: 1.36 });
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
@@ -80,6 +81,12 @@ function hsl(h, s, l) {
 const EYE = hex(0x4a3116);
 
 /**
+ * Tater's skin was these netted values multiplied by a russet material colour;
+ * here the colour is all in the vertices, so the russet is folded in.
+ */
+const RUSSET = hex(0xa97c4c);
+
+/**
  * Russet skin at a direction: Tater's netting and patchiness, then darker where
  * an eye is, with a paler ring round each one where the skin puckers.
  */
@@ -88,7 +95,7 @@ export function skinAt(x, y, z) {
     + vnoise(x * 40 + 5, y * 40 + 5, z * 40 + 5) * 0.35
     + vnoise(x * 90 + 9, y * 90 + 9, z * 90 + 9) * 0.2;
   const patch = vnoise(x * 5 + 90, y * 5 + 90, z * 5 + 90);
-  let colour = hsl(0.080 + 0.010 * patch, 0.36 + 0.06 * patch, 0.44 + 0.10 * net + 0.05 * patch);
+  let colour = hsl(0.080 + 0.010 * patch, 0.36 + 0.06 * patch, 0.44 + 0.10 * net + 0.05 * patch).map((c, i) => c * RUSSET[i] * 1.9);
   for (const [ex, ey, ez] of EYES) {
     const d = Math.acos(clamp(x * ex + y * ey + z * ez, -1, 1));
     if (d > 0.16) continue;

@@ -129,9 +129,9 @@ export function createPan({ random = Math.random } = {}) {
       if (s.air) continue;
       const up = 9 + 9 * strength + (random() - 0.5) * 3;
       s.vel = [
-        (random() - 0.5) * (1 + 2 * strength) - piece.pos[0] * 0.35,
+        (random() - 0.5) * (2.4 + 3 * strength) - piece.pos[0] * 0.12,
         up,
-        (random() - 0.5) * (1 + 2 * strength) - piece.pos[2] * 0.35,
+        (random() - 0.5) * (2.4 + 3 * strength) - piece.pos[2] * 0.12,
       ];
       const a = random() * Math.PI * 2;
       s.spin = { axis: [Math.cos(a), 0, Math.sin(a)], rate: (5 + random() * 8) * (random() < 0.5 ? -1 : 1) };
@@ -356,15 +356,20 @@ export function createPan({ random = Math.random } = {}) {
     sizzle = Math.min(1, hiss / 14);
     steam = Math.min(1, vapour / 10);
     smoke = Math.min(1, char / 3 + Math.max(0, heat.temp - 240) / 40 * (oil > 0.12 ? 1 : 0.3));
-    oil = Math.max(0, oil - 0.00012 * pieces.length * dt);
+    /** The food soaks the oil up: a whole potato's worth drinks a pour in a couple of minutes. */
+    const volume = pieces.reduce((sum, p) => sum + p.volume, 0);
+    oil = Math.max(0, oil - 0.0003 * volume * dt);
   }
 
-  /** Fixed small steps, so a slow frame does not let pieces tunnel. */
-  function update(dt) {
+  /**
+   * Fixed small steps, so a slow frame does not let pieces tunnel. `extra` is
+   * any other wet load on the floor — egg that has not set yet.
+   */
+  function update(dt, extra = 0) {
     const steps = Math.max(1, Math.ceil(dt / (1 / 120)));
     const h = dt / steps;
     for (let i = 0; i < steps; i++) physics(h);
-    heat.update(dt, load);
+    heat.update(dt, load + extra);
     cook(dt);
   }
 
