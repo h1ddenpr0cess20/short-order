@@ -24,6 +24,7 @@ function writeBest(total) {
 export function createResult({ game, root = document.body }) {
   const panel = document.createElement('section');
   panel.id = 'result';
+  panel.className = 'framed';
   panel.hidden = true;
   panel.setAttribute('aria-live', 'polite');
   panel.setAttribute('aria-label', 'How it went');
@@ -43,7 +44,7 @@ export function createResult({ game, root = document.body }) {
     if (record) writeBest(report.total);
     const stars = '★★★★★'.slice(0, report.stars) + '☆☆☆☆☆'.slice(0, 5 - report.stars);
     panel.innerHTML = `
-      <header><span class="chip">order up</span><span class="chip">${record ? 'best yet' : `best ${Math.max(best, report.total)}`}</span></header>
+      <header><span class="chip"><i class="star" aria-hidden="true">★</i> order up</span><span class="chip">${record ? 'best yet' : `best ${Math.max(best, report.total)}`}</span></header>
       <p class="stars" aria-label="${report.stars} of 5 stars">${stars}</p>
       <p class="total"><b>${report.total}</b><span>/100</span></p>
       <p class="verdict">${report.verdict}</p>

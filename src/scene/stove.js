@@ -1,5 +1,5 @@
 /**
- * The range: a black enamel top in a brushed steel trim, set into the
+ * The range: a black enamel top in a brushed brass trim, set into the
  * counter, one big burner under a cast iron grate, and the knob that runs it.
  *
  * The grate is what the pan stands on, so its height is the one number the
@@ -57,11 +57,11 @@ export function buildStove(GFX) {
   stove.name = 'stove';
 
   const steel = new GFX.MeshStandardMaterial({
-    name: 'range-steel',
-    color: 0xc9ccd0,
+    name: 'range-brass',
+    color: 0xcfa75e,
     map: brushed(GFX),
-    roughness: 0.34,
-    metalness: 0.88,
+    roughness: 0.32,
+    metalness: 0.95,
   });
   const iron = new GFX.MeshStandardMaterial({
     name: 'grate-iron',
@@ -182,7 +182,7 @@ export function buildStove(GFX) {
    */
   const knob = new GFX.Group();
   knob.name = 'knob';
-  const chrome = new GFX.MeshStandardMaterial({ name: 'knob-chrome', color: 0xe6e6e6, roughness: 0.18, metalness: 1 });
+  const chrome = new GFX.MeshStandardMaterial({ name: 'knob-brass', color: 0xd6ae62, roughness: 0.22, metalness: 1 });
   const skirt = new GFX.Mesh(new GFX.CylinderGeometry(1.0, 1.08, 0.12, 40), chrome);
   skirt.name = 'knob-skirt';
   skirt.position.y = 0.06;
@@ -202,7 +202,7 @@ export function buildStove(GFX) {
   stove.add(knob);
 
   /** Markings round the knob: off, and a fan of ticks for the heat. */
-  const tickMat = new GFX.MeshBasicMaterial({ name: 'knob-ticks', color: 0x2b2b2b });
+  const tickMat = new GFX.MeshBasicMaterial({ name: 'knob-ticks', color: 0xb8924c });
   for (let k = 0; k <= 5; k++) {
     const a = KNOB_SWEEP.off + (KNOB_SWEEP.full - KNOB_SWEEP.off) * (k / 5);
     const tick = new GFX.Mesh(new GFX.BoxGeometry(0.08, 0.02, k === 0 ? 0.36 : 0.22), tickMat);

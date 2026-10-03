@@ -46,13 +46,15 @@ export function clockText(seconds) {
 export function createCard({ game, root = document.body }) {
   const card = document.createElement('section');
   card.id = 'ticket';
+  card.className = 'framed';
   card.setAttribute('aria-label', 'The order');
   card.innerHTML = `
     <header>
-      <span class="chip">short order</span>
-      <span class="chip no">#01</span>
+      <span class="chip"><i class="star" aria-hidden="true">★</i> today's order</span>
+      <span class="chip no">no. 01</span>
     </header>
     <h1>Potato &amp; egg scramble</h1>
+    <p class="tag">Golden dice, soft curds, one cast iron pan.</p>
     <ol>
       <li data-step="dice"><span class="what">Dice the potato</span><span class="short">dice</span><span class="how"></span><i class="bar"><b></b></i></li>
       <li data-step="fry"><span class="what">Fry it golden</span><span class="short">fry</span><span class="how"></span><i class="bar"><b></b></i></li>

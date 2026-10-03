@@ -8,7 +8,7 @@
  * it falls, which is how a chop looks from where somebody is standing.
  */
 
-import { endGrain, maple } from './textures.js';
+import { blade as forged, endGrain, maple, walnut } from './textures.js';
 
 export const BOARD = Object.freeze({ w: 15, d: 10.4, h: 0.9, round: 0.9 });
 
@@ -60,19 +60,31 @@ export function buildBoard(GFX) {
 }
 
 /**
- * A chef's knife: a blade with a curved belly running to a point, a bolster,
- * and a black handle with three rivets. Built lying along −x from the heel, the
+ * A chef's knife: a forged blade with a curved belly running to a point and
+ * a bright grind along its edge, a bolster, and a walnut handle with three
+ * brass rivets. Built lying along −x from the heel, the
  * edge down at y = 0 and the spine up, blade flat in the xy plane.
  */
 export function buildKnife(GFX) {
   const group = new GFX.Group();
   group.name = 'knife';
 
+  /** The steel's face is painted along the blade: u from tip to heel, v from edge to spine. */
+  const face = forged(GFX);
+  if (face) {
+    face.repeat.set(1 / 7.6, 1 / 1.75);
+    face.offset.set(1, 0);
+  }
   const steel = new GFX.MeshPhysicalMaterial({
-    name: 'knife-steel', color: 0xd2d6dc, roughness: 0.3, metalness: 0.78, clearcoat: 0.5, clearcoatRoughness: 0.15,
+    name: 'knife-steel', color: face ? 0xffffff : 0xd2d6dc, map: face, roughness: 0.26, metalness: 0.8, clearcoat: 0.5, clearcoatRoughness: 0.12,
   });
-  const black = new GFX.MeshStandardMaterial({ name: 'knife-handle', color: 0x161514, roughness: 0.48, metalness: 0.05 });
-  const rivet = new GFX.MeshStandardMaterial({ name: 'knife-rivet', color: 0xcfd2d6, roughness: 0.25, metalness: 1 });
+  const bolsterSteel = new GFX.MeshStandardMaterial({ name: 'knife-bolster', color: 0xc8ccd2, roughness: 0.22, metalness: 1 });
+  const grain = walnut(GFX, { seed: 53 });
+  if (grain) grain.repeat.set(1, 0.6);
+  const black = new GFX.MeshPhysicalMaterial({
+    name: 'knife-handle', color: grain ? 0xffffff : 0x3a2416, map: grain, roughness: 0.4, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.25,
+  });
+  const rivet = new GFX.MeshStandardMaterial({ name: 'knife-rivet', color: 0xd6ae62, roughness: 0.25, metalness: 1 });
 
   /** The blade's outline: heel at x = 0, tip at x = −LENGTH. */
   const LENGTH = 7.6, HEEL = 1.75;
@@ -91,7 +103,7 @@ export function buildKnife(GFX) {
   bladeMesh.name = 'knife-blade';
   group.add(bladeMesh);
 
-  const bolster = new GFX.Mesh(new GFX.BoxGeometry(0.42, HEEL * 0.9, 0.2), steel);
+  const bolster = new GFX.Mesh(new GFX.BoxGeometry(0.42, HEEL * 0.9, 0.2), bolsterSteel);
   bolster.name = 'knife-bolster';
   bolster.position.set(0.18, HEEL * 0.55, 0);
   group.add(bolster);
