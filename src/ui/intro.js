@@ -14,7 +14,7 @@ const POINTER = `
 
 /** The same, for a finger: no right button, no keys, and the bar along the bottom for everything. */
 const TOUCH = `
-  <li><b>Knife</b><span>tap the board to chop where you tap. <i>Turn</i> turns the pile. Drag the pile to carry it to the pan, or <i>into pan</i>.</span></li>
+  <li><b>Knife</b><span>tap the board to chop where you tap. Twist two fingers on the kitchen — or tap <i>↻ turn</i> — to turn the pile a quarter turn. Drag the pile to carry it to the pan, or <i>into pan</i>.</span></li>
   <li><b>Burner</b><span>tap the knob, or <i>+</i> and <i>−</i>. Cast iron is slow — let it heat. Oil first: tap the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
   <li><b>Pan</b><span>drag to stir with the spatula, tap to flip, <i>toss</i> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
   <li><b>Eggs</b><span>tap the carton to crack one into the bowl, drag round in the bowl to whisk, <i>pour</i> to pour.</span></li>

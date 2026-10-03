@@ -43,6 +43,10 @@ export function clockText(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/** No right button and no R under a finger: the pile is turned with two of them, or the bar. */
+const touch = globalThis.matchMedia?.('(hover: none) and (pointer: coarse)').matches ?? false;
+const advice = (next) => (touch && next === 'turn the pile, then cut across' ? 'twist two fingers to turn the pile, then cut across' : next);
+
 export function createCard({ game, root = document.body }) {
   const card = document.createElement('section');
   card.id = 'ticket';
@@ -96,7 +100,7 @@ export function createCard({ game, root = document.body }) {
 
       show('dice', {
         how: p.dice.pieces <= 1 ? 'rounds, then strips, turn, then cubes'
-          : `${p.dice.pieces} pieces · ${pct(p.dice.bite)} bite-size${p.dice.next ? ` — ${p.dice.next}` : ''}`,
+          : `${p.dice.pieces} pieces · ${pct(p.dice.bite)} bite-size${p.dice.next ? ` — ${advice(p.dice.next)}` : ''}`,
         fill: p.dice.bite / 0.7,
         done: p.dice.done,
       });

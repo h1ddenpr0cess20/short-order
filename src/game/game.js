@@ -111,7 +111,14 @@ export function createGame({ stage, GFX, kitchen }) {
   const keys = new Set();
   let whiskAngle = 0, stirAngle = 0;
   const spatula = { last: null, work: 0 };
-  const press = { down: false, x: 0, y: 0, zone: null, drag: null, grab: [0, 0] };
+  const press = { down: false, id: null, x: 0, y: 0, zone: null, drag: null, grab: [0, 0] };
+  /**
+   * Fingers on the glass, for the one gesture that takes two: a twist, which
+   * turns the pile the way the fingers go. `twist` is the angle between them
+   * last time, and how far they have turned since the pile last did.
+   */
+  const fingers = new Map();
+  let twist = null;
   let zone = { zone: null };
   let toss = null;
   /** Off until the cook has started: the kitchen is there to look at behind the title. */
@@ -218,8 +225,9 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
-  function turn() {
-    if (carried.length || !board.turn(1)) return false;
+  /** A quarter turn of the pile: anticlockwise as the camera sees it, or clockwise for `dir` −1. */
+  function turn(dir = 1) {
+    if (carried.length || !board.turn(dir)) return false;
     emit('turn');
     return true;
   }
@@ -575,9 +583,48 @@ export function createGame({ stage, GFX, kitchen }) {
 
   // ------------------------------------------------------------ input
 
+  /** The angle of the line from the first finger down to the second, on the screen. */
+  function fingerAngle() {
+    const [a, b] = fingers.values();
+    return Math.atan2(b.y - a.y, b.x - a.x);
+  }
+
+  /**
+   * A second finger down: the start of a twist, and the end of whatever the
+   * first one was about to do — unless it was already carrying, stirring or
+   * whisking, which a stray finger should not interrupt.
+   */
+  function startTwist() {
+    if (press.down && press.drag) return;
+    press.down = false;
+    press.drag = null;
+    twist = { angle: fingerAngle(), turned: 0 };
+  }
+
+  /** Twisted far enough, the pile turns; keep twisting and it turns again a quarter later. */
+  function moveTwist() {
+    const angle = fingerAngle();
+    let d = angle - twist.angle;
+    if (d > Math.PI) d -= 2 * Math.PI;
+    if (d < -Math.PI) d += 2 * Math.PI;
+    twist.angle = angle;
+    twist.turned += d;
+    if (Math.abs(twist.turned) < 0.55) return;
+    /** Clockwise on the screen is clockwise from above, which is the board's −1. */
+    const dir = twist.turned > 0 ? -1 : 1;
+    if (turn(dir)) twist.turned += dir * (Math.PI / 2);
+  }
+
   function onMove(event) {
     lastActivity = performance.now();
+    if (fingers.has(event.pointerId)) fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (!live) return;
+    if (twist) {
+      if (fingers.size >= 2) moveTwist();
+      return;
+    }
+    /** Only the hand that pressed steers what it is doing. */
+    if (press.down && event.pointerId !== press.id) return;
     pointer.aim(event);
     zone = locate();
     if (zone.zone === 'board') knife.manual = false;
@@ -625,10 +672,16 @@ export function createGame({ stage, GFX, kitchen }) {
 
   function onDown(event) {
     lastActivity = performance.now();
+    if (event.pointerType === 'touch') fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (event.button === 2 || round.plated || !live) return;
+    if (fingers.size >= 2) {
+      if (!twist && fingers.size === 2) startTwist();
+      return;
+    }
     pointer.aim(event);
     zone = locate();
     press.down = true;
+    press.id = event.pointerId;
     press.x = event.clientX;
     press.y = event.clientY;
     press.zone = zone;
@@ -641,7 +694,13 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function onUp(event) {
-    if (!press.down) return;
+    fingers.delete(event.pointerId);
+    /** The twist is over when the fingers are all off: one left behind is not a tap. */
+    if (twist) {
+      if (fingers.size === 0) twist = null;
+      return;
+    }
+    if (!press.down || event.pointerId !== press.id) return;
     pointer.aim(event);
     press.down = false;
     if (press.drag === 'scrape') letGo();
