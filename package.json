@@ -1,0 +1,23 @@
+{
+  "name": "short-order",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A cooking game in one cast iron pan: dice a potato, fry it golden, whisk some eggs and scramble them in",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite build && vite preview",
+    "test": "node --test \"test/**/*.test.js\"",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "vite": "^8.3.1"
+  }
+}
