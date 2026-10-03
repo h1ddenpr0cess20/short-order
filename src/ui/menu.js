@@ -1,5 +1,5 @@
 /**
- * The corner menu: sound on and off, start over, and the how-to again.
+ * The corner menu: another order, sound on and off, start over, and the how-to again.
  *
  * On a phone the corners are kitchen — the pan's handle and the knob are down
  * the right-hand side — so there the menu folds into one button at the end of
@@ -15,6 +15,7 @@ export function createMenu({ game, sound, intro, root = document.body }) {
   nav.innerHTML = `
     <button class="chip round more" data-act="more" aria-expanded="false" aria-label="Menu" title="Menu">⋯</button>
     <div class="items">
+      <button class="chip" data-act="order" title="Pick another dish">change order</button>
       <button class="chip" data-act="sound" aria-pressed="false" title="Sound (M)">sound on</button>
       <button class="chip" data-act="restart" title="Start over">start over</button>
       <button class="chip" data-act="help" title="How to play">how to play</button>
@@ -73,7 +74,7 @@ export function createMenu({ game, sound, intro, root = document.body }) {
     open(false);
     if (act === 'sound') toggle();
     else if (act === 'restart') game.reset();
-    else if (act === 'help') {
+    else if (act === 'help' || act === 'order') {
       game.live = false;
       intro.show();
     }

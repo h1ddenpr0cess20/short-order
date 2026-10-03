@@ -7,18 +7,25 @@
  * they get. Pouring tips the bowl out over the pan, moving round as it goes,
  * into the sheet the pan keeps; stirring that sheet is the spatula's job, and
  * every curd it tears off comes back here to be made into a piece.
+ *
+ * For fried eggs the carton's eggs skip the bowl: each is knocked on the rim
+ * of the pan and broken straight onto the iron, in whatever space is left.
  */
 
 import { curdSolid } from '../food/curd.js';
 import { BOWL } from '../scene/cookware.js';
 import { LAYOUT, PAN_Y } from '../scene/kitchen.js';
+import { RIM_HEIGHT, RIM_RADIUS } from '../scene/pan.js';
 import { CARTON } from '../scene/pantry.js';
 import { createBowl } from '../sim/eggs.js';
 import { makePiece } from '../sim/piece.js';
 import { createBowlView, createCracker } from '../view/eggs.js';
 
-/** No more than this many eggs go in the bowl at once. */
+/** No more than this many eggs go in the bowl at once — or in the pan, broken in whole. */
 export const MAX_EGGS = 4;
+
+/** Where whole eggs go in the pan: apart, and clear of the wall. */
+const SLOTS = [[-2.1, 0.5], [2.1, -0.5], [0, -2.5], [0, 2.6]];
 
 /** How long a pour takes: over to the pan, pouring, and back. */
 const POUR = { over: 0.5, pour: 1.5, back: 0.55 };
@@ -61,8 +68,45 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   stream.visible = false;
   kitchen.room.add(stream);
 
-  /** Breaks the next egg in the carton into the bowl, if there is one and room for it. */
-  function crack() {
+  /** Eggs on their way to the pan, and where each is going. */
+  const headed = [];
+
+  /** The free place in the pan furthest from any egg already there or on its way. */
+  function slot() {
+    const taken = [...sheet.yolks.map((y) => [y.x, y.z]), ...headed];
+    let best = null, room = -1;
+    for (const s of SLOTS) {
+      const d = Math.min(Infinity, ...taken.map((t) => Math.hypot(t[0] - s[0], t[1] - s[1])));
+      if (d > room) { room = d; best = s; }
+    }
+    return best;
+  }
+
+  /** An egg broken straight into the pan, at the next free place in it. */
+  function crackIntoPan() {
+    if (eggsLeft.length === 0 || sheet.yolks.length + headed.length >= MAX_EGGS) return false;
+    const egg = eggsLeft.shift();
+    const at = slot();
+    headed.push(at);
+    const rig = kitchen.panRig.position;
+    /** Knocked on the near rim, toward the counter, and opened over its place in the pan. */
+    const rimAt = new GFX.Vector3();
+    const centre = new GFX.Vector3();
+    cracker.start(egg, () => {
+      headed.splice(headed.indexOf(at), 1);
+      sheet.crack(at[0], at[1]);
+      emit('egg-in-pan', { x: at[0], z: at[1], eggs: sheet.yolks.length });
+    }, {
+      /** The rim on the cook's side, in line with where the egg is going, so it opens over its place. */
+      rimPoint: () => rimAt.set(rig.x + at[0] * 0.8, PAN_Y + RIM_HEIGHT, rig.z + Math.min(RIM_RADIUS - 0.3, at[1] + 2.2)),
+      centre: () => centre.set(rig.x + at[0], PAN_Y, rig.z + at[1]),
+    });
+    return true;
+  }
+
+  /** Breaks the next egg in the carton into the bowl, if there is one and room for it — or into the pan. */
+  function crack(into = 'bowl') {
+    if (into === 'pan') return crackIntoPan();
     if (pour || eggsLeft.length === 0 || bowl.eggs + pending >= MAX_EGGS) return false;
     const egg = eggsLeft.shift();
     pending += 1;
@@ -262,6 +306,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
       eggsLeft.push(egg);
     }
     pending = 0;
+    headed.length = 0;
     bowl.clear();
     bowl.state.draining = 1;
     pour = null;

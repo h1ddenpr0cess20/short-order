@@ -1,51 +1,26 @@
 /**
  * The ticket: what the dish is, the steps to it, and how each is going — read
  * off the food, not ticked by the cook. A step is done when the food says so.
+ * The steps are the dish's own (see game/dishes.js); a new order on the rail
+ * writes a new ticket.
  */
 
-const pct = (v) => `${Math.round(v * 100)}%`;
-
-/** Salt and pepper in words, from how they sit against right (1). */
-function saltWord(r) {
-  if (r < 0.05) return 'no salt yet';
-  if (r < 0.35) return 'needs salt';
-  if (r < 0.65) return 'a little more salt';
-  if (r <= 1.45) return 'salted right';
-  if (r <= 2) return 'well salted';
-  return 'too salty';
-}
-/** One part's salt, in a word or two: 'potatoes salted, eggs need salt'. */
-function partSalt(r) {
-  if (r < 0.05) return 'no salt';
-  if (r < 0.65) return 'need salt';
-  if (r <= 1.45) return 'salted';
-  if (r <= 2) return 'well salted';
-  return 'too salty';
-}
-
-/** Salt for the dish, or for each part when the potatoes and the eggs are not alike. */
-function seasonWords(s) {
-  const both = s.potato.volume > 0 && s.egg.volume > 0;
-  const salt = both && partSalt(s.potato.salt) !== partSalt(s.egg.salt)
-    ? `potatoes ${partSalt(s.potato.salt)}, eggs ${partSalt(s.egg.salt)}`
-    : saltWord(s.salt);
-  return `${salt} · ${pepperWord(s.pepper)}`;
-}
-function pepperWord(r) {
-  if (r < 0.05) return 'no pepper';
-  if (r < 0.35) return 'a little pepper';
-  if (r <= 2.2) return 'peppered';
-  return 'peppery';
-}
+import { ticket } from '../game/dishes.js';
 
 export function clockText(seconds) {
   const m = Math.floor(seconds / 60), s = Math.floor(seconds % 60);
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** No right button and no R under a finger: the pile is turned with two of them, or the bar. */
+/** No right button and no keys under a finger: the moves are spelled the way this screen makes them. */
 const touch = globalThis.matchMedia?.('(hover: none) and (pointer: coarse)').matches ?? false;
-const advice = (next) => (touch && next === 'turn the pile, then cut across' ? 'twist two fingers to turn the pile, then cut across' : next);
+const WORDS = Object.freeze({
+  advice: (next) => (touch && next === 'turn the pile, then cut across' ? 'twist two fingers to turn the pile, then cut across' : next),
+  flip: touch ? 'tap an egg to turn it, or toss the pan' : 'click an egg to turn it, or toss (space)',
+  fold: (when) => (touch ? `${when} — tap fold` : `${when} — fold, or L`),
+});
+
+const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 export function createCard({ game, root = document.body }) {
   const card = document.createElement('section');
@@ -55,18 +30,11 @@ export function createCard({ game, root = document.body }) {
   card.innerHTML = `
     <header>
       <span class="chip"><i class="star" aria-hidden="true">★</i> today's order</span>
-      <span class="chip no">no. 01</span>
+      <span class="chip no"></span>
     </header>
-    <h1>Potato &amp; egg scramble</h1>
-    <p class="tag">Golden dice, soft curds, one cast iron pan.</p>
-    <ol>
-      <li data-step="dice"><span class="what">Dice the potato</span><span class="short">dice</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="fry"><span class="what">Fry it golden</span><span class="short">fry</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="whisk"><span class="what">Whisk three eggs</span><span class="short">whisk</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="scramble"><span class="what">Scramble them in</span><span class="short">scramble</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="season"><span class="what">Season it</span><span class="short">season</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="plate"><span class="what">Plate it</span><span class="short">plate</span><span class="how"></span></li>
-    </ol>
+    <h1><button type="button" class="dish" title="Change the order"></button></h1>
+    <p class="tag"></p>
+    <ol></ol>
     <p class="now" aria-hidden="true"></p>
     <footer>
       <span class="clock chip" data-out="clock">0:00</span>
@@ -75,71 +43,58 @@ export function createCard({ game, root = document.body }) {
   `;
   root.appendChild(card);
 
-  const step = (name) => card.querySelector(`[data-step="${name}"]`);
   const plate = card.querySelector('[data-act="plate"]');
   plate.addEventListener('click', () => game.plateIt());
+  /** The dish's name is the way back to the menu: tap it for another order. */
+  card.querySelector('.dish').addEventListener('click', () => api.onChange?.());
   for (const type of ['pointerdown', 'pointerup', 'pointermove']) card.addEventListener(type, (e) => e.stopPropagation());
 
-  function show(name, { how, fill, done }) {
-    const li = step(name);
+  let written = null;
+  let last = '';
+
+  /** The ticket for the dish on the rail: its name, its line, and a row for every step. */
+  function write(dish) {
+    written = dish;
+    last = '';
+    card.querySelector('.no').textContent = `no. ${dish.no}`;
+    card.querySelector('.dish').textContent = dish.name;
+    card.querySelector('.tag').textContent = dish.tag;
+    card.querySelector('ol').innerHTML = dish.steps.map((s) => `
+      <li data-step="${s.id}"><span class="what">${escape(s.what)}</span><span class="short">${escape(s.short)}</span><span class="how"></span>${s.id === 'plate' ? '' : '<i class="bar"><b></b></i>'}</li>`).join('');
+  }
+
+  const step = (name) => card.querySelector(`[data-step="${name}"]`);
+
+  function show({ id, how = '', fill = 0, done = false }) {
+    const li = step(id);
     li.querySelector('.how').textContent = how;
     const bar = li.querySelector('.bar b');
     if (bar) bar.style.width = `${Math.round(Math.max(0, Math.min(1, fill)) * 100)}%`;
     li.dataset.done = done ? 'true' : 'false';
   }
 
-  let last = '';
-
-  return {
+  const api = {
+    /** Set by whoever owns the menu: what a tap on the dish's name does. */
+    onChange: null,
     update() {
+      const dish = game.dish;
+      if (dish !== written) write(dish);
       const p = game.progress;
       if (!p) return;
       const key = JSON.stringify(p) + Math.floor(game.clock);
       if (key === last) return;
       last = key;
 
-      show('dice', {
-        how: p.dice.pieces <= 1 ? 'rounds, then strips, turn, then cubes'
-          : `${p.dice.pieces} pieces · ${pct(p.dice.bite)} bite-size${p.dice.next ? ` — ${advice(p.dice.next)}` : ''}`,
-        fill: p.dice.bite / 0.7,
-        done: p.dice.done,
-      });
-      show('fry', {
-        how: p.fry.inPan === 0 ? 'oil a hot pan; toss to brown every side'
-          : `${pct(p.fry.golden)} golden · ${pct(p.fry.cooked)} cooked through${p.fry.burnt > 0.05 ? ` · ${pct(p.fry.burnt)} burnt` : ''}`,
-        fill: p.fry.golden / 0.7,
-        done: p.fry.done,
-      });
-      show('whisk', {
-        how: p.whisk.eggs === 0 ? 'crack them into the bowl, beat them smooth' : `${Math.min(p.whisk.eggs, 9)} of 3 · ${pct(p.whisk.mix)} beaten`,
-        fill: (Math.min(3, p.whisk.eggs) / 3) * 0.4 + p.whisk.mix * 0.6,
-        done: p.whisk.done,
-      });
-      show('scramble', {
-        how: p.scramble.poured === 0 ? 'pour over the potatoes, gentle heat, keep it moving'
-          : `${pct(p.scramble.scrambled)} in curds · ${pct(p.scramble.soft)} set soft`,
-        fill: p.scramble.poured ? Math.min(p.scramble.scrambled, p.scramble.soft) / 0.6 : 0,
-        done: p.scramble.done,
-      });
-      const s = p.season;
-      show('season', {
-        how: s.score > 0 && p.butter.burnt ? 'the butter burnt — bitter'
-          : !s.food ? 'salt and pepper: some on the potatoes, some in the eggs'
-            : seasonWords(s),
-        fill: s.salted * 0.72 + s.peppered * 0.28,
-        done: s.done,
-      });
-      show('plate', {
-        how: p.plated ? 'served' : p.ready ? 'whenever it looks right' : '',
-        done: p.plated,
-      });
+      const lines = ticket(dish, p, WORDS);
+      for (const line of lines) show(line);
       plate.disabled = !p.ready || p.plated;
       card.querySelector('[data-out="clock"]').textContent = clockText(game.clock);
 
       /** On a narrow screen only the step in hand is spelled out. */
-      const next = ['dice', 'fry', 'whisk', 'scramble', 'season', 'plate'].find((name) => step(name).dataset.done !== 'true') ?? 'plate';
-      const li = step(next);
-      card.querySelector('.now').textContent = `${li.querySelector('.what').textContent} — ${li.querySelector('.how').textContent || 'ready when you are'}`;
+      const next = lines.find((l) => !l.done) ?? lines[lines.length - 1];
+      const li = step(next.id);
+      card.querySelector('.now').textContent = `${li.querySelector('.what').textContent} — ${next.how || 'ready when you are'}`;
     },
   };
+  return api;
 }
