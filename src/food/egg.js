@@ -67,8 +67,11 @@ export function shellMaterial(GFX) {
 }
 
 /** A whole egg, standing on its blunt end at y = 0. */
+/** How finely an egg is made, whole or in its two halves: plenty for something this size on screen. */
+const SEGMENTS = [28, 20];
+
 export function eggGeometry(GFX) {
-  const geometry = new GFX.SphereGeometry(1, 48, 32);
+  const geometry = new GFX.SphereGeometry(1, ...SEGMENTS);
   shapeEgg(geometry.attributes.position.array);
   geometry.scale(EGG_SCALE, EGG_SCALE, EGG_SCALE);
   geometry.computeVertexNormals();
@@ -95,7 +98,7 @@ export function crackHeight(angle) {
  * fine makes the edge of the break come out ragged, which is right.
  */
 export function crackedHalves(GFX) {
-  const whole = new GFX.SphereGeometry(1, 48, 32);
+  const whole = new GFX.SphereGeometry(1, ...SEGMENTS);
   shapeEgg(whole.attributes.position.array);
   whole.scale(EGG_SCALE, EGG_SCALE, EGG_SCALE);
   whole.computeVertexNormals();

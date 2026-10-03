@@ -8,8 +8,10 @@
  * then to black; the skin just darkens. Each vertex also has a little jitter
  * of its own, so a browned face comes out mottled rather than painted.
  *
- * Repainting is the expensive part, so it is spread over frames: a few pieces
- * each frame, round robin, which is far faster than anything browns.
+ * Repainting is the expensive part — every vertex worked out again, and the
+ * colours sent to the GPU — so a piece is only repainted once it has browned
+ * or cooked enough since its last coat to show, a few pieces a frame at most.
+ * A piece lying on the board, or one that has stopped changing, costs nothing.
  */
 
 import { hex, ramp } from '../food/colour.js';
@@ -183,7 +185,7 @@ export function createPieceViews(GFX) {
     mesh.name = `piece-${piece.id}`;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    const view = { mesh, geometry, colour, weights, skin, wobble, piece, painted: -1 };
+    const view = { mesh, geometry, colour, weights, skin, wobble, piece, painted: null };
     views.set(piece.id, view);
     paint(view);
     return view;
@@ -213,7 +215,19 @@ export function createPieceViews(GFX) {
     view.geometry.attributes.color.needsUpdate = true;
   }
 
+  /**
+   * What a piece's colour is worked out from, rounded to the smallest change
+   * that would show: the same coat means the same colours, and no repaint.
+   */
+  function coat(piece) {
+    const b = piece.brown;
+    let k = `${Math.round(Math.min(1.5, piece.core) * 24)}`;
+    for (let i = 0; i < 6; i++) k += `,${Math.round(b[i] * 40)}`;
+    return k;
+  }
+
   function paint(view) {
+    view.painted = coat(view.piece);
     if (view.piece.kind === 'egg') {
       paintEgg(view);
       return;
@@ -276,10 +290,14 @@ export function createPieceViews(GFX) {
     /** Repaints `count` of the pieces shown, the ones longest since their last coat. */
     repaint(count = 8) {
       const list = [...views.values()];
-      if (list.length === 0) return;
-      for (let k = 0; k < Math.min(count, list.length); k++) {
+      let done = 0;
+      for (let k = 0; k < list.length && done < count; k++) {
         cursor = (cursor + 1) % list.length;
-        paint(list[cursor]);
+        const view = list[cursor];
+        const now = coat(view.piece);
+        if (now === view.painted) continue;
+        paint(view);
+        done += 1;
       }
     },
 

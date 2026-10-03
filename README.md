@@ -102,7 +102,10 @@ See [design](docs/design.md) for the long version. In short:
   to either side, the ones it crosses are split, and the hole it leaves in each
   half is found from the half's own open edges and filled with flesh. Both
   halves are closed solids again, so they can be cut again, measured, and
-  browned. [`src/geometry/slice.js`](src/geometry/slice.js)
+  browned — and their flat faces are refilled with as few triangles as they
+  need, so a diced potato stays light.
+  [`src/geometry/slice.js`](src/geometry/slice.js),
+  [`src/geometry/simplify.js`](src/geometry/simplify.js)
 - **Browning lives on six sides.** Each piece keeps how browned each of the six
   directions of its own frame is. Whichever is down in the pan takes the heat;
   every vertex is painted from the six by the way it faces.

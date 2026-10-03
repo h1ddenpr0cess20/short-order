@@ -257,7 +257,8 @@ export function buildHandle(GFX, iron) {
     return Math.max(solid, CLEAR - polygonDistance(hollow, out, py));
   };
 
-  const geometry = cast(GFX, { distance, from: [-1.65, -0.75, -1.5], to: [1.65, 0.62, 6.9], step: 0.045 });
+  /** Sampled a little finer than its rounded edges are round, and no finer than that. */
+  const geometry = cast(GFX, { distance, from: [-1.65, -0.75, -1.5], to: [1.65, 0.62, 6.9], step: 0.06 });
 
   /** Cast in the handle's own frame, then turned out the back and tipped up. */
   const handle = new GFX.Mesh(geometry, iron);

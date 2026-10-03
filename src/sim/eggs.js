@@ -111,6 +111,8 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   const curds = [];
   /** Salt and pepper in the egg on the floor, all through it. */
   const seasoning = { salt: 0, pepper: 0 };
+  /** The summary, until something changes the sheet: it is asked for many times a frame. */
+  let summed = null;
   let torn = 0, tornSet = 0, tornYolk = 0, tornBrown = 0;
   let poured = 0;
 
@@ -122,6 +124,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   /** Liquid egg landing at (x, z), spreading out from there; `yolky` is how much of it is yolk. */
   function pour(x, z, volume, yolky = 0.33) {
+    summed = null;
     const r = 1.1;
     let weight = 0;
     const share = [];
@@ -151,6 +154,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   /** One step: heat sets and browns it, and what still runs, runs. */
   function update(dt, temp) {
+    summed = null;
     for (let k = 0; k < cells; k++) {
       if (amount[k] <= 1e-5) continue;
       const i = k % N, j = Math.floor(k / N);
@@ -199,6 +203,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
    * a curd's worth, which drops off.
    */
   function stir(a, b, width = 2.4, dt = 1 / 60) {
+    summed = null;
     const dx = b[0] - a[0], dz = b[1] - a[1];
     const len = Math.hypot(dx, dz);
     if (len < 1e-4) return 0;
@@ -276,6 +281,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
    * jerked up under it. Liquid stays where it is.
    */
   function toss() {
+    summed = null;
     let made = 0;
     let gathered = 0, s = 0, y = 0, b = 0, cx = 0, cz = 0;
     const flush = () => {
@@ -319,6 +325,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
    */
   function takeCurds() {
     const out = curds.splice(0);
+    if (out.length) summed = null;
     if (out.length && (seasoning.salt > 0 || seasoning.pepper > 0)) {
       const gone = out.reduce((sum, c) => sum + c.volume, 0);
       const whole = summary().volume + gone;
@@ -327,6 +334,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
         for (const c of out) c[kind] = gone > 0 ? (share * c.volume) / gone : 0;
         seasoning[kind] -= share;
       }
+      summed = null;
     }
     return out;
   }
@@ -340,11 +348,13 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
 
   /** Salt or pepper onto the egg on the floor. */
   function season(kind, amount) {
+    summed = null;
     seasoning[kind] += amount;
   }
 
   /** How much egg is on the floor as a sheet, and in what state, for the grade and the plate. */
   function summary() {
+    if (summed) return summed;
     let volume = 0, setSum = 0, brownSum = 0, yolkSum = 0, liquid = 0;
     for (let k = 0; k < cells; k++) {
       const v = amount[k] * size * size;
@@ -355,7 +365,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       yolkSum += yolk[k] * v;
       if (set[k] < RUNS) liquid += v;
     }
-    return {
+    summed = {
       volume,
       set: volume ? setSum / volume : 0,
       brown: volume ? brownSum / volume : 0,
@@ -364,10 +374,12 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       salt: seasoning.salt,
       pepper: seasoning.pepper,
     };
+    return summed;
   }
 
   /** Lifts the whole sheet off the floor, in a few big pieces, for the plate. */
   function lift(pieces = 6) {
+    summed = null;
     const s = summary();
     const out = [];
     if (s.volume <= 0.05) return out;
@@ -378,6 +390,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       });
     }
     seasoning.salt = seasoning.pepper = 0;
+    summed = null;
     amount.fill(0);
     set.fill(0);
     brown.fill(0);
@@ -385,6 +398,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   }
 
   function clear() {
+    summed = null;
     amount.fill(0);
     set.fill(0);
     yolk.fill(0);

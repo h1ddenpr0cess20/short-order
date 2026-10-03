@@ -38,7 +38,7 @@ export function buildBowl(GFX) {
     inside.push([bowlRadius(y), lift + y]);
   }
   inside.push([0, lift]);
-  const insideMesh = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, inside), 64), glazeIn);
+  const insideMesh = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, inside), 44), glazeIn);
   insideMesh.name = 'bowl-inside';
   group.add(insideMesh);
 
@@ -52,7 +52,7 @@ export function buildBowl(GFX) {
     const a = (k / 6) * Math.PI;
     outside.push([BOWL.rim + BOWL.wall / 2 + Math.cos(a) * BOWL.wall / 2, lift + BOWL.depth + Math.sin(a) * 0.09]);
   }
-  const outsideMesh = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, outside), 64), glazeOut);
+  const outsideMesh = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, outside), 44), glazeOut);
   outsideMesh.name = 'bowl-outside';
   group.add(outsideMesh);
 

@@ -56,7 +56,9 @@ export function createResult({ game, root = document.body }) {
       </ul>
       <button class="again" type="button">cook again</button>
     `;
-    panel.querySelector('.again').addEventListener('click', () => {
+    panel.querySelector('.again').addEventListener('click', (event) => {
+      /** Off the button before it goes, or the next enter would press it again and throw the next plate away. */
+      event.currentTarget.blur();
       panel.hidden = true;
       game.reset();
     });
@@ -66,7 +68,10 @@ export function createResult({ game, root = document.body }) {
 
   game.on((e) => {
     if (e.type === 'plated') show(e.report);
-    if (e.type === 'reset') panel.hidden = true;
+    if (e.type === 'reset') {
+      if (panel.contains(document.activeElement)) document.activeElement.blur();
+      panel.hidden = true;
+    }
   });
 
   return { show, get open() { return !panel.hidden; } };

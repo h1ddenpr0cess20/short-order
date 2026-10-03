@@ -186,14 +186,47 @@ class ThreeDStage extends HTMLElement {
     fit();
     this._ro = new ResizeObserver(fit);
     let last = null;
+    /**
+     * Pacing. `this.pace()`, if set, says how many frames a second are worth
+     * drawing right now — the full rate while something is happening, a few
+     * when nothing is — and no display gets more than `maxFps`, however fast
+     * it refreshes. A frame not wanted yet is skipped whole: no update, no draw.
+     */
+    this.maxFps = 60;
+    const slow = { average: 0, since: 0, settled: 0 };
+    const steps = [2, 1.5, 1.25, 1];
     this._loop = (time) => {
+      const want = Math.min(this.maxFps, this.pace ? this.pace() : this.maxFps);
+      if (last !== null && time - last < 1000 / want - 2) return;
       /** Seconds since the last frame, capped so a backgrounded tab does not
        *  come back with one enormous step. */
-      const dt = last === null ? 0 : Math.min((time - last) / 1000, 0.1);
+      const gap = last === null ? 0 : time - last;
+      const dt = Math.min(gap / 1000, 0.1);
       last = time;
       if (this.onFrame) this.onFrame(dt, time / 1000);
       controls.update();
       renderer.render(scene, camera);
+
+      /**
+       * A machine that cannot keep up at full rate gets fewer pixels: if frames
+       * have been coming slower than about 40 a second for a couple of seconds,
+       * the drawing buffer steps down a size. It never steps back up.
+       */
+      if (want < this.maxFps || gap <= 0 || gap > 150) return;
+      slow.average += (gap - slow.average) * 0.05;
+      slow.since = slow.average > 25 ? slow.since + gap : 0;
+      slow.settled += gap;
+      if (slow.since > 2000 && slow.settled > 3000) {
+        const ratio = renderer.getPixelRatio();
+        const next = steps.find((r) => r < ratio - 0.01);
+        if (next !== undefined && next >= Math.min(1, window.devicePixelRatio || 1)) {
+          renderer.setPixelRatio(next);
+          fit();
+          slow.since = 0;
+          slow.settled = 0;
+          slow.average = 1000 / this.maxFps;
+        }
+      }
     };
     // Detached while the renderer was starting? Stay idle — the
     // connectedCallback resume starts the loop and observer on reattach.

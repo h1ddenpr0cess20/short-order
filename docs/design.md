@@ -60,6 +60,20 @@ so a solid is welded once, when it is made, and from then on every cut keeps it
 exactly closed. The tests dice a ball and a potato through every axis and check
 that no edge is unpaired and no volume went missing.
 
+Each cut fills its face with a fan of long thin triangles out to every point
+of the outline, and the next cut slices through all of them; left alone, a
+potato of under five thousand triangles dices into three hundred thousand, and
+everything after — drawing, painting, measuring, the next cut — pays for it.
+So every piece the knife makes is simplified
+([`geometry/simplify.js`](../src/geometry/simplify.js)): each flat face is put
+back together as one outline and filled again with as few triangles as it
+needs, and the points along a straight edge where two flat faces meet, which
+nothing else uses, come out of both faces at once, so they still meet edge to
+edge. Skin points stay. A face it cannot be sure of — a hole, an outline that
+touches itself, a refill whose area does not match — keeps the triangles it
+had. A cube from the middle of the potato is twelve triangles; the whole
+diced potato is about four times the whole one.
+
 ## The board
 
 [`sim/board.js`](../src/sim/board.js) is the board's frame: y up from its top,
@@ -152,7 +166,14 @@ both for the plate and for the ticket's running commentary:
 The pieces are one mesh each, painted per vertex from their six sides: flesh
 goes from cream through gold to a deep fried brown and then black, skin only
 darkens, and every vertex has a little jitter of its own so a face browns
-mottled. Repainting is spread over frames, a few pieces at a time.
+mottled. A piece is only repainted when its browning or cooking has moved
+enough to show — a few pieces a frame at most — so a potato lying on the board,
+or one that has stopped changing, costs nothing.
+
+The stage draws at no more than sixty frames a second, whatever the display;
+when nothing is moving and nobody has touched anything for a moment — the
+title, a cold kitchen, the plate served — it drops to twelve. A machine that
+cannot keep forty or so at full rate is given fewer pixels, a step at a time.
 
 The egg sheet is a heightfield over the sheet's grid. Where there is no egg
 the surface dips under the iron, so the edge of the egg is wherever the
@@ -162,8 +183,8 @@ which is the best clue that browning has started; smoke means something is
 burning.
 
 The renderer is the one [debater](https://github.com/h1ddenpr0cess20/debater)
-draws with, vendored, with three additions: a per-frame hook on the stage,
-repeat wrapping for textures, and nothing else. The gas flame is its first
+draws with, vendored, with a few additions: a per-frame hook on the stage,
+its pacing, and repeat wrapping for textures. The gas flame is its first
 hand-written `ShaderMaterial`, in GLSL and WGSL both.
 
 ## The layout

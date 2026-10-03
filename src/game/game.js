@@ -135,7 +135,11 @@ export function createGame({ stage, GFX, kitchen }) {
     if (round.started === null) round.started = elapsed;
   }
 
+  /** When the cook last did anything, or anything happened: nothing for a while, and the kitchen can rest. */
+  let lastActivity = 0;
+
   function emit(type, detail = {}) {
+    lastActivity = performance.now();
     for (const fn of listeners) fn({ type, ...detail });
   }
 
@@ -572,6 +576,7 @@ export function createGame({ stage, GFX, kitchen }) {
   // ------------------------------------------------------------ input
 
   function onMove(event) {
+    lastActivity = performance.now();
     if (!live) return;
     pointer.aim(event);
     zone = locate();
@@ -619,6 +624,7 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function onDown(event) {
+    lastActivity = performance.now();
     if (event.button === 2 || round.plated || !live) return;
     pointer.aim(event);
     zone = locate();
@@ -736,6 +742,7 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   function onKey(event) {
+    lastActivity = performance.now();
     if (!live || round.plated) return;
     const held = event.key.toLowerCase();
     if (held === 'w' || held === 'x') {
@@ -1021,6 +1028,20 @@ export function createGame({ stage, GFX, kitchen }) {
     get knife() { return knife; },
     get carrying() { return carried.length > 0; },
     get butterLeft() { return butterLeft; },
+    /**
+     * Whether nothing in the kitchen is moving or changing, and nobody has
+     * touched anything for a moment: a cold, still kitchen, or the plate
+     * served and sitting there. Then there is no need to draw it sixty times
+     * a second.
+     */
+    get quiet() {
+      if (performance.now() - lastActivity < 1500) return false;
+      if (toss || plating || carried.length || knife.chop || eggs.pouring || eggs.cracking || shake.on) return false;
+      if (shake.offset.lengthSq() > 1e-4 || pan.airborne || !board.still()) return false;
+      if (pan.heat.level > 0 || hops.salt || hops.mill || hops.butter) return false;
+      const cold = pan.heat.temp < 50;
+      return cold || (pan.pieces.length === 0 && sheet.empty);
+    },
     get elapsed() { return elapsed; },
     get progress() { return progress ?? measureProgress(); },
     get report() { return report; },

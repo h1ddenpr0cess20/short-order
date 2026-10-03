@@ -374,30 +374,38 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   }
 
   /** Pieces on the floor keep out of each other: discs, pushed apart, a little bounce. */
+  const grid = new Map();
+  const radii = new Map();
+  const CELL = 1.2;
+  const cellKey = (gx, gz) => (gx + 512) * 1024 + (gz + 512);
   function collide() {
-    const floor = pieces.filter((p) => !state(p).air);
-    const cell = 1.2;
-    const grid = new Map();
-    const radii = new Map();
-    for (const p of floor) {
+    for (const list of grid.values()) list.length = 0;
+    radii.clear();
+    const floor = [];
+    for (const p of pieces) {
+      if (state(p).air) continue;
+      floor.push(p);
       radii.set(p, reach(p));
-      const key = `${Math.floor(p.pos[0] / cell)},${Math.floor(p.pos[2] / cell)}`;
-      const list = grid.get(key);
+      const k = cellKey(Math.floor(p.pos[0] / CELL), Math.floor(p.pos[2] / CELL));
+      const list = grid.get(k);
       if (list) list.push(p);
-      else grid.set(key, [p]);
+      else grid.set(k, [p]);
     }
     for (const p of floor) {
-      const gx = Math.floor(p.pos[0] / cell), gz = Math.floor(p.pos[2] / cell);
+      const gx = Math.floor(p.pos[0] / CELL), gz = Math.floor(p.pos[2] / CELL);
+      const rp = radii.get(p);
       for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
-          const list = grid.get(`${gx + i},${gz + j}`);
+          const list = grid.get(cellKey(gx + i, gz + j));
           if (!list) continue;
-          for (const q of list) {
+          for (let n = 0; n < list.length; n++) {
+            const q = list[n];
             if (q.id <= p.id) continue;
             const dx = q.pos[0] - p.pos[0], dz = q.pos[2] - p.pos[2];
-            const d = Math.hypot(dx, dz);
-            const min = (radii.get(p) + radii.get(q)) * 0.92;
-            if (d >= min || d < 1e-6) continue;
+            const min = (rp + radii.get(q)) * 0.92;
+            const d2 = dx * dx + dz * dz;
+            if (d2 >= min * min || d2 < 1e-12) continue;
+            const d = Math.sqrt(d2);
             const nx = dx / d, nz = dz / d;
             const push = (min - d) / 2;
             p.pos[0] -= nx * push;

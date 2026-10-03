@@ -59,6 +59,19 @@ const intro = createIntro({
 });
 createMenu({ game, sound, intro });
 
+/**
+ * A button pressed with a mouse or a finger hands the keys straight back to
+ * the kitchen: space and enter are the game's — toss, plate — not a second
+ * press of whatever was clicked last. Tabbed to with the keys, it keeps them.
+ */
+document.addEventListener('click', (event) => {
+  const button = event.target.closest?.('button');
+  if (button && event.detail > 0) button.blur();
+}, true);
+
+/** Full rate while anything is happening; a few frames a second while nothing is. */
+stage.pace = () => (game.quiet ? 12 : 60);
+
 stage.onFrame = (dt, time) => {
   game.update(dt, time);
   cues.update(dt);

@@ -130,7 +130,7 @@ export function fleshAt(x, y, z) {
  * vertex — pushed out onto the skin, with normals averaged from the faces
  * round each vertex so the lumps shade smoothly.
  */
-export function potatoSolid({ columns = 72, rows = 48 } = {}) {
+export function potatoSolid({ columns = 60, rows = 40 } = {}) {
   const dirs = [];
   dirs.push([0, 1, 0]);
   for (let j = 1; j < rows; j++) {

@@ -14,6 +14,7 @@
  */
 
 import { measure, split, translate } from '../geometry/slice.js';
+import { simplify } from '../geometry/simplify.js';
 import { conjugate, dot3, rotate } from './quat.js';
 
 /** The six sides, in the piece's own frame: +x, −x, +y, −y, +z, −z. */
@@ -89,14 +90,35 @@ export function dimensions(piece) {
 }
 
 /**
+ * Every distinct point of the piece's mesh, once: the mesh keeps three copies
+ * of a corner per triangle, and the box round it only needs the corner.
+ */
+function corners(piece) {
+  if (piece.corners && piece.corners.solid === piece.solid) return piece.corners.points;
+  const p = piece.solid.pos;
+  const seen = new Set();
+  const out = [];
+  for (let i = 0; i < p.length; i += 3) {
+    const k = `${p[i]},${p[i + 1]},${p[i + 2]}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p[i], p[i + 1], p[i + 2]);
+  }
+  const points = Float32Array.from(out);
+  piece.corners = { solid: piece.solid, points };
+  return points;
+}
+
+/**
  * The box round the piece as it now stands, relative to `pos`: every vertex
  * turned, the extremes kept. Cached until it next turns.
  */
 export function extents(piece) {
-  if (piece.extents && piece.extents.version === piece.version && piece.extents.rot.every((v, i) => v === piece.rot[i])) {
-    return piece.extents;
+  const cached = piece.extents, r = piece.rot;
+  if (cached && cached.version === piece.version && cached.rot[0] === r[0] && cached.rot[1] === r[1] && cached.rot[2] === r[2] && cached.rot[3] === r[3]) {
+    return cached;
   }
-  const p = piece.solid.pos;
+  const p = corners(piece);
   const [qx, qy, qz, qw] = piece.rot;
   let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   for (let i = 0; i < p.length; i += 3) {
@@ -125,7 +147,8 @@ export function cutPiece(piece, normal, offset, flesh) {
   const shift = offset - dot3(normal, piece.pos);
   const { front, back } = split(piece.solid, { normal: local, offset: shift }, { flesh });
   if (front.length + back.length < 2) return null;
-  const child = (solid) => makePiece({ solid, kind: piece.kind, pos: piece.pos, rot: piece.rot, from: piece });
+  /** Each half with its flat faces refilled lean, so dice stay a dozen triangles rather than hundreds. */
+  const child = (solid) => makePiece({ solid: simplify(solid), kind: piece.kind, pos: piece.pos, rot: piece.rot, from: piece });
   return { front: front.map(child), back: back.map(child) };
 }
 
