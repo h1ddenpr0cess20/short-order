@@ -230,6 +230,25 @@ export function puff(GFX, size = 128) {
 }
 
 /**
+ * A soft ring of light, brightest a little way in from the edge: the glow a
+ * gas burner throws out from under a pan onto the steel round it.
+ */
+export function halo(GFX, size = 256) {
+  const c = canvas(size);
+  if (!c) return null;
+  const { ctx } = c;
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.62, 'rgba(255,255,255,0.15)');
+  g.addColorStop(0.76, 'rgba(255,255,255,0.85)');
+  g.addColorStop(0.86, 'rgba(255,255,255,0.3)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return texture(GFX, c.el);
+}
+
+/**
  * The room the kitchen reflects: a warm ceiling with a lamp in it, pale walls,
  * a dark floor. Only ever seen in the iron, the steel and the oil.
  */

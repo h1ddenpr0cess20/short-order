@@ -8,6 +8,7 @@ import { buildKitchen } from './scene/kitchen.js';
 import { createCard } from './ui/card.js';
 import { createHud } from './ui/hud.js';
 import { createIntro } from './ui/intro.js';
+import { createMenu } from './ui/menu.js';
 import { createResult } from './ui/result.js';
 import { createParticles } from './view/particles.js';
 
@@ -47,13 +48,14 @@ game.on((e) => {
   if (e.type === 'plating') document.body.dataset.plated = 'true';
   if (e.type === 'reset') delete document.body.dataset.plated;
 });
-createIntro({
+const intro = createIntro({
   onStart() {
     sound.start();
     game.live = true;
     document.body.dataset.playing = 'true';
   },
 });
+createMenu({ game, sound, intro });
 
 stage.onFrame = (dt, time) => {
   game.update(dt, time);

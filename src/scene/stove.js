@@ -7,7 +7,7 @@
  */
 
 import { flameGeometry, flameMaterial } from './flame.js';
-import { brushed, puff } from './textures.js';
+import { brushed, halo } from './textures.js';
 
 /** The steel top, as it sits in the counter. */
 export const TOP = Object.freeze({ w: 17, d: 16, y: 0.1 });
@@ -138,8 +138,8 @@ export function buildStove(GFX) {
     new GFX.PlaneGeometry(17, 17),
     new GFX.MeshBasicMaterial({
       name: 'flame-glow',
-      map: puff(GFX),
-      color: 0x3858ff,
+      map: halo(GFX),
+      color: 0x4f6dff,
       transparent: true,
       opacity: 0,
       depthWrite: false,
@@ -210,7 +210,7 @@ export function buildStove(GFX) {
       flame.material.uniforms.level.value = shown;
       flame.material.uniforms.time.value = time;
       flame.visible = shown > 0.005;
-      glow.material.opacity = shown * 0.32;
+      glow.material.opacity = Math.min(1, shown * 0.9) * (0.9 + 0.1 * Math.sin(time * 17));
       glow.visible = shown > 0.005;
       light.intensity = shown * (5 + 0.6 * Math.sin(time * 23));
     },

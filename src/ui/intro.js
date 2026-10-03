@@ -34,6 +34,10 @@ export function createIntro({ root = document.body, onStart }) {
 
   return {
     get open() { return !scrim.hidden; },
-    show() { scrim.hidden = false; },
+    show() {
+      scrim.hidden = false;
+      button.textContent = 'back to the stove';
+      button.focus({ preventScroll: true });
+    },
   };
 }

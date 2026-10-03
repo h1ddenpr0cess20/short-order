@@ -57,7 +57,10 @@ export function createGame({ stage, GFX, kitchen }) {
   boardTop.name = 'board-top';
   boardTop.position.y = BOARD.h;
   kitchen.board.group.add(boardTop);
-  const boardOrigin = new GFX.Vector3(LAYOUT.board.x, BOARD.h, LAYOUT.board.z);
+  const boardOrigin = new GFX.Vector3();
+  const placeBoard = () => boardOrigin.set(LAYOUT.board.x, BOARD.h, LAYOUT.board.z);
+  placeBoard();
+  kitchen.onArrange(placeBoard);
 
   /** Things in the hand, in the room's frame. */
   const carry = new GFX.Group();
@@ -67,7 +70,8 @@ export function createGame({ stage, GFX, kitchen }) {
   const carryAt = new GFX.Vector3();
 
   const panRig = kitchen.panRig;
-  const panHome = panRig.position.clone();
+  /** Where the pan sits on the grate: the kitchen's, so it follows the layout. */
+  const panHome = kitchen.panHome;
 
   /** The egg on the floor of the pan, and the carton, bowl and whisk it comes from. */
   const sheet = createSheet();
@@ -452,9 +456,27 @@ export function createGame({ stage, GFX, kitchen }) {
     spatula.last = null;
   }
 
+  /** Puts the knife over a point on the board, the way hovering does: blade centred on it. */
+  function aimKnife([x, z]) {
+    const pile = board.bounds();
+    if (!pile) return false;
+    knife.z = Math.max(pile.z0 - 0.4, Math.min(pile.z1 + 0.4, z));
+    knife.x = Math.min(BOARD.w / 2 + 1.5, Math.max(-BOARD.w / 2 + 7.6 - 1.5, x + 3.8));
+    return true;
+  }
+
   function click(at) {
     switch (at.zone) {
-      case 'board': chop(); break;
+      case 'board':
+        /** A tap on a touch screen has no hover before it: aim, then come down. */
+        if (!knife.chop && aimKnife(at.point)) {
+          knife.mode = 'hover';
+          const pile = board.bounds();
+          knifeMesh.position.set(boardOrigin.x + knife.x, boardOrigin.y + pile.y1 + 0.7, boardOrigin.z + knife.z);
+          knifeMesh.rotation.set(-0.42, 0, 0);
+        }
+        chop();
+        break;
       case 'pan': if (pan.flip(at.point[0], at.point[1])) emit('flip'); break;
       case 'knob': heat(pan.heat.level >= SETTINGS.length - 1 ? -(SETTINGS.length - 1) : 1); break;
       case 'oil': oil(); break;
@@ -514,14 +536,15 @@ export function createGame({ stage, GFX, kitchen }) {
     if (knife.mode !== 'chop' && knife.mode !== 'scrape') {
       knife.mode = zone.zone === 'board' && pile && !carried.length ? 'hover' : 'rest';
     }
+    if (!pile && knife.mode === 'chop') {
+      knife.mode = 'rest';
+      knife.chop = null;
+    }
 
     let target, tilt = 0, flat = false;
     if (knife.mode === 'hover' || knife.mode === 'chop') {
-      if (knife.mode === 'hover') {
-        knife.z = Math.max(pile.z0 - 0.4, Math.min(pile.z1 + 0.4, zone.point[1]));
-        /** The heel follows the pointer, so the middle of the blade is over it. */
-        knife.x = Math.min(BOARD.w / 2 + 1.5, Math.max(-BOARD.w / 2 + 7.6 - 1.5, zone.point[0] + 3.8));
-      }
+      /** The heel follows the pointer, so the middle of the blade is over it. */
+      if (knife.mode === 'hover' && zone.zone === 'board') aimKnife(zone.point);
       let height = pile.y1 + 0.7;
       if (knife.chop) {
         const c = knife.chop;

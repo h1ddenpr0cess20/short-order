@@ -88,10 +88,10 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  min-width: 84px;
+  min-width: 96px;
 }
 #bar .label { opacity: .45; font-size: 9px; }
-#bar .level { font: 600 13px/1 var(--sans); letter-spacing: .02em; }
+#bar .level { font: 600 13px/1 var(--sans); letter-spacing: .02em; white-space: nowrap; }
 #bar .level[data-level="0"] { opacity: .5; }
 #bar .temp { font: 600 15px/1 var(--mono); }
 #bar .temp[data-hot="cold"] { color: #9fb6c9; }
@@ -357,3 +357,98 @@ button {
 body:not([data-playing]) #bar, body:not([data-playing]) #ticket, body:not([data-playing]) #hint { visibility: hidden; }
 
 body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: none; transition: opacity .4s; }
+
+#ticket .short, #ticket .now { display: none; }
+
+/* ── tall windows: the ticket across the top, the bar on two rows ────────── */
+
+body[data-shape="tall"] #ticket {
+  left: calc(10px + env(safe-area-inset-left));
+  right: calc(10px + env(safe-area-inset-right));
+  top: calc(12px + env(safe-area-inset-top));
+  width: auto;
+  padding: 10px 12px 9px;
+  transform: none;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "title foot" "steps steps" "now now";
+  column-gap: 8px;
+}
+body[data-shape="tall"] #ticket header { display: none; }
+body[data-shape="tall"] #ticket h1 { grid-area: title; margin: 0; font-size: 16px; align-self: center; }
+body[data-shape="tall"] #ticket footer { grid-area: foot; border: 0; padding: 0; gap: 8px; }
+body[data-shape="tall"] #ticket .plate { height: 28px; padding: 0 10px; }
+body[data-shape="tall"] #ticket ol {
+  grid-area: steps;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+}
+body[data-shape="tall"] #ticket li { padding: 0 0 0 21px; min-height: 17px; }
+body[data-shape="tall"] #ticket li .what, body[data-shape="tall"] #ticket li .how, body[data-shape="tall"] #ticket li .bar { display: none; }
+body[data-shape="tall"] #ticket li .short { display: block; font: 600 10.5px/17px var(--mono); letter-spacing: .04em; }
+body[data-shape="tall"] #ticket li[data-done="true"] .short { color: var(--done); }
+body[data-shape="tall"] #ticket .now {
+  grid-area: now;
+  display: block;
+  margin: 6px 0 0;
+  font: 500 10.5px/1.35 var(--mono);
+  color: var(--paper-faint);
+}
+
+@media (max-width: 719px) {
+  #bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    width: calc(100vw - 20px);
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    padding: 7px;
+  }
+  #bar .heat { width: 100%; justify-content: center; border-right: 0; padding-right: 0; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 240, 220, 0.1); }
+  #bar .moves { border-right: 0; padding-right: 0; }
+  #bar button { height: 32px; padding: 0 8px; font-size: 10px; letter-spacing: .08em; }
+  #bar .moves, #bar .eggs { gap: 4px; }
+  #bar .dial, #bar .thermo { min-width: 70px; }
+  #hint { display: none; }
+  #result {
+    top: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 10px;
+    right: 10px;
+    width: auto;
+    transform: none;
+    padding: 14px 16px;
+  }
+  #result .total b { font-size: 34px; }
+  #intro .sheet { padding: 22px 20px 18px; }
+  #intro h1 { font-size: 42px; }
+  #intro .how li { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* ── the corner menu ─────────────────────────────────────────────────────── */
+
+#menu {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
+  z-index: 6;
+  display: flex;
+  gap: 6px;
+}
+#menu button {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 240, 220, 0.12);
+  background: rgba(24, 20, 16, 0.72);
+  color: var(--ink);
+  white-space: nowrap;
+}
+#menu button:hover { background: rgba(24, 20, 16, 0.9); }
+#menu button[aria-pressed="true"] { color: #e6a070; }
+body:not([data-playing]) #menu { visibility: hidden; }
+body[data-shape="tall"] #menu { top: auto; bottom: calc(150px + env(safe-area-inset-bottom)); right: 10px; flex-direction: column; align-items: flex-end; }
+body[data-shape="tall"] #menu button { height: 26px; padding: 0 9px; font-size: 9.5px; }

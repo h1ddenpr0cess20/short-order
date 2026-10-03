@@ -15,21 +15,45 @@ import { buildBottle, buildCarton } from './pantry.js';
 import { GRATE_TOP, buildStove } from './stove.js';
 import { marble, studio, subwayTile } from './textures.js';
 
-/** Where each station stands on the counter, in the room's frame. */
-export const LAYOUT = Object.freeze({
-  board: { x: -8.6, z: 1.6 },
-  stove: { x: 9.4, z: 0.4 },
-  bowl: { x: -0.9, z: -8.6 },
-  carton: { x: -13.4, z: -8.8 },
-  oil: { x: -6.7, z: -9.9 },
-  plate: { x: 0.4, z: 11.5 },
+/**
+ * Where each station stands on the counter, in the room's frame — one way
+ * for a wide window, the board beside the range, and another for a tall one,
+ * the board above it — and where the wall is behind them.
+ */
+export const LAYOUTS = Object.freeze({
+  wide: {
+    board: { x: -8.6, z: 1.6 },
+    stove: { x: 9.4, z: 0.4 },
+    bowl: { x: -3.1, z: -9.0 },
+    carton: { x: -13.9, z: -9.0 },
+    oil: { x: -8.45, z: -10.2 },
+    plate: { x: 0.4, z: 11.5 },
+    spatula: { x: 0, z: 6.6, yaw: Math.PI - 0.08 },
+    wall: -13.6,
+  },
+  tall: {
+    board: { x: 0, z: -4.4 },
+    stove: { x: 0.2, z: 10.4 },
+    bowl: { x: 5.5, z: -15.2 },
+    carton: { x: -5.1, z: -15.6 },
+    oil: { x: 0.5, z: -16.6 },
+    plate: { x: 0, z: 24 },
+    spatula: { x: -9.2, z: 6.2, yaw: Math.PI + 0.1 },
+    wall: -19.6,
+  },
 });
+
+/**
+ * The layout in use. Everything reads its place from here, live; `arrange`
+ * changes it, in place, when the window changes shape.
+ */
+export const LAYOUT = structuredClone(LAYOUTS.wide);
 
 /** The pan's handle comes out toward the cook, a little to the right. */
 export const HANDLE_TURN = Math.PI + Math.PI / 6.5;
 
-/** The wall, and how far back it stands. */
-const WALL = { z: -13.6, height: 26 };
+/** The wall: how tall it is. Where it stands is the layout's. */
+const WALL = { height: 26 };
 
 /** The pan's cooking surface, above the counter. */
 export const PAN_Y = GRATE_TOP + IRON;
@@ -40,16 +64,15 @@ export function buildKitchen({ stage, GFX }) {
 
   /** The counter: one slab of marble, wide enough that its ends are never in shot. */
   const counterMap = marble(GFX);
-  if (counterMap) counterMap.repeat.set(110 / 22, 40 / 22);
+  if (counterMap) counterMap.repeat.set(110 / 22, 64 / 22);
   const counter = new GFX.Mesh(
-    new GFX.BoxGeometry(110, 2, 40),
+    new GFX.BoxGeometry(110, 2, 64),
     new GFX.MeshPhysicalMaterial({
       name: 'counter', color: counterMap ? 0xffffff : 0xe8e2d8, map: counterMap, roughness: 0.34, metalness: 0,
       clearcoat: 0.25, clearcoatRoughness: 0.4,
     }),
   );
   counter.name = 'counter';
-  counter.position.set(0, -1, WALL.z + 20);
   room.add(counter);
 
   const tiles = subwayTile(GFX);
@@ -62,65 +85,87 @@ export function buildKitchen({ stage, GFX }) {
     }),
   );
   wall.name = 'wall';
-  wall.position.set(0, WALL.height / 2, WALL.z);
   room.add(wall);
 
   const stove = buildStove(GFX);
-  stove.group.position.set(LAYOUT.stove.x, 0, LAYOUT.stove.z);
   room.add(stove.group);
 
   /** The pan sits in its own group so a toss can lift it without moving its frame. */
   const pan = buildPan(GFX);
   const panRig = new GFX.Group();
   panRig.name = 'pan-rig';
-  panRig.position.set(LAYOUT.stove.x, PAN_Y, LAYOUT.stove.z);
+  /** Where the rig sits when nothing is tossing it. */
+  const panHome = new GFX.Vector3();
   pan.group.rotation.y = HANDLE_TURN;
   panRig.add(pan.group);
   room.add(panRig);
 
   const board = buildBoard(GFX);
-  board.group.position.set(LAYOUT.board.x, 0, LAYOUT.board.z);
   room.add(board.group);
 
   /** The knife lies flat along the back of the board until it is picked up. */
   const knife = buildKnife(GFX);
-  knife.rest = { x: LAYOUT.board.x + 1.9, y: BOARD.h + 0.03, z: LAYOUT.board.z - BOARD.d / 2 + 1.05 };
-  knife.group.position.set(knife.rest.x, knife.rest.y, knife.rest.z);
+  knife.rest = { x: 0, y: BOARD.h + 0.03, z: 0 };
   knife.group.rotation.set(-Math.PI / 2, 0, 0);
   room.add(knife.group);
   const guide = buildGuide(GFX);
   room.add(guide);
 
   const bowl = buildBowl(GFX);
-  bowl.group.position.set(LAYOUT.bowl.x, 0, LAYOUT.bowl.z);
   room.add(bowl.group);
 
   /** The whisk leans in the bowl. */
   const whisk = buildWhisk(GFX);
-  whisk.group.position.set(LAYOUT.bowl.x + 0.3, bowl.floor + 0.05, LAYOUT.bowl.z + 0.2);
-  whisk.group.rotation.set(0.25, 0.5, -0.62);
+  whisk.rest = { position: new GFX.Vector3(), rotation: new GFX.Euler(0.25, 0.5, -0.62) };
   room.add(whisk.group);
 
   const carton = buildCarton(GFX);
-  carton.group.position.set(LAYOUT.carton.x, 0, LAYOUT.carton.z);
   carton.group.rotation.y = 0.12;
   room.add(carton.group);
 
   const oil = buildBottle(GFX);
-  oil.group.position.set(LAYOUT.oil.x, 0, LAYOUT.oil.z);
   room.add(oil.group);
 
-  /** The spatula waits on the counter in front, between the board and the range. */
+  /** The spatula waits on the counter, between the board and the range. */
   const spatula = buildSpatula(GFX);
-  spatula.rest = { x: 0.0, y: 0.03, z: 6.6, yaw: Math.PI - 0.08, pitch: 0 };
-  spatula.group.position.set(spatula.rest.x, spatula.rest.y, spatula.rest.z);
-  spatula.group.rotation.set(spatula.rest.pitch, spatula.rest.yaw, 0);
+  spatula.rest = { x: 0, y: 0.03, z: 0, yaw: 0, pitch: 0 };
   room.add(spatula.group);
 
   const plate = buildPlate(GFX);
-  plate.group.position.set(LAYOUT.plate.x, 0, LAYOUT.plate.z);
   plate.group.visible = false;
   room.add(plate.group);
+
+  /** Told whenever the stations move, so anything that remembers where they were can catch up. */
+  const arranged = new Set();
+  let shape = null;
+
+  /** Puts every station where `name`'s layout says, and the things at rest on them with them. */
+  function arrange(name) {
+    if (name === shape) return false;
+    shape = name;
+    Object.assign(LAYOUT, structuredClone(LAYOUTS[name]));
+    wall.position.set(0, WALL.height / 2, LAYOUT.wall);
+    counter.position.set(0, -1, LAYOUT.wall + 32);
+    stove.group.position.set(LAYOUT.stove.x, 0, LAYOUT.stove.z);
+    panHome.set(LAYOUT.stove.x, PAN_Y, LAYOUT.stove.z);
+    panRig.position.copy(panHome);
+    board.group.position.set(LAYOUT.board.x, 0, LAYOUT.board.z);
+    Object.assign(knife.rest, { x: LAYOUT.board.x + 1.9, z: LAYOUT.board.z - BOARD.d / 2 + 1.05 });
+    knife.group.position.set(knife.rest.x, knife.rest.y, knife.rest.z);
+    bowl.group.position.set(LAYOUT.bowl.x, 0, LAYOUT.bowl.z);
+    whisk.rest.position.set(LAYOUT.bowl.x + 0.3, bowl.floor + 0.05, LAYOUT.bowl.z + 0.2);
+    whisk.group.position.copy(whisk.rest.position);
+    whisk.group.rotation.copy(whisk.rest.rotation);
+    carton.group.position.set(LAYOUT.carton.x, 0, LAYOUT.carton.z);
+    oil.group.position.set(LAYOUT.oil.x, 0, LAYOUT.oil.z);
+    Object.assign(spatula.rest, { x: LAYOUT.spatula.x, z: LAYOUT.spatula.z, yaw: LAYOUT.spatula.yaw });
+    spatula.group.position.set(spatula.rest.x, spatula.rest.y, spatula.rest.z);
+    spatula.group.rotation.set(spatula.rest.pitch, spatula.rest.yaw, 0);
+    plate.group.position.set(LAYOUT.plate.x, 0, LAYOUT.plate.z);
+    for (const fn of arranged) fn(name);
+    return true;
+  }
+  arrange('wide');
 
   stage.setObject(room);
   light({ stage, GFX });
@@ -141,19 +186,24 @@ export function buildKitchen({ stage, GFX }) {
   controls.update = () => false;
 
   /**
-   * What has to be in shot: the board, the whole of the range and the pan's
-   * handle, and the row along the back up to the top of the bottle.
+   * What has to be in shot: the board, the pan to its rim and its handle out
+   * to the hole in the end — the steel round it can be cropped — and the row
+   * along the back.
    */
   const keep = [];
-  const corners = (x0, x1, y0, y1, z0, z1) => {
-    for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) keep.push(new GFX.Vector3(x, y, z));
-  };
-  corners(LAYOUT.board.x - BOARD.w / 2, LAYOUT.board.x + BOARD.w / 2, 0, BOARD.h + 2.5, LAYOUT.board.z - BOARD.d / 2, LAYOUT.board.z + BOARD.d / 2);
-  /** The pan to its rim, and its handle out to the hole in the end: the steel round it can be cropped. */
-  corners(LAYOUT.stove.x - 6.6, LAYOUT.stove.x + 6.6, 0, PAN_Y + 2, LAYOUT.stove.z - 6.6, LAYOUT.stove.z + 6.6);
-  const reach = 6.35 + 6.6;
-  keep.push(new GFX.Vector3(LAYOUT.stove.x - Math.sin(HANDLE_TURN) * reach, PAN_Y + 1.6, LAYOUT.stove.z - Math.cos(HANDLE_TURN) * reach));
-  corners(LAYOUT.carton.x - 3.6, LAYOUT.bowl.x + 3.8, 0, 3.5, LAYOUT.bowl.z - 3.8, LAYOUT.bowl.z + 2);
+  function gather() {
+    keep.length = 0;
+    const corners = (x0, x1, y0, y1, z0, z1) => {
+      for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) keep.push(new GFX.Vector3(x, y, z));
+    };
+    corners(LAYOUT.board.x - BOARD.w / 2, LAYOUT.board.x + BOARD.w / 2, 0, BOARD.h + 2.5, LAYOUT.board.z - BOARD.d / 2, LAYOUT.board.z + BOARD.d / 2);
+    corners(LAYOUT.stove.x - 6.6, LAYOUT.stove.x + 6.6, 0, PAN_Y + 2, LAYOUT.stove.z - 6.6, LAYOUT.stove.z + 6.6);
+    const reach = 6.35 + 6.6;
+    keep.push(new GFX.Vector3(LAYOUT.stove.x - Math.sin(HANDLE_TURN) * reach, PAN_Y + 1.6, LAYOUT.stove.z - Math.cos(HANDLE_TURN) * reach));
+    const row = [LAYOUT.carton, LAYOUT.oil, LAYOUT.bowl];
+    corners(Math.min(...row.map((r) => r.x)) - 3.8, Math.max(...row.map((r) => r.x)) + 3.8, 0, 3.5,
+      Math.min(...row.map((r) => r.z)) - 3, Math.max(...row.map((r) => r.z)) + 2.6);
+  }
 
   const view = { pitch: 0.88, yaw: 0, fov: 34 };
   const scratch = new GFX.Vector3();
@@ -186,22 +236,25 @@ export function buildKitchen({ stage, GFX }) {
    * window and a wide one both come out filled.
    */
   function frame() {
+    gather();
     camera.fov = view.fov;
     const box = new GFX.Box3().setFromPoints(keep);
     box.getCenter(target);
     target.y = 0;
     const width = stage.clientWidth || 1, height = stage.clientHeight || 1;
+    const tall = shape === 'tall';
     const narrow = width < 720;
     /**
      * On a wide window the ticket stands down the left, so the shot keeps out
-     * of that strip; on a narrow one it sits across the top instead.
+     * of that strip; on a tall one it sits across the top instead, and the bar
+     * along the bottom wraps onto two rows on a narrow one.
      */
-    const ticket = narrow ? 0 : Math.min(0.5, ((16 + 290 + 18) / width) * 2);
+    const ticket = tall ? 0 : Math.min(0.5, ((16 + 290 + 18) / width) * 2);
     const margin = {
-      left: narrow ? 0.03 : ticket,
+      left: tall ? 0.03 : ticket,
       right: 0.03,
-      top: narrow ? 0.34 : 0.06,
-      bottom: (narrow ? 150 : 96) / height * 2,
+      top: tall ? (128 / height) * 2 : 0.06,
+      bottom: ((narrow ? 128 : 96) / height) * 2,
     };
     const want = (margin.bottom - margin.top) / 2;
     const side = (margin.left - margin.right) / 2;
@@ -248,6 +301,9 @@ export function buildKitchen({ stage, GFX }) {
   let away = null;
 
   function frameHome() {
+    const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+    arrange(w / h < 0.85 ? 'tall' : 'wide');
+    if (typeof document !== 'undefined') document.body.dataset.shape = shape;
     frame();
     home.position.copy(camera.position);
     home.target.copy(target);
@@ -284,7 +340,12 @@ export function buildKitchen({ stage, GFX }) {
   observer.observe(stage);
 
   return {
-    room, camera, frame: frameHome, focus, release, updateCamera,
+    room, camera, frame: frameHome, focus, release, updateCamera, panHome,
+    get shape() { return shape; },
+    onArrange(fn) {
+      arranged.add(fn);
+      return () => arranged.delete(fn);
+    },
     stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate,
   };
 }

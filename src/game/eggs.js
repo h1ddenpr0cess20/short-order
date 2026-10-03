@@ -26,7 +26,10 @@ const POUR = { over: 0.5, pour: 1.5, back: 0.55 };
 export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   const bowl = createBowl();
   const bowlGroup = kitchen.bowl.group;
-  const bowlHome = bowlGroup.position.clone();
+  /** Where the bowl lives on the counter, as the layout has it now. */
+  const bowlHome = new GFX.Vector3();
+  const home = () => bowlHome.set(LAYOUT.bowl.x, 0, LAYOUT.bowl.z);
+  home();
   const view = createBowlView(GFX, bowlGroup, bowl.state, kitchen.bowl.floor);
   const rim = new GFX.Vector3();
   const cracker = createCracker(GFX, {
@@ -37,8 +40,15 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   let pending = 0;
 
   const whisk = kitchen.whisk.group;
-  const whiskRest = { position: whisk.position.clone(), rotation: whisk.rotation.clone() };
-  const whiskAside = { position: new GFX.Vector3(bowlHome.x + 4.6, 0.3, bowlHome.z + 1.5), rotation: new GFX.Euler(0, 0.4, Math.PI / 2 - 0.05) };
+  const whiskRest = kitchen.whisk.rest;
+  const whiskAside = { position: new GFX.Vector3(), rotation: new GFX.Euler(0, 0.4, Math.PI / 2 - 0.05) };
+  const aside = () => whiskAside.position.set(bowlHome.x + 4.6, 0.3, bowlHome.z + 1.5);
+  aside();
+  kitchen.onArrange(() => {
+    home();
+    aside();
+    if (!pour) bowlGroup.position.copy(bowlHome);
+  });
   const beating = { on: false, at: [0, 0], last: null, swirl: 0, spin: 0, speed: 0 };
 
   let pour = null;

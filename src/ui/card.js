@@ -21,12 +21,13 @@ export function createCard({ game, root = document.body }) {
     </header>
     <h1>Potato &amp; egg scramble</h1>
     <ol>
-      <li data-step="dice"><span class="what">Dice the potato</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="fry"><span class="what">Fry it golden</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="whisk"><span class="what">Whisk three eggs</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="scramble"><span class="what">Scramble them in</span><span class="how"></span><i class="bar"><b></b></i></li>
-      <li data-step="plate"><span class="what">Plate it</span><span class="how"></span></li>
+      <li data-step="dice"><span class="what">Dice the potato</span><span class="short">dice</span><span class="how"></span><i class="bar"><b></b></i></li>
+      <li data-step="fry"><span class="what">Fry it golden</span><span class="short">fry</span><span class="how"></span><i class="bar"><b></b></i></li>
+      <li data-step="whisk"><span class="what">Whisk three eggs</span><span class="short">whisk</span><span class="how"></span><i class="bar"><b></b></i></li>
+      <li data-step="scramble"><span class="what">Scramble them in</span><span class="short">scramble</span><span class="how"></span><i class="bar"><b></b></i></li>
+      <li data-step="plate"><span class="what">Plate it</span><span class="short">plate</span><span class="how"></span></li>
     </ol>
+    <p class="now" aria-hidden="true"></p>
     <footer>
       <span class="clock chip" data-out="clock">0:00</span>
       <button class="chip plate" data-act="plate" disabled title="Plate it (enter)">plate it</button>
@@ -85,6 +86,11 @@ export function createCard({ game, root = document.body }) {
       });
       plate.disabled = !p.ready || p.plated;
       card.querySelector('[data-out="clock"]').textContent = clockText(game.clock);
+
+      /** On a narrow screen only the step in hand is spelled out. */
+      const next = ['dice', 'fry', 'whisk', 'scramble', 'plate'].find((name) => step(name).dataset.done !== 'true') ?? 'plate';
+      const li = step(next);
+      card.querySelector('.now').textContent = `${li.querySelector('.what').textContent} — ${li.querySelector('.how').textContent || 'ready when you are'}`;
     },
   };
 }
