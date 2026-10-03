@@ -59,19 +59,32 @@ game.on((e) => {
   if (e.type === 'add') particles.spatter(kitchen.panRig, [0, 0, 0], 10);
   if (e.type === 'land' && e.speed > 6 && Math.random() < 0.3) particles.spatter(kitchen.panRig, e.piece.pos, 2);
   if (e.type === 'oil') particles.spatter(kitchen.panRig, [0, 0, 0], 6);
+  if (e.type === 'egg-in-pan') particles.spatter(kitchen.panRig, [e.x, 0, e.z], 5);
 });
-createResult({ game });
 game.on((e) => {
   if (e.type === 'plating') document.body.dataset.plated = 'true';
   if (e.type === 'reset') delete document.body.dataset.plated;
 });
+/** Whether a ticket has been started at all: until then the kitchen behind the title is only to look at. */
+let started = false;
 const intro = createIntro({
-  onStart() {
+  /** The dish being cooked, if one is: picking it again goes back to it rather than starting over. */
+  current: () => (started && !game.plated ? game.dish.id : null),
+  onStart(id) {
     sound.start();
+    if (!started || game.plated || id !== game.dish.id) game.order(id);
+    started = true;
     game.live = true;
     document.body.dataset.playing = 'true';
   },
 });
+/** Back to the menu for another order — from the verdict, or the ticket's name. */
+function menu() {
+  game.live = false;
+  intro.show();
+}
+createResult({ game, onMenu: menu });
+card.onChange = menu;
 createMenu({ game, sound, intro });
 
 /**

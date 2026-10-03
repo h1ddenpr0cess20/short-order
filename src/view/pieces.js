@@ -14,7 +14,8 @@
  * A piece lying on the board, or one that has stopped changing, costs nothing.
  */
 
-import { hex, ramp } from '../food/colour.js';
+import { hex, mix, ramp } from '../food/colour.js';
+import { FILLINGS } from '../food/fillings.js';
 import { sideWeights } from '../sim/piece.js';
 import { multiply } from '../sim/quat.js';
 import { eggColour } from './eggs.js';
@@ -193,8 +194,72 @@ export function createPieceViews(GFX) {
 
   const fried = [0, 0, 0];
 
+  const yolkColour = [0, 0, 0], film = [0, 0, 0];
+
+  /**
+   * A fried egg: the white sets, dries and browns like a curd; the yolk keeps
+   * its own colour, going paler and matte as it sets, and under a thin film
+   * of white once the egg has been turned.
+   */
+  function paintFried(view) {
+    const { piece, colour, weights, wobble } = view;
+    const b = piece.brown;
+    const base = piece.solid.col;
+    const n = colour.length / 3;
+    eggColour(piece.yolkSet ?? 0, 1, 0, yolkColour);
+    if (piece.filmed) mix(yolkColour, eggColour(1, 0.05, 0, film), 0.45, yolkColour);
+    for (let i = 0; i < n; i++) {
+      /** The yolk's vertices are the ones painted yolk-coloured when the egg was made: next to no blue in them. */
+      if (base[i * 3 + 2] < base[i * 3] * 0.3) {
+        colour[i * 3] = yolkColour[0];
+        colour[i * 3 + 1] = yolkColour[1];
+        colour[i * 3 + 2] = yolkColour[2];
+        continue;
+      }
+      const o = i * 6;
+      let t = 0;
+      for (let k = 0; k < 6; k++) t += weights[o + k] * b[k];
+      eggColour(piece.core, 0.02, t * wobble[i], fried);
+      colour[i * 3] = fried[0];
+      colour[i * 3 + 1] = fried[1];
+      colour[i * 3 + 2] = fried[2];
+    }
+    view.geometry.attributes.color.needsUpdate = true;
+  }
+
+  /** What each extra turns toward as it cooks: onion goes golden, cheese melts deeper, pepper dulls. */
+  const COOKS_TO = {
+    onion: hex(0xdcb46a), cheese: hex(0xe8901c), pepper: hex(0x56702a), tomato: hex(0xb8301f), ham: hex(0xd98a80), chives: hex(0x3d7a2a),
+  };
+  const toward = [0, 0, 0];
+
+  /** One of the extras: its own colour, turning as it cooks, darkening where it browns. */
+  function paintBit(view) {
+    const { piece, colour, weights, wobble } = view;
+    const b = piece.brown;
+    const base = piece.solid.col;
+    const n = colour.length / 3;
+    const cooked = smooth(0.1, 0.9, piece.core);
+    for (let i = 0; i < n; i++) {
+      const o = i * 6;
+      let t = 0;
+      for (let k = 0; k < 6; k++) t += weights[o + k] * b[k];
+      t *= wobble[i];
+      mix([base[i * 3], base[i * 3 + 1], base[i * 3 + 2]], COOKS_TO[piece.kind], cooked * 0.75, toward);
+      const k = 1 - 0.42 * smooth(0.3, 1.4, t) - 0.45 * smooth(1.4, 2.0, t);
+      colour[i * 3] = toward[0] * k;
+      colour[i * 3 + 1] = toward[1] * k;
+      colour[i * 3 + 2] = toward[2] * k;
+    }
+    view.geometry.attributes.color.needsUpdate = true;
+  }
+
   /** A curd of egg is one colour all over that sets, dries and browns where it lies on the iron. */
   function paintEgg(view) {
+    if (view.piece.fried) {
+      paintFried(view);
+      return;
+    }
     const { piece, colour, weights, wobble } = view;
     const b = piece.brown;
     const base = piece.solid.col;
@@ -211,6 +276,12 @@ export function createPieceViews(GFX) {
       colour[i * 3] = fried[0] * (0.96 + 0.04 * k);
       colour[i * 3 + 1] = fried[1] * k;
       colour[i * 3 + 2] = fried[2] * (0.9 + 0.1 * k);
+      /** A folded omelette's filling, showing along the fold. */
+      if (piece.flecks && piece.flecks[i * 3] >= 0) {
+        colour[i * 3] = piece.flecks[i * 3];
+        colour[i * 3 + 1] = piece.flecks[i * 3 + 1];
+        colour[i * 3 + 2] = piece.flecks[i * 3 + 2];
+      }
     }
     view.geometry.attributes.color.needsUpdate = true;
   }
@@ -221,7 +292,7 @@ export function createPieceViews(GFX) {
    */
   function coat(piece) {
     const b = piece.brown;
-    let k = `${Math.round(Math.min(1.5, piece.core) * 24)}`;
+    let k = `${Math.round(Math.min(1.5, piece.core) * 24)},${Math.round((piece.yolkSet ?? 0) * 24)}`;
     for (let i = 0; i < 6; i++) k += `,${Math.round(b[i] * 40)}`;
     return k;
   }
@@ -230,6 +301,10 @@ export function createPieceViews(GFX) {
     view.painted = coat(view.piece);
     if (view.piece.kind === 'egg') {
       paintEgg(view);
+      return;
+    }
+    if (FILLINGS[view.piece.kind]) {
+      paintBit(view);
       return;
     }
     const { piece, colour, weights, skin, wobble } = view;
@@ -282,6 +357,11 @@ export function createPieceViews(GFX) {
       view.mesh.position.set(piece.pos[0], piece.pos[1], piece.pos[2]);
       const q = lean ? multiply(lean, piece.rot) : piece.rot;
       view.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
+      /** Cheese slumps as it melts. */
+      if (FILLINGS[piece.kind]?.melts) {
+        const m = smooth(0.2, 0.9, piece.core);
+        view.mesh.scale.set(1 + 0.5 * m, 1 - 0.55 * m, 1 + 0.5 * m);
+      }
       fleck(view);
       view.seen = true;
       return view.mesh;

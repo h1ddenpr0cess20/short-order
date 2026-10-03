@@ -119,6 +119,7 @@ button {
 }
 #bar button:hover:not(:disabled) { background: var(--gold-faint); color: var(--gold-bright); }
 #bar button:disabled { opacity: .32; cursor: default; }
+#bar button[hidden] { display: none; }
 #bar button.round { width: 34px; padding: 0; font: 400 19px/1 var(--sans); color: var(--gold-bright); }
 #bar .glyph { font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--gold-bright); }
 /** The move the ticket is asking for, lit up so it can be found. */
@@ -212,6 +213,25 @@ button {
   letter-spacing: .02em;
   text-transform: uppercase;
 }
+/** The dish's name, which is also the way to change it: a caret says it opens. */
+#ticket .dish {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+}
+#ticket .dish::after {
+  content: "▾";
+  display: inline-block;
+  margin-left: 6px;
+  font: 400 0.6em/1 var(--sans);
+  color: var(--aside);
+  vertical-align: 0.2em;
+}
+#ticket .dish:hover { color: var(--done); }
 #ticket .tag {
   margin: 0 0 10px;
   font: italic 400 13px/1.3 var(--display);
@@ -352,6 +372,20 @@ button {
   text-transform: uppercase;
 }
 #result .again:hover { background: var(--green-600); }
+#result .next { display: flex; gap: 8px; }
+#result .next button { flex: 1; }
+#result .menu-again {
+  margin-top: 14px;
+  height: 42px;
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--green-700);
+  font: 500 13px/1 var(--condensed);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+#result .menu-again:hover { background: var(--gold-faint); }
 
 /* ── the title ───────────────────────────────────────────────────────────── */
 
@@ -417,7 +451,52 @@ button {
   box-shadow: inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--paper-rule);
   text-align: left;
 }
-#intro .lede { margin: 0 0 14px; font: italic 400 15px/1.5 var(--display); }
+#intro .lede { margin: 0 0 12px; font: italic 400 15px/1.5 var(--display); }
+
+/** The menu: one card stock button per dish, the one picked set in green and gilt. */
+#intro .menu {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+#intro .menu button {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  grid-template-areas: "no name" "no blurb";
+  column-gap: 8px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border: 1px solid var(--paper-rule);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--paper-ink);
+  text-align: left;
+}
+#intro .menu button:hover { background: rgba(201, 164, 92, 0.12); }
+#intro .menu .no { grid-area: no; font: 500 11px/1.4 var(--condensed); color: var(--aside); letter-spacing: .06em; }
+#intro .menu b { grid-area: name; font: 500 14px/1.25 var(--condensed); letter-spacing: .06em; text-transform: uppercase; }
+#intro .menu i { grid-area: blurb; font: italic 400 12px/1.35 var(--display); color: var(--aside); }
+#intro .menu [aria-checked="true"] {
+  background: var(--green-700);
+  border-color: var(--gold);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--green-700), inset 0 0 0 3px var(--gold-dim);
+}
+#intro .menu [aria-checked="true"] .no, #intro .menu [aria-checked="true"] i { color: var(--gold-bright); }
+#intro .hands { border-top: 1px solid var(--paper-rule); padding: 8px 0 4px; }
+#intro .hands summary {
+  cursor: pointer;
+  font: 500 12px/1.6 var(--condensed);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--aside);
+}
+#intro .hands .how { border-top: 0; padding-top: 8px; }
 #intro .how {
   list-style: none;
   margin: 0;
@@ -550,6 +629,8 @@ body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: no
   #intro .kicker { font-size: 11px; letter-spacing: .14em; gap: 8px; }
   #intro .page { padding: 14px 14px 4px; }
   #intro .how li { grid-template-columns: 1fr; gap: 2px; }
+  #intro .menu { grid-template-columns: 1fr; gap: 4px; }
+  #intro .menu button { padding: 6px 8px; }
   #intro .scrawl { display: none; }
 }
 
