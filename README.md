@@ -9,11 +9,11 @@ that starts cold.
 Dice the potato, fry it golden, beat three eggs and scramble them in, season
 it, and plate it. The plate is marked on what is actually on it.
 
-![The kitchen two minutes in: the potato diced, golden and peppered in foaming butter, three eggs beaten and seasoned in the bowl, and the ticket](docs/screenshots/desktop.png)
+![The kitchen two and a half minutes in, against green tile and marble: the potato diced, golden and peppered in butter, three eggs beaten and seasoned in the bowl, and the ticket](docs/screenshots/desktop.png)
 
 <p>
-  <img src="docs/screenshots/plate.png" alt="A five-star plate: golden dice and soft, buttery curds folded together, flecked with pepper, marked 97 out of 100" height="360">
-  <img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan" height="360">
+  <img src="docs/screenshots/plate.png" alt="A five-star plate: golden dice and soft curds folded together, flecked with pepper, on a gilt-rimmed plate, marked 92 out of 100" height="360">
+  <img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan and the ticket across the top" height="360">
 </p>
 
 ## Run

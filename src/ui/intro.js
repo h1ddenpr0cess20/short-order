@@ -9,19 +9,40 @@ export function createIntro({ root = document.body, onStart }) {
   scrim.setAttribute('aria-label', 'Short Order');
   scrim.innerHTML = `
     <div class="sheet">
-      <p class="chip kicker">one potato · three eggs · one cast iron pan</p>
+      <p class="scrawl left" aria-hidden="true">We don't count calories.<br>We count curds.</p>
+      <p class="scrawl right" aria-hidden="true">Cracking eggs<br>&amp; dicing spuds<br>since 6 a.m.</p>
+      <svg class="crest" viewBox="0 0 120 64" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M40 54 C 22 48, 16 30, 22 12" />
+          <path d="M80 54 C 98 48, 104 30, 98 12" />
+        </g>
+        <g fill="currentColor">
+          <ellipse cx="22" cy="20" rx="2.6" ry="6" transform="rotate(-24 22 20)" />
+          <ellipse cx="21" cy="32" rx="2.6" ry="6" transform="rotate(-44 21 32)" />
+          <ellipse cx="27" cy="43" rx="2.6" ry="6" transform="rotate(-62 27 43)" />
+          <ellipse cx="98" cy="20" rx="2.6" ry="6" transform="rotate(24 98 20)" />
+          <ellipse cx="99" cy="32" rx="2.6" ry="6" transform="rotate(44 99 32)" />
+          <ellipse cx="93" cy="43" rx="2.6" ry="6" transform="rotate(62 93 43)" />
+        </g>
+        <text x="60" y="44" text-anchor="middle">SO</text>
+      </svg>
       <h1>Short Order</h1>
-      <p class="lede">The breakfast rush has one ticket on it: a potato and egg scramble. Dice it,
-      fry it golden, beat the eggs and scramble them in, season it — and plate it before it goes cold.</p>
-      <ul class="how">
-        <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile. Drag the pile to carry it to the pan.</span></li>
-        <li><b>Burner</b><span>click the knob, or <kbd>Q</kbd> <kbd>E</kbd>. Cast iron is slow — let it heat. Oil first: click the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
-        <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
-        <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour.</span></li>
-        <li><b>Season</b><span>click the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
-        <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>B</kbd> butters, <kbd>A</kbd> salts, <kbd>F</kbd> peppers, <kbd>enter</kbd> plates.</span></li>
-      </ul>
+      <p class="kicker"><span>one potato · three eggs · one cast iron pan</span></p>
+      <p class="motto">Hand diced · Cast-iron fried · Softly scrambled</p>
+      <div class="page">
+        <p class="lede">The breakfast rush has one ticket on it: a potato and egg scramble. Dice it,
+        fry it golden, beat the eggs and scramble them in, season it — and plate it before it goes cold.</p>
+        <ul class="how">
+          <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile. Drag the pile to carry it to the pan.</span></li>
+          <li><b>Burner</b><span>click the knob, or <kbd>Q</kbd> <kbd>E</kbd>. Cast iron is slow — let it heat. Oil first: click the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
+          <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
+          <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour.</span></li>
+          <li><b>Season</b><span>click the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
+          <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>B</kbd> butters, <kbd>A</kbd> salts, <kbd>F</kbd> peppers, <kbd>enter</kbd> plates.</span></li>
+        </ul>
+      </div>
       <button class="start" type="button">start cooking</button>
+      <p class="small chip">service: quick <i>|</i> salt: to taste <i>|</i> butter: brown, never burnt</p>
     </div>
   `;
   root.appendChild(scrim);

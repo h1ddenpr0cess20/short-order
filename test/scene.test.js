@@ -8,6 +8,7 @@ import { BOWL, bowlRadius, buildBowl, buildPlate, buildSpatula, buildWhisk } fro
 import { HANDLE_TURN, LAYOUTS } from '../src/scene/kitchen.js';
 import { COOK_RADIUS, FLAT, RIM_HEIGHT, RIM_RADIUS, buildPan, floorHeight } from '../src/scene/pan.js';
 import { CARTON, buildBottle, buildCarton } from '../src/scene/pantry.js';
+import { buildButter, buildMill, buildSaltDish, buildTowel } from '../src/scene/props.js';
 import { TOP, buildStove } from '../src/scene/stove.js';
 
 describe('the pan floor', () => {
@@ -29,7 +30,10 @@ describe('the pan floor', () => {
 
 describe('the kitchen', () => {
   it('builds every piece of it without a page to paint textures on', () => {
-    for (const build of [buildPan, buildStove, buildBoard, buildKnife, buildBowl, buildWhisk, buildSpatula, buildPlate, buildCarton, buildBottle]) {
+    for (const build of [
+      buildPan, buildStove, buildBoard, buildKnife, buildBowl, buildWhisk, buildSpatula, buildPlate, buildCarton, buildBottle,
+      buildTowel, buildMill, buildSaltDish, buildButter,
+    ]) {
       const built = build(GFX);
       const group = built.group ?? built;
       let meshes = 0;

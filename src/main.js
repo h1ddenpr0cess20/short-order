@@ -1,3 +1,8 @@
+import '@fontsource/caveat/latin-500.css';
+import '@fontsource/oswald/latin-400.css';
+import '@fontsource/oswald/latin-500.css';
+import '@fontsource/playfair-display/latin-400-italic.css';
+import '@fontsource/playfair-display/latin-700.css';
 import './styles.css';
 import './vendor/gfx/stage.js';
 
@@ -15,6 +20,16 @@ import { createParticles } from './view/particles.js';
 
 const stage = document.querySelector('three-d-stage');
 const { GFX } = await stage.ready;
+
+/**
+ * The labels on the bottle and the carton are painted with the page's own
+ * faces, so they are fetched first — from here, not the network — and a
+ * moment is all they get: a slow load paints them in Georgia rather than wait.
+ */
+await Promise.race([
+  Promise.all(['700 40px "Playfair Display"', 'italic 400 40px "Playfair Display"', '500 40px Oswald'].map((f) => document.fonts.load(f))),
+  new Promise((resolve) => setTimeout(resolve, 1500)),
+]).catch(() => {});
 
 const kitchen = buildKitchen({ stage, GFX });
 const game = createGame({ stage, GFX, kitchen });

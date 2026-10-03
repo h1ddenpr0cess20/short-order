@@ -1,5 +1,6 @@
 /**
- * The kitchen: a stretch of marble counter against a tiled wall, the board on
+ * The kitchen: a stretch of marble counter against a wall of green tile with
+ * a brass rail along it, the board on
  * the left, the range on the right with the pan on its grate, and along the
  * back the bowl, the oil and a carton of eggs.
  *
@@ -14,7 +15,7 @@ import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
 import { buildButter, buildMill, buildSaltDish, buildTowel } from './props.js';
 import { GRATE_TOP, buildStove } from './stove.js';
-import { marble, studio, subwayTile } from './textures.js';
+import { brushed, greenTile, marble, studio } from './textures.js';
 
 /**
  * Where each station stands on the counter, in the room's frame — one way
@@ -86,17 +87,49 @@ export function buildKitchen({ stage, GFX }) {
   counter.name = 'counter';
   room.add(counter);
 
-  const tiles = subwayTile(GFX);
+  const tiles = greenTile(GFX);
   if (tiles) tiles.repeat.set(110 / 16, WALL.height / 8);
   const wall = new GFX.Mesh(
     new GFX.PlaneGeometry(110, WALL.height),
     new GFX.MeshPhysicalMaterial({
-      name: 'wall-tile', color: tiles ? 0xffffff : 0xece8e0, map: tiles, roughness: 0.25, metalness: 0,
-      clearcoat: 0.6, clearcoatRoughness: 0.2,
+      name: 'wall-tile', color: tiles ? 0xffffff : 0x24493a, map: tiles, roughness: 0.22, metalness: 0,
+      clearcoat: 0.8, clearcoatRoughness: 0.12,
     }),
   );
   wall.name = 'wall';
   room.add(wall);
+
+  /**
+   * Brass on the wall: a quarter-round where the tile meets the stone, and a
+   * rail on standoffs a hand's height up, the kind ladles hang from.
+   */
+  const brass = new GFX.MeshStandardMaterial({
+    name: 'wall-brass', color: 0xc9a25a, map: brushed(GFX, 256, '#b0b0b0'), roughness: 0.3, metalness: 1,
+  });
+  const trim = new GFX.Group();
+  trim.name = 'wall-brass';
+  const cove = new GFX.Mesh(new GFX.CylinderGeometry(0.22, 0.22, 110, 12, 1, false, 0, Math.PI / 2), brass);
+  cove.name = 'wall-cove';
+  cove.rotation.z = Math.PI / 2;
+  trim.add(cove);
+  const rail = new GFX.Mesh(new GFX.CylinderGeometry(0.17, 0.17, 110, 16), brass);
+  rail.name = 'wall-rail';
+  rail.rotation.z = Math.PI / 2;
+  rail.position.set(0, 4.6, 0.75);
+  trim.add(rail);
+  for (let x = -48; x <= 48; x += 12) {
+    const post = new GFX.Mesh(new GFX.CylinderGeometry(0.1, 0.16, 0.75, 12), brass);
+    post.name = 'wall-standoff';
+    post.rotation.x = Math.PI / 2;
+    post.position.set(x, 4.6, 0.38);
+    trim.add(post);
+    const rose = new GFX.Mesh(new GFX.CylinderGeometry(0.34, 0.36, 0.08, 20), brass);
+    rose.name = 'wall-rose';
+    rose.rotation.x = Math.PI / 2;
+    rose.position.set(x, 4.6, 0.04);
+    trim.add(rose);
+  }
+  room.add(trim);
 
   const stove = buildStove(GFX);
   room.add(stove.group);
@@ -161,6 +194,7 @@ export function buildKitchen({ stage, GFX }) {
     shape = name;
     Object.assign(LAYOUT, structuredClone(LAYOUTS[name]));
     wall.position.set(0, WALL.height / 2, LAYOUT.wall);
+    trim.position.set(0, 0, LAYOUT.wall);
     counter.position.set(0, -1, LAYOUT.wall + 32);
     stove.group.position.set(LAYOUT.stove.x, 0, LAYOUT.stove.z);
     panHome.set(LAYOUT.stove.x, PAN_Y, LAYOUT.stove.z);
@@ -376,8 +410,9 @@ export function buildKitchen({ stage, GFX }) {
 
 /**
  * The light: the morning coming in from the left as the key, which is the one
- * that casts; a pendant over the counter; a cool fill from the right; and the
- * room itself, prefiltered, in everything shiny.
+ * that casts; a brass pendant's warm pool over the counter; a cool fill from
+ * the right; light bounced up off the pale stone; and the room itself,
+ * prefiltered, in everything shiny.
  */
 function light({ stage, GFX }) {
   const scene = stage._scene;
@@ -395,15 +430,15 @@ function light({ stage, GFX }) {
 
   scene.traverse((o) => {
     if (o.isHemisphereLight) {
-      o.color.set(0xfff4e6);
-      o.groundColor.set(0x5a4a3a);
+      o.color.set(0xfff1de);
+      o.groundColor.set(0x8c7a5e);
       o.intensity = 0.55;
     }
   });
 
   const key = stage._key;
-  key.color.set(0xfff1dc);
-  key.intensity = 2.1;
+  key.color.set(0xffecd2);
+  key.intensity = 2.0;
   key.position.set(-14, 30, 16);
   key.target.position.set(0, 0, 0);
   key.target.updateMatrixWorld();
@@ -429,7 +464,7 @@ function light({ stage, GFX }) {
     }
   });
 
-  const pendant = new GFX.PointLight(0xffe2b8, 160, 60, 2);
+  const pendant = new GFX.PointLight(0xffd9a6, 175, 60, 2);
   pendant.name = 'pendant';
   pendant.position.set(-2, 19, 3);
   scene.add(pendant);

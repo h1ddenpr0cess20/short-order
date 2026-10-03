@@ -182,6 +182,17 @@ steps. Steam comes off anything wet on hot iron and thins as the food dries,
 which is the best clue that browning has started; smoke means something is
 burning.
 
+The kitchen is dressed like a brunch place's menu board: bottle-green tile
+and glaze, cream china and card, gilt and brass, walnut handles. Every surface
+is painted on a canvas at load ([`textures.js`](../src/scene/textures.js)) —
+the marble, the tile, the grain, the labels on the oil and the eggs — and the
+props that are no primitive, the carton, the butter dish, the towel and the
+slotted blade of the spatula, are cast from distances
+([`sdf.js`](../src/scene/sdf.js)) the way the pan's handle is, with any face
+that rests on the counter left open. The page's faces — Playfair Display,
+Oswald and Caveat — are bundled with it, and loaded before the labels are
+painted.
+
 The renderer is the one [debater](https://github.com/h1ddenpr0cess20/debater)
 draws with, vendored, with a few additions: a per-frame hook on the stage,
 its pacing, and repeat wrapping for textures. The gas flame is its first
