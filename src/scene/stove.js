@@ -152,12 +152,6 @@ export function buildStove(GFX) {
   glow.renderOrder = 1;
   stove.add(glow);
 
-  /** A blue light under the pan, so a lit burner shows on the grate and the steel. */
-  const light = new GFX.PointLight(0x5a78ff, 0, 9, 2);
-  light.name = 'flame-light';
-  light.position.set(0, TOP.y + 0.8, 0);
-  stove.add(light);
-
   /** The knob, at the front right of the top: a chrome skirt and a black grip with a pointer. */
   const knob = new GFX.Group();
   knob.name = 'knob';
@@ -200,8 +194,9 @@ export function buildStove(GFX) {
 
     /**
      * Shows the burner at `level`, 0 (off) to 1 (full), at `time` seconds.
-     * The knob turns to it; the flame, its glow and its light follow a little
-     * behind, the way gas catches.
+     * The knob turns to it; the flame and its glow follow a little behind,
+     * the way gas catches. There is no light under the pan: lights here cast
+     * no shadow, and one under the iron would light the food through it.
      */
     update(level, time, dt) {
       shown += (level - shown) * Math.min(1, dt * 6);
@@ -212,7 +207,6 @@ export function buildStove(GFX) {
       flame.visible = shown > 0.005;
       glow.material.opacity = Math.min(1, shown * 0.9) * (0.9 + 0.1 * Math.sin(time * 17));
       glow.visible = shown > 0.005;
-      light.intensity = shown * (5 + 0.6 * Math.sin(time * 23));
     },
   };
 }

@@ -29,7 +29,7 @@ import { axisAngle } from '../sim/quat.js';
 import { createSheetView } from '../view/eggs.js';
 import { createPieceViews } from '../view/pieces.js';
 import { createEggStation } from './eggs.js';
-import { diceReport, eggReport, fryReport, grade } from './grade.js';
+import { BITE, diceReport, eggReport, fryReport, grade } from './grade.js';
 import { createPointer } from './pointer.js';
 
 /** How far the pointer has to travel before a press is a drag rather than a click. */
@@ -393,6 +393,30 @@ export function createGame({ stage, GFX, kitchen }) {
     emit('reset');
   }
 
+  /**
+   * What the knife should do next, read off what is on the board: the biggest
+   * share of potato that is not yet a bite, and which way it lies.
+   */
+  function diceAdvice() {
+    if (board.pieces.length === 0) return '';
+    if (board.pieces.length === 1) return 'cut it into rounds';
+    let across = 0, along = 0, chunks = 0;
+    for (const p of board.pieces) {
+      const b = board.box(p);
+      const w = b.x1 - b.x0, d = b.z1 - b.z0;
+      if (Math.max(w, d) <= BITE.max && b.y1 - b.y0 <= BITE.max) continue;
+      if (b.y1 - b.y0 > BITE.max && w > BITE.max && d > BITE.max) chunks += p.volume;
+      /** Long side to side: the knife runs along it, not through it, until the pile is turned. */
+      else if (w > BITE.max && w >= d) across += p.volume;
+      else along += p.volume;
+    }
+    const most = Math.max(across, along, chunks);
+    if (most < 0.5) return 'diced — into the pan';
+    if (most === chunks) return 'keep cutting';
+    if (most === along) return 'cut across them';
+    return 'turn the pile, then cut across';
+  }
+
   /** Where the dish has got to, for the recipe card. Worked out a few times a second. */
   let progress = null;
   function measureProgress() {
@@ -413,7 +437,7 @@ export function createGame({ stage, GFX, kitchen }) {
       : null;
     const bowlEggs = eggs.bowl.eggs;
     progress = {
-      dice: { pieces: dice.pieces, bite: dice.bite, done: dice.pieces > 12 && dice.bite >= 0.7 },
+      dice: { pieces: dice.pieces, bite: dice.bite, done: dice.pieces > 12 && dice.bite >= 0.7, next: diceAdvice() },
       fry: { inPan: inPan.length, golden: fry.golden, cooked: inPan.length ? 1 - fry.raw : 0, burnt: fry.burnt, done: inPan.length > 0 && fry.golden >= 0.7 },
       whisk: {
         eggs: bowlEggs + poured.eggs,

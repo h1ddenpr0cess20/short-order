@@ -65,7 +65,10 @@ piece. Leave it alone and it sets flat, which is an omelette. Egg wants less
 heat than potato: turn the burner down before it goes in.
 
 The ticket keeps a running commentary on all of this, read off the food rather
-than ticked by hand, and the plate is marked on the same measurements: how much
+than ticked by hand — down to what the knife should do next, from the shapes
+lying on the board — and a note pops up over the bar when the pan needs you:
+something catching, a dry pan, a cold one, or eggs going into one too hot for
+them. The plate is marked on the same measurements: how much
 of the potato is a good bite and how even, how much of it is golden and cooked
 through against pale, burnt or raw, whether the eggs were beaten smooth,
 scrambled rather than set flat, and soft rather than runny, rubbery or brown —

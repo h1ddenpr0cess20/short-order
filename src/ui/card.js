@@ -59,7 +59,8 @@ export function createCard({ game, root = document.body }) {
       last = key;
 
       show('dice', {
-        how: p.dice.pieces <= 1 ? 'rounds, then strips, turn, then cubes' : `${p.dice.pieces} pieces · ${pct(p.dice.bite)} bite-size`,
+        how: p.dice.pieces <= 1 ? 'rounds, then strips, turn, then cubes'
+          : `${p.dice.pieces} pieces · ${pct(p.dice.bite)} bite-size${p.dice.next ? ` — ${p.dice.next}` : ''}`,
         fill: p.dice.bite / 0.7,
         done: p.dice.done,
       });
