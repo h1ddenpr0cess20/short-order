@@ -24,7 +24,7 @@ export function createHud({ game, root = document.body }) {
       </div>
     </div>
     <div class="group moves">
-      <button class="chip" data-act="turn" title="Turn the pile a quarter turn (R)">turn</button>
+      <button class="chip" data-act="turn" title="Turn the pile a quarter turn (R)"><span class="glyph" aria-hidden="true">↻</span> turn</button>
       <button class="chip" data-act="scrape" title="Scrape the board into the pan (S)">into pan</button>
       <button class="chip" data-act="oil" title="Oil the pan (O)">oil</button>
       <button class="chip" data-act="butter" title="A pat of butter into the pan (B)">butter</button>
@@ -90,6 +90,8 @@ export function createHud({ game, root = document.body }) {
       out('temp').textContent = `${t}°`;
       out('temp').dataset.hot = t > 240 ? 'smoking' : t > 160 ? 'hot' : t > 60 ? 'warm' : 'cold';
       act('turn').disabled = game.board.pieces.length === 0;
+      /** When the knife is running along the strips rather than across them, the button says so. */
+      act('turn').classList.toggle('nudge', /^turn the pile/.test(game.progress?.dice?.next ?? ''));
       act('scrape').disabled = game.board.pieces.length === 0;
       act('toss').disabled = game.pan.pieces.length === 0;
       act('egg').disabled = game.eggs.eggsLeft === 0 || game.eggs.bowl.eggs >= 4 || game.eggs.pouring;

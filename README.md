@@ -26,13 +26,15 @@ npm run dev       # → http://localhost:5173
 It is a static page and nothing else — no server, no keys, no network. `npm run
 build` puts it in `dist/`, and the Pages workflow publishes that on every push
 to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actions).
+It deploys to Vercel as it is, too ([`vercel.json`](vercel.json) pins the
+build), with a preview for every branch.
 
 ## Playing
 
 | | |
 |---|---|
 | **knife** | Over the board the knife follows the pointer. Click to chop where the blade is — it goes through whatever is under it. |
-| **turn** | Right-click the board, or `R`, turns the pile a quarter turn so the next cuts go the other way. |
+| **turn** | Right-click the board, or `R`, turns the pile a quarter turn so the next cuts go the other way. On a phone, twist two fingers on the kitchen, or tap **↻ turn** — it lights up when the ticket says to turn. |
 | **carry** | Drag the pile and it comes up on the flat of the knife; let go over the pan to drop it in, anywhere else and it goes back just as it was. `S` scrapes the board straight in. |
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
@@ -44,7 +46,8 @@ to `main` once Pages is switched on (Settings → Pages → Source: GitHub Actio
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
 
 Everything in that list is also a button in the bar along the bottom, so it all
-works on a phone: a tap on the board chops, a drag carries or stirs or whisks.
+works on a phone: a tap on the board chops, a drag carries or stirs or whisks, upright or
+on its side.
 And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
 chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg,
 `B` butters, `A` salts, `F` peppers, `enter` plates, `M` mutes.

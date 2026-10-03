@@ -3,7 +3,8 @@
  *
  * On a phone the corners are kitchen — the pan's handle and the knob are down
  * the right-hand side — so there the menu folds into one button at the end of
- * the bar's burner row and opens upward over the bar.
+ * the bar's burner row and opens upward over the bar. On a phone on its side
+ * it folds the same way, at the end of the bar.
  */
 
 const MUTE = 'short-order:muted';
@@ -29,15 +30,16 @@ export function createMenu({ game, sound, intro, root = document.body }) {
   };
   open(false);
 
-  /** Where it lives follows the kitchen's shape: the corner when wide, the bar when tall. */
+  /** Where it lives follows the kitchen's shape: the corner when wide, the bar when tall or short. */
   const dock = () => {
-    const bar = document.querySelector('#bar .heat');
-    const home = document.body.dataset.shape === 'tall' && bar ? bar : root;
+    const { shape, short } = document.body.dataset;
+    const bar = document.querySelector(shape === 'tall' ? '#bar .heat' : '#bar');
+    const home = (shape === 'tall' || short) && bar ? bar : root;
     if (nav.parentNode !== home) home.appendChild(nav);
     open(false);
   };
   dock();
-  new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['data-shape'] });
+  new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['data-shape', 'data-short'] });
   document.addEventListener('pointerdown', (event) => {
     if (nav.dataset.open === 'true' && !nav.contains(event.target)) open(false);
   });

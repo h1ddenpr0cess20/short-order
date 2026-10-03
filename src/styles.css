@@ -30,6 +30,15 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+  /**
+   * A game, not a page: a finger held down to drag is not asking to select
+   * the ticket's words or for the callout menu, and two quick taps on a
+   * button are two presses, not a zoom.
+   */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 three-d-stage:not(:defined) { visibility: hidden; }
@@ -64,6 +73,7 @@ body::after {
 button {
   color: inherit;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 /* ── the bar ─────────────────────────────────────────────────────────────── */
@@ -110,6 +120,15 @@ button {
 #bar button:hover:not(:disabled) { background: var(--gold-faint); color: var(--gold-bright); }
 #bar button:disabled { opacity: .32; cursor: default; }
 #bar button.round { width: 34px; padding: 0; font: 400 19px/1 var(--sans); color: var(--gold-bright); }
+#bar .glyph { font: 400 13px/1 var(--sans); letter-spacing: 0; color: var(--gold-bright); }
+/** The move the ticket is asking for, lit up so it can be found. */
+#bar button.nudge:not(:disabled) { color: var(--gold-bright); border-color: var(--gold); animation: nudge-glow 1.4s ease-in-out infinite; }
+@keyframes nudge-glow {
+  50% { background: var(--gold-faint); box-shadow: 0 0 0 2px var(--gold-dim), 0 0 14px rgba(228, 197, 132, 0.45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bar button.nudge:not(:disabled) { animation: none; background: var(--gold-faint); }
+}
 
 #bar .dial, #bar .thermo {
   display: flex;
@@ -294,6 +313,7 @@ button {
   animation: drop .45s cubic-bezier(.2, 1.3, .4, 1);
 }
 #result[hidden] { display: none; }
+#result { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; }
 @keyframes drop {
   from { opacity: 0; transform: translateY(-62%) rotate(-2deg); }
 }
@@ -418,7 +438,11 @@ button {
   font: 600 10.5px/1.5 var(--mono);
   text-align: center;
 }
+/** However long the page above it, the way in stays on screen. */
 #intro .start {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   margin-top: 18px;
   width: 100%;
   height: 50px;
@@ -453,8 +477,9 @@ body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: no
 #ticket .short, #ticket .now { display: none; }
 
 /* ── tall windows: the ticket across the top, the bar on two rows ────────── */
+/* (and short ones — a phone on its side — have the same folded ticket, in the corner) */
 
-body[data-shape="tall"] #ticket {
+:is(body[data-shape="tall"], body[data-short]) #ticket {
   left: calc(10px + env(safe-area-inset-left));
   right: calc(10px + env(safe-area-inset-right));
   top: calc(12px + env(safe-area-inset-top));
@@ -466,12 +491,12 @@ body[data-shape="tall"] #ticket {
   grid-template-areas: "title foot" "steps steps" "now now";
   column-gap: 8px;
 }
-body[data-shape="tall"] #ticket header, body[data-shape="tall"] #ticket .tag { display: none; }
-body[data-shape="tall"] #ticket h1 { grid-area: title; margin: 0; font-size: 17px; align-self: center; }
-body[data-shape="tall"] #ticket footer { grid-area: foot; border: 0; padding: 0; gap: 8px; }
-body[data-shape="tall"] #ticket .clock { font-size: 15px; }
-body[data-shape="tall"] #ticket .plate { height: 28px; padding: 0 10px; }
-body[data-shape="tall"] #ticket ol {
+:is(body[data-shape="tall"], body[data-short]) #ticket header, :is(body[data-shape="tall"], body[data-short]) #ticket .tag { display: none; }
+:is(body[data-shape="tall"], body[data-short]) #ticket h1 { grid-area: title; margin: 0; font-size: 17px; align-self: center; }
+:is(body[data-shape="tall"], body[data-short]) #ticket footer { grid-area: foot; border: 0; padding: 0; gap: 8px; }
+:is(body[data-shape="tall"], body[data-short]) #ticket .clock { font-size: 15px; }
+:is(body[data-shape="tall"], body[data-short]) #ticket .plate { height: 28px; padding: 0 10px; }
+:is(body[data-shape="tall"], body[data-short]) #ticket ol {
   grid-area: steps;
   display: flex;
   flex-wrap: wrap;
@@ -481,12 +506,12 @@ body[data-shape="tall"] #ticket ol {
   padding-top: 8px;
 }
 /* Six steps across a phone: small circles, tight type, and a second row rather than off the edge. */
-body[data-shape="tall"] #ticket li { padding: 0 0 0 18px; min-height: 15px; }
-body[data-shape="tall"] #ticket li::before { width: 14px; height: 14px; font-size: 9px; line-height: 14px; top: 1px; }
-body[data-shape="tall"] #ticket li .what, body[data-shape="tall"] #ticket li .how, body[data-shape="tall"] #ticket li .bar { display: none; }
-body[data-shape="tall"] #ticket li .short { display: block; font: 500 11px/17px var(--condensed); letter-spacing: .06em; text-transform: uppercase; }
-body[data-shape="tall"] #ticket li[data-done="true"] .short { color: var(--done); }
-body[data-shape="tall"] #ticket .now {
+:is(body[data-shape="tall"], body[data-short]) #ticket li { padding: 0 0 0 18px; min-height: 15px; }
+:is(body[data-shape="tall"], body[data-short]) #ticket li::before { width: 14px; height: 14px; font-size: 9px; line-height: 14px; top: 1px; }
+:is(body[data-shape="tall"], body[data-short]) #ticket li .what, :is(body[data-shape="tall"], body[data-short]) #ticket li .how, :is(body[data-shape="tall"], body[data-short]) #ticket li .bar { display: none; }
+:is(body[data-shape="tall"], body[data-short]) #ticket li .short { display: block; font: 500 11px/17px var(--condensed); letter-spacing: .06em; text-transform: uppercase; }
+:is(body[data-shape="tall"], body[data-short]) #ticket li[data-done="true"] .short { color: var(--done); }
+:is(body[data-shape="tall"], body[data-short]) #ticket .now {
   grid-area: now;
   display: block;
   margin: 6px 0 0;
@@ -556,9 +581,9 @@ body:not([data-playing]) #menu { visibility: hidden; }
 /* On a phone: one button at the end of the burner row, the rest opening up over the bar. */
 body[data-shape="tall"] #bar .heat { position: relative; }
 body[data-shape="tall"] #menu { position: absolute; top: calc(50% - 3px); right: 0; transform: translateY(-50%); z-index: auto; }
-body[data-shape="tall"] #menu .more { display: inline-flex; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 0; border-radius: 4px; background: rgba(244, 236, 218, 0.03); color: var(--gold-bright); }
-body[data-shape="tall"] #menu[data-open="true"] .more { background: var(--gold-faint); }
-body[data-shape="tall"] #menu .items {
+:is(body[data-shape="tall"], body[data-short]) #menu .more { display: inline-flex; align-items: center; justify-content: center; font-size: 18px; letter-spacing: 0; border-radius: 4px; background: rgba(244, 236, 218, 0.03); color: var(--gold-bright); }
+:is(body[data-shape="tall"], body[data-short]) #menu[data-open="true"] .more { background: var(--gold-faint); }
+:is(body[data-shape="tall"], body[data-short]) #menu .items {
   position: absolute;
   right: -6px;
   bottom: calc(100% + 14px);
@@ -570,8 +595,8 @@ body[data-shape="tall"] #menu .items {
   background: rgba(21, 36, 28, 0.96);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
-body[data-shape="tall"] #menu[data-open="false"] .items { display: none; }
-body[data-shape="tall"] #menu .items button { height: 34px; padding: 0 14px; font-size: 11px; border: 0; background: transparent; }
+:is(body[data-shape="tall"], body[data-short]) #menu[data-open="false"] .items { display: none; }
+:is(body[data-shape="tall"], body[data-short]) #menu .items button { height: 34px; padding: 0 14px; font-size: 11px; border: 0; background: transparent; }
 
 /* ── the cook's notes ────────────────────────────────────────────────────── */
 
@@ -601,4 +626,60 @@ body[data-plated] #note, body:not([data-playing]) #note { display: none; }
 body[data-playing] #hint { bottom: calc(76px + env(safe-area-inset-bottom)); }
 @media (max-width: 719px) {
   #note { bottom: calc(118px + env(safe-area-inset-bottom)); font-size: 13px; }
+}
+
+/** Nothing hovers under a finger, so there is nothing for the hover hint to say. */
+@media (hover: none) and (pointer: coarse) {
+  #hint { display: none; }
+}
+
+/* ── short windows: a phone on its side ──────────────────────────────────── */
+
+body[data-short] #ticket {
+  left: calc(10px + env(safe-area-inset-left));
+  right: auto;
+  top: calc(8px + env(safe-area-inset-top));
+  width: 264px;
+}
+body[data-short] #ticket h1 { font-size: 15px; }
+body[data-short] #ticket ol { justify-content: flex-start; gap: 4px 8px; }
+
+body[data-short] #bar {
+  flex-wrap: nowrap;
+  gap: 5px;
+  width: auto;
+  max-width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  padding: 5px;
+}
+body[data-short] #bar .heat, body[data-short] #bar .moves, body[data-short] #bar .eggs {
+  width: auto;
+  padding: 0 5px 0 0;
+  border: 0;
+  border-right: 1px solid var(--gold-faint);
+}
+body[data-short] #bar .group { gap: 4px; }
+body[data-short] #bar button { height: 32px; padding: 0 7px; font-size: 10.5px; letter-spacing: .08em; }
+body[data-short] #bar button.round { width: 32px; padding: 0; }
+body[data-short] #bar .dial, body[data-short] #bar .thermo { min-width: 50px; gap: 2px; }
+body[data-short] #bar .level { font-size: 13px; }
+body[data-short] #bar .temp { font-size: 15px; }
+body[data-short] #menu { position: relative; top: auto; right: auto; z-index: auto; align-self: center; }
+body[data-short] #menu .more { width: 32px; height: 32px; padding: 0; }
+body[data-short] #menu .items { right: -5px; bottom: calc(100% + 10px); }
+body[data-short] #hint { display: none; }
+body[data-short] #note { bottom: calc(58px + env(safe-area-inset-bottom)); font-size: 13px; padding: 6px 14px; }
+body[data-short] #result { top: calc(8px + env(safe-area-inset-top)); bottom: calc(8px + env(safe-area-inset-bottom)); transform: none; padding: 12px 16px; }
+body[data-short] #result .total b { font-size: 36px; }
+body[data-short] #result .stars { font-size: 22px; }
+
+/** The title on a phone on its side: less of it, so there is room to read. */
+@media (max-height: 519px) {
+  #intro { padding: 8px; }
+  #intro .sheet { padding: 14px 20px 10px; max-height: calc(100dvh - 16px); outline-offset: -6px; }
+  #intro h1 { font-size: 42px; }
+  #intro .crest { width: 60px; }
+  #intro .scrawl { display: none; }
+  #intro .motto { margin-bottom: 10px; }
+  #intro .start { height: 44px; margin-top: 12px; }
 }
