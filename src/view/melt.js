@@ -55,11 +55,13 @@ function subdivide(solid, levels) {
 
 /**
  * The surface a piece of cheese is drawn with: its own, or finer if it is
- * too plain to bend, and for each vertex which point of the surface it is.
+ * too plain to bend and `fine` is not turned off, and for each vertex which
+ * point of the surface it is.
  */
-export function meltable(solid) {
+export function meltable(solid, { fine = true } = {}) {
   const tris = solid.pos.length / 9;
-  const levels = tris <= COARSE / 8 ? 2 : tris < COARSE ? 1 : 0;
+  /** A shred is thin enough that melting only flattens it: it needs nothing finer. */
+  const levels = !fine ? 0 : tris <= COARSE / 8 ? 2 : tris < COARSE ? 1 : 0;
   const out = subdivide(solid, levels);
   const n = out.pos.length / 3;
   const weld = new Int32Array(n);

@@ -14,6 +14,7 @@ export function wireSound({ game, sound }) {
       case 'turn': sound.play('scrape'); break;
       case 'roll': sound.play('scrape'); break;
       case 'trim': sound.play('scrape'); break;
+      case 'grate': sound.play('scrape'); break;
       case 'pickup': sound.play('scrape'); break;
       case 'scrape': sound.play('scrape'); break;
       case 'add': sound.play('splash', heat(), e.count / 10); break;

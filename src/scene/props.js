@@ -7,7 +7,7 @@
 
 import { cast } from './cast.js';
 import { extrude, planarUV, roundRect } from './sdf.js';
-import { flakes, towel, walnut } from './textures.js';
+import { flakes, graterFace, towel, walnut } from './textures.js';
 
 const v2 = (GFX, points) => points.map(([x, y]) => new GFX.Vector2(x, y));
 
@@ -155,6 +155,47 @@ export function buildMill(GFX) {
   group.name = 'pepper-mill';
   group.add(body, crown, band, seam, stem, knob);
   return { group, height: 5 };
+}
+
+/**
+ * A box grater: four steel faces punched with grating holes, tapering up to a
+ * rolled rim, and a black handle over the top. Cheese let go over it comes
+ * out the bottom, shredded.
+ */
+export function buildGrater(GFX) {
+  const face = graterFace(GFX);
+  if (face) face.repeat.set(4, 1);
+  const steel = new GFX.MeshPhysicalMaterial({
+    name: 'grater-steel', color: face ? 0xffffff : 0xb9bdc2, map: face, bumpMap: face, bumpScale: 0.6,
+    roughness: 0.32, metalness: 0.85, side: GFX.DoubleSide,
+  });
+  const rimSteel = new GFX.MeshStandardMaterial({ name: 'grater-rim', color: 0xc9ccd0, roughness: 0.25, metalness: 0.9 });
+  const black = new GFX.MeshPhysicalMaterial({ name: 'grater-handle', color: 0x1b1c1e, roughness: 0.45, metalness: 0, clearcoat: 0.3 });
+  /** Square in section, turned a quarter so its faces are front, back and sides, and drawn out wider than deep. */
+  const H = 3.4;
+  const body = new GFX.Mesh(new GFX.CylinderGeometry(0.95, 1.45, H, 4, 1, true), steel);
+  body.name = 'grater-body';
+  body.rotation.y = Math.PI / 4;
+  body.position.y = H / 2;
+  const rim = new GFX.Mesh(new GFX.TorusGeometry(0.95, 0.07, 6, 4), rimSteel);
+  rim.name = 'grater-rim';
+  rim.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+  rim.position.y = H;
+  const foot = new GFX.Mesh(new GFX.TorusGeometry(1.45, 0.06, 6, 4), rimSteel);
+  foot.name = 'grater-foot';
+  foot.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+  foot.position.y = 0.06;
+  const handle = new GFX.Mesh(new GFX.TorusGeometry(0.62, 0.13, 10, 24, Math.PI), black);
+  handle.name = 'grater-handle';
+  handle.position.y = H + 0.02;
+  const shape = new GFX.Group();
+  shape.scale.set(1, 1, 0.72);
+  shape.add(body, rim, foot, handle);
+  const group = new GFX.Group();
+  group.name = 'grater';
+  group.add(shape);
+  for (const m of [body, rim, foot, handle]) m.castShadow = m.receiveShadow = true;
+  return { group, height: H + 0.75 };
 }
 
 /**

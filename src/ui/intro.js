@@ -14,7 +14,7 @@ const POINTER = `
   <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
   <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour. Fried eggs go straight into the pan: click one to turn it over. Freestyle, drag an egg to the pan, or <kbd>H</kbd>, to fry it.</span></li>
   <li><b>Omelette</b><span>pour, let it set, then <i>fold</i> or <kbd>L</kbd> — anything lying on the egg is folded inside.</span></li>
-  <li><b>Extras</b><span>click one on the counter — cheese, tomato, ham, pepper, onion, chives, <kbd>1</kbd>–<kbd>6</kbd> — and it goes on the board, or drag it to the board, a ramekin or the pan. Cut it small, then into the pan. Onion and pepper want cooking; cheese wants melting.</span></li>
+  <li><b>Extras</b><span>click one on the counter — cheese, tomato, ham, pepper, onion, chives, <kbd>1</kbd>–<kbd>6</kbd> — and it goes on the board, or drag it to the board, a ramekin or the pan. Cut it small, then into the pan — or take the cheese to the grater, and it melts all the quicker for it. Onion and pepper want cooking; cheese wants melting.</span></li>
   <li><b>Season</b><span>click the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
   <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>L</kbd> folds, <kbd>B</kbd> butters, <kbd>A</kbd> salts, <kbd>F</kbd> peppers, <kbd>enter</kbd> plates.</span></li>
 `;
@@ -26,7 +26,7 @@ const TOUCH = `
   <li><b>Pan</b><span>drag to stir with the spatula, tap to flip, <i>toss</i> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
   <li><b>Eggs</b><span>tap the carton to crack one into the bowl, drag round in the bowl to whisk, <i>pour</i> to pour. Fried eggs go straight into the pan: tap one to turn it over. Freestyle, drag an egg to the pan, or <i>egg → pan</i>, to fry it.</span></li>
   <li><b>Omelette</b><span>pour, let it set, then tap <i>fold</i> — anything lying on the egg is folded inside.</span></li>
-  <li><b>Extras</b><span>tap one on the counter — cheese, tomato, ham, pepper, onion, chives — and it goes on the board, or drag it to the board, a ramekin or the pan. Cut it small, then into the pan. Onion and pepper want cooking; cheese wants melting.</span></li>
+  <li><b>Extras</b><span>tap one on the counter — cheese, tomato, ham, pepper, onion, chives — and it goes on the board, or drag it to the board, a ramekin or the pan. Cut it small, then into the pan — or take the cheese to the grater, and it melts all the quicker for it. Onion and pepper want cooking; cheese wants melting.</span></li>
   <li><b>Season</b><span>tap the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
 `;
 

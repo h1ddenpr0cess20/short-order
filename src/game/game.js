@@ -19,7 +19,7 @@
  */
 
 import { curdSolid, friedSolid, omeletteSolid } from '../food/curd.js';
-import { FILLINGS, FILLING_KINDS, isFilling, isTrimming, listed, wholeSolids } from '../food/fillings.js';
+import { FILLINGS, FILLING_KINDS, isFilling, isTrimming, listed, shredSolids, wholeSolids } from '../food/fillings.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { PLATE } from '../scene/cookware.js';
@@ -105,7 +105,7 @@ export function createGame({ stage, GFX, kitchen }) {
   const grains = createGrains({ GFX, room: kitchen.room });
   let butterLeft = PATS;
   /** The salt, the mill and the butter give a little hop when they are used. */
-  const hops = { salt: 0, mill: 0, butter: 0, ...Object.fromEntries(FILLING_KINDS.map((k) => [k, 0])) };
+  const hops = { salt: 0, mill: 0, butter: 0, grater: 0, ...Object.fromEntries(FILLING_KINDS.map((k) => [k, 0])) };
   const eggs = createEggStation({
     GFX, kitchen, sheet, pan,
     emit: (type, detail) => {
@@ -223,7 +223,7 @@ export function createGame({ stage, GFX, kitchen }) {
     }
 
     /** The salt, the pepper mill and the butter, each a round patch at its own height. */
-    for (const [key, zoneName, height, radius] of [['salt', 'salt', 1.0, 1.7], ['mill', 'pepper', 2.6, 1.3], ['butter', 'butter', 1.0, 1.9]]) {
+    for (const [key, zoneName, height, radius] of [['salt', 'salt', 1.0, 1.7], ['mill', 'pepper', 2.6, 1.3], ['butter', 'butter', 1.0, 1.9], ['grater', 'grater', 2.0, 1.7]]) {
       const q = pointer.at(height);
       if (q && Math.hypot(q.x - LAYOUT[key].x, q.z - LAYOUT[key].z) < radius) return { zone: zoneName };
     }
@@ -429,6 +429,44 @@ export function createGame({ stage, GFX, kitchen }) {
     prep[i] = all;
   }
 
+  /** Whether the pointer is on the grater, letting go: where it points, as for a ramekin. */
+  function overGrater() {
+    const q = pointer.at(2.0);
+    return Boolean(q) && Math.hypot(q.x - LAYOUT.grater.x, q.z - LAYOUT.grater.z) < 1.9;
+  }
+
+  /**
+   * `list` through the grater: shredded, and the shreds in a heap on the
+   * board, wherever there is room for one. False, and nothing grated, if
+   * there is not.
+   */
+  function grate(list) {
+    const spot = boardSpot(3.0, 2.4);
+    if (!spot) {
+      emit('board-full', { kind: 'cheese' });
+      return false;
+    }
+    const byKind = new Map();
+    for (const p of list) byKind.set(p.kind, (byKind.get(p.kind) ?? 0) + p.volume);
+    let count = 0;
+    for (const [kind, volume] of byKind) {
+      for (const solid of shredSolids(kind, volume)) {
+        const yaw = Math.random() * Math.PI;
+        const piece = makePiece({ solid, kind, rot: axisAngle([0, 1, 0], yaw) });
+        piece.moisture = FILLINGS[kind].moisture;
+        piece.shred = true;
+        /** Fallen in a loose heap: thickest in the middle, thinning out to its edges. */
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.9;
+        piece.pos = [spot[0] + Math.cos(a) * r * 1.2, 0, spot[1] + Math.sin(a) * r * 0.9];
+        board.add(piece);
+        count += 1;
+      }
+    }
+    hops.grater = 1;
+    emit('grate', { count });
+    return true;
+  }
+
   /** Pieces dropped into the pan from above where the hand is, falling. */
   function intoPan(list, local) {
     let area = 0;
@@ -467,7 +505,10 @@ export function createGame({ stage, GFX, kitchen }) {
     const local = [carryAt.x - panHome.x, carryAt.z - panHome.z];
     const onto = [carryAt.x - boardOrigin.x, carryAt.z - boardOrigin.z];
     const dish = aimed ? overRamekin() : -1;
-    if (dish >= 0) {
+    const grater = aimed && overGrater();
+    if (grater && list.every((p) => FILLINGS[p.kind]?.grates) && grate(list)) {
+      /** Grated: what was held is the shreds on the board now. */
+    } else if (dish >= 0) {
       intoRamekin(dish, list);
       emit('ramekin', { count: list.length, index: dish });
     } else if (Math.hypot(local[0], local[1]) < COOK_RADIUS + 0.4) {
@@ -480,10 +521,10 @@ export function createGame({ stage, GFX, kitchen }) {
       if (from?.counter && FILLINGS[from.counter]) emit('extra', { kind: from.counter, count: list.length });
     } else if (from?.ramekin !== undefined) {
       intoRamekin(from.ramekin, list);
-      emit('putback', { count: list.length });
+      emit('putback', { count: list.length, grater });
     } else if (from?.counter) {
       /** Back on the counter: it was only ever borrowed from there, and its meshes go with the next sweep. */
-      emit('putback', { count: list.length });
+      emit('putback', { count: list.length, grater });
     } else {
       /** Lowest first, so each piece finds what it was lying on already back under it. */
       list.sort((a, b) => a.home.pos[1] - b.home.pos[1]);
@@ -495,7 +536,7 @@ export function createGame({ stage, GFX, kitchen }) {
         delete p.home;
         board.add(p);
       }
-      emit('putback', { count: list.length });
+      emit('putback', { count: list.length, grater });
     }
   }
 

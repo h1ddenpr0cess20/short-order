@@ -270,6 +270,49 @@ export function brushed(GFX, size = 512, base = '#9da0a3') {
   return texture(GFX, c.el, { wrap: true });
 }
 
+/**
+ * The face of a box grater: brushed steel punched with rows of grating holes,
+ * each a dark slot with a bright raised lip along its top edge. Painted for
+ * one face, upright, and repeated round the four.
+ */
+export function graterFace(GFX, size = 256) {
+  const c = canvas(size);
+  if (!c) return null;
+  const { ctx } = c;
+  const random = seeded(17);
+  ctx.fillStyle = '#b9bdc2';
+  ctx.fillRect(0, 0, size, size);
+  for (let k = 0; k < 500; k++) {
+    const y = random() * size, x = random() * size, v = random() < 0.5 ? 255 : 70;
+    ctx.strokeStyle = `rgba(${v},${v},${v},0.05)`;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + 30 + random() * 90);
+    ctx.stroke();
+  }
+  const rows = 9, cols = 6;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const x = ((i + 0.5 + (j % 2) * 0.5) / cols) * size, y = ((j + 0.5) / rows) * size;
+      const w = size / cols * 0.42, h = size / rows * 0.32;
+      ctx.fillStyle = '#7d8187';
+      ctx.beginPath();
+      ctx.ellipse(x, y - h * 0.55, w * 0.55, h * 0.5, 0, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#16181b';
+      ctx.beginPath();
+      ctx.ellipse(x, y, w * 0.5, h * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(x, y, w * 0.5, h * 0.45, 0, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.stroke();
+    }
+  }
+  return texture(GFX, c.el, { wrap: true });
+}
+
 /** A soft round blot, black at the middle and gone at the edge: a cheap shadow. */
 export function blot(GFX, size = 128) {
   const c = canvas(size);

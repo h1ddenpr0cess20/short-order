@@ -88,6 +88,7 @@ export function createHud({ game, root = document.body }) {
     potato: 'click to put the potato on the board · or drag it where you want it',
     prep: 'drag anything here to keep it · click to tip it into the pan · drag it out to the board or the pan',
     extra: 'click to put it on the board, or drag it to the board, a ramekin or the pan — cut it small, then onto the egg to fold it in or over the food',
+    grater: 'drag cheese here — off the counter, the board or a ramekin — to grate it onto the board',
   };
   /** Over fried eggs, the spatula turns them; under an omelette not yet folded, it turns the whole thing. */
   const FRIED_PAN = 'click an egg to turn it over · space tosses them all · a drag through a yolk breaks it';

@@ -170,7 +170,7 @@ export function createPieceViews(GFX) {
   function build(piece) {
     /** Cheese is drawn finer than it is cut, and on its own copy of the surface, so that it can melt. */
     const melts = Boolean(FILLINGS[piece.kind]?.melts);
-    const solid = melts ? meltable(piece.solid) : piece.solid;
+    const solid = melts ? meltable(piece.solid, { fine: !piece.shred }) : piece.solid;
     const n = solid.pos.length / 3;
     const geometry = new GFX.BufferGeometry();
     geometry.setAttribute('position', new GFX.BufferAttribute(melts ? solid.pos.slice() : solid.pos, 3));
