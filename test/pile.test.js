@@ -62,22 +62,30 @@ function dicedPotato() {
 const shreds = (kind, volume) => shredSolids(kind, volume).map((solid) => makePiece({ solid, kind }));
 
 describe('a pile in a ramekin', () => {
-  const { dish, radius } = buildRamekin(GFX, { name: 'test', radius: 1.5 });
+  const { dish } = buildRamekin(GFX, { name: 'test', radius: 1.5 });
   const rim = dish.base(1.5, 0) - 0.01;
-  /** As the kitchen pours into one: heaping up over the rim and off onto the counter round it. */
-  const spill = { ...dish, holds: (x, z) => Math.hypot(x, z) <= radius * 1.8 };
+  const spill = dish;
 
-  it('takes a whole diced potato, all of it, in a heap spilling over the rim — not a tower', () => {
+  it('shows a whole diced potato as a heap that fits it — inside, no higher than its brim, never spilling', () => {
     const dice = dicedPotato();
-    assert.equal(pour(dice, spill, [], seeded(1)).length, dice.length);
-    assert.equal(clash(dice), null, 'two dice are in each other');
-    for (const p of dice) assert.ok(spill.holds(p.pos[0], p.pos[2]), 'a piece went off somewhere else');
-    assert.ok(dice.some((p) => Math.hypot(p.pos[0], p.pos[2]) > radius), 'that much should spill over the rim');
-    assert.ok(highest(dice) < rim + 2.2, `a tower ${highest(dice).toFixed(2)} high`);
-    /** Heaped up in the middle, the wall holding up what is against it. */
-    const middle = dice.filter((p) => Math.hypot(p.pos[0], p.pos[2]) < 0.9), side = dice.filter((p) => Math.hypot(p.pos[0], p.pos[2]) >= 0.9);
-    assert.ok(highest(side) < highest(middle) + 0.15, 'it is piled up round the side, higher than in the middle');
-    assert.ok(dice.filter((p) => bottom(p) < rim * 0.5).length >= 10, 'the floor of the dish is not covered');
+    const over = pour(dice, dish, [], seeded(1));
+    const shown = dice.filter((p) => !over.includes(p));
+    assert.ok(over.length > 0, 'a whole potato should be more than a ramekin shows');
+    assert.ok(shown.length >= 30, `only ${shown.length} dice shown`);
+    assert.equal(clash(shown), null, 'two dice are in each other');
+    for (const p of shown) assert.ok(dish.holds(p.pos[0], p.pos[2]), 'a piece spilled out of the dish');
+    assert.ok(highest(shown) <= dish.brim + 1e-6, 'heaped up past the brim');
+    assert.ok(highest(shown) > rim, 'it should be heaped up over the rim');
+    const middle = shown.filter((p) => Math.hypot(p.pos[0], p.pos[2]) < 0.9), side = shown.filter((p) => Math.hypot(p.pos[0], p.pos[2]) >= 0.9);
+    assert.ok(middle.length && side.length && highest(side) < highest(middle) + 0.15, 'it is piled up round the side, higher than in the middle');
+    assert.ok(shown.filter((p) => bottom(p) < rim * 0.5).length >= 10, 'the floor of the dish is not covered');
+  });
+
+  it('leaves what it does not show just as it was', () => {
+    const dice = dicedPotato();
+    const before = dice.map((p) => [...p.pos]);
+    const over = pour(dice, dish, [], seeded(2));
+    for (const p of over) assert.deepEqual(p.pos, before[dice.indexOf(p)]);
   });
 
   it('lets a slice lie in a ramekin as a slice does, flat or leaning, never on its edge', () => {
@@ -92,16 +100,17 @@ describe('a pile in a ramekin', () => {
 
   it('heaps grated cheese loosely in it', () => {
     const cheese = shreds('cheese', 2.1);
-    pour(cheese, spill, [], seeded(4));
-    assert.ok(highest(cheese) > dish.base(0, 0) + 0.3, 'the shreds all lie flat on the floor of the dish');
-    for (const p of cheese) assert.ok(bottom(p) > dish.base(Math.hypot(p.pos[0], p.pos[2]) < 1.0 ? 0 : 9, 0) - 0.02, 'a shred is through the dish');
+    const over = pour(cheese, dish, [], seeded(4));
+    const shown = cheese.filter((p) => !over.includes(p));
+    assert.ok(highest(shown) > dish.base(0, 0) + 0.3, 'the shreds all lie flat on the floor of the dish');
+    for (const p of shown) assert.ok(bottom(p) > dish.base(0, 0) - 0.02, 'a shred is through the dish');
   });
 });
 
 describe('a pile on a plate', () => {
   it('falls in a mound in the well, nothing in anything else or through the plate', () => {
     const dice = dicedPotato();
-    assert.equal(pour(dice, plateDish, [], seeded(5)).length, dice.length);
+    assert.deepEqual(pour(dice, plateDish, [], seeded(5)), [], 'a plate takes it all');
     assert.equal(clash(dice), null);
     for (const p of dice) assert.ok(bottom(p) >= plateDish.floor(0) - 0.02, 'a piece is through the plate');
     const h = highest(dice);

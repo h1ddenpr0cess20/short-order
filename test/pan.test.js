@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { measure, split } from '../src/geometry/slice.js';
+import { HASH, shredSolids, wholeSolids } from '../src/food/fillings.js';
+import { FLESH } from '../src/food/index.js';
 import { fleshAt, potatoSolid } from '../src/food/potato.js';
 import { COOK_RADIUS, LIP_RADIUS, floorHeight } from '../src/scene/pan.js';
 import { createHeat, SETTINGS } from '../src/sim/heat.js';
@@ -237,5 +239,69 @@ describe('the pan', () => {
     run(pan, 1);
     const turned = pan.pieces.filter((p) => before.get(p.id) !== sideDown(p)).length;
     assert.ok(turned > 3, `only ${turned} pieces turned over`);
+  });
+});
+
+describe('hash browns, and long strips, in the pan', () => {
+  const shreds = () => {
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    return shredSolids('potato', volume, Math.random, { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
+  };
+  const into = (pan, list) => {
+    for (const p of list) {
+      p.pos = [(Math.random() - 0.5) * 4, 2 + Math.random(), (Math.random() - 0.5) * 4];
+      pan.state(p);
+    }
+    pan.add(list, { area: 10 });
+  };
+  /** Standing up off the floor: taller than a piece that lies on a face it could lie on ever is. */
+  const onEnd = (p) => {
+    const e = extents(p);
+    return e.max[1] - e.min[1] > Math.min(...dimensions(p)) * 1.7 + 0.05;
+  };
+
+  it('lets a whole grated potato lie in a tangled layer, still, rather than shoving itself round the pan', () => {
+    const pan = createPan();
+    const list = shreds();
+    into(pan, list);
+    run(pan, 3);
+    const was = list.map((p) => [...p.pos]);
+    run(pan, 2);
+    const drift = Math.max(...list.map((p, i) => Math.hypot(p.pos[0] - was[i][0], p.pos[2] - was[i][2])));
+    assert.ok(drift < 1e-3, `strands left alone moved ${drift.toFixed(3)}`);
+    assert.equal(pan.pieces.length, list.length, 'strands went over the side');
+  });
+
+  it('never stands a strand, or a strip of pepper, on its end: not stirred, not tossed', () => {
+    const pan = createPan();
+    const strips = wholeSolids('pepper').flatMap((solid) => {
+      let parts = [solid];
+      for (let z = -0.7; z < 1; z += 0.35) parts = parts.flatMap((s) => { const { front, back } = split(s, { normal: [0, 0, 1], offset: z }); return [...front, ...back]; });
+      return parts;
+    }).map((solid) => makePiece({ solid, kind: 'pepper' }));
+    const list = [...shreds(), ...strips];
+    into(pan, list);
+    run(pan, 3);
+    for (let k = 0; k < 6; k++) {
+      pan.stir([-3 + k, -2], [3 - k, 2], 1 / 30);
+      run(pan, 0.3);
+    }
+    pan.toss(0.6);
+    run(pan, 3);
+    const standing = list.filter(onEnd);
+    assert.equal(standing.length, 0, `${standing.length} stood on end: ${standing.map((p) => p.kind).join(', ')}`);
+  });
+
+  it('browns hash browns on the hot iron', () => {
+    const pan = createPan();
+    pan.heat.set(4);
+    run(pan, 90);
+    pan.pour(0.8);
+    const list = shreds();
+    into(pan, list);
+    run(pan, 60);
+    const brown = list.reduce((a, p) => a + Math.max(...p.brown), 0) / list.length;
+    assert.ok(brown > 0.6, `browned only ${brown.toFixed(2)}`);
   });
 });

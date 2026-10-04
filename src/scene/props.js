@@ -334,8 +334,8 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
   group.name = `ramekin-${name}`;
   group.add(china);
   /**
-   * What is poured in piles on its floor, which curves up into the side, and
-   * on up over the rim and off onto the counter if there is a lot of it.
+   * What is in it is shown as a pile on its floor, which curves up into the
+   * side: inside it, heaped up a little over the rim at most.
    */
   const wellAt = floorFrom(well.map(([r, y]) => [r * k, y * k * DEEP]));
   const dish = {
@@ -343,6 +343,7 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
     holds: (x, z) => Math.hypot(x, z) <= 0.7 * k,
     centre: [0, 0],
     spread: 0.3,
+    brim: 0.84 * k * DEEP + 0.6,
   };
   return { group, radius, dish };
 }

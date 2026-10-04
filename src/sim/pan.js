@@ -17,8 +17,8 @@
 import { FILLINGS } from '../food/fillings.js';
 import { COOK_RADIUS, FLAT, LIP_RADIUS, floorHeight, floorSlope } from '../scene/pan.js';
 import { browning, cooking, createHeat, spread } from './heat.js';
-import { SIDES, extents, sideWeights } from './piece.js';
-import { axisAngle, conjugate, dot3, multiply, normalize, rotate, slerp } from './quat.js';
+import { SIDES, dimensions, extents, sideDown, sideWeights } from './piece.js';
+import { axisAngle, conjugate, multiply, normalize, rotate, slerp } from './quat.js';
 
 export const GRAVITY = 60;
 
@@ -97,13 +97,23 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
 
   const state = (piece) => {
     if (!piece.pan) {
-      piece.pan = { vel: [0, 0, 0], air: false, spin: null, settle: null, stuck: 0, landed: 0 };
+      piece.pan = {
+        vel: [0, 0, 0], air: false, spin: null, settle: null, stuck: 0, landed: 0,
+        /** A shred lies a little over or under the ones it crosses: they tangle into a layer, not one sheet. */
+        layer: piece.shred ? random() * Math.min(...dimensions(piece)) * 1.5 : 0,
+      };
     }
     return piece.pan;
   };
 
-  /** Half the piece's width across the floor, as it now lies: what it bumps others with. */
+  /**
+   * Half the piece's width across the floor, as it now lies: what it bumps
+   * others with. A shred is limp and thin: it only bumps with its width, and
+   * shreds do not bump each other at all — they tangle together into a layer,
+   * the way hash browns do, rather than shoving one another round the pan.
+   */
   function reach(piece) {
+    if (piece.shred) return dimensions(piece).sort((a, b) => a - b)[1] / 2;
     const e = extents(piece);
     return ((e.max[0] - e.min[0]) + (e.max[2] - e.min[2])) * 0.25;
   }
@@ -125,7 +135,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   }
 
   function rest(piece) {
-    return lie(piece).height;
+    return lie(piece).height + state(piece).layer;
   }
 
   /**
@@ -191,19 +201,12 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   }
 
   /**
-   * Turns a piece so that its side most nearly facing down faces straight
-   * down, keeping which way round it is otherwise. Animated.
+   * Turns a piece so that its side most nearly facing down — of those it can
+   * lie on: a shred lands on its face, never stands on its end — faces
+   * straight down, keeping which way round it is otherwise. Animated.
    */
   function settleOnto(piece, s) {
-    const down = rotate(conjugate(piece.rot), [0, -1, 0]);
-    let best = 0, score = -Infinity;
-    SIDES.forEach((side, k) => {
-      const d = dot3(side, down);
-      if (d > score) {
-        score = d;
-        best = k;
-      }
-    });
+    const best = sideDown(piece);
     /** Where that side points now, in the pan, and the turn that takes it to straight down. */
     const now = rotate(piece.rot, SIDES[best]);
     const axis = [now[2], 0, -now[0]];
@@ -286,9 +289,11 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
       s.vel[2] += (uz * speed - s.vel[2]) * 0.55;
       moved += 1;
       if (!s.settle && !runny(piece) && random() < Math.min(0.9, len * 0.5)) {
-        /** Rolled forward onto the side it was being pushed toward. */
-        const roll = axisAngle([uz, 0, -ux], Math.PI / 2);
-        s.settle = { from: [...piece.rot], to: normalize(multiply(roll, piece.rot)), t: 0 };
+        /** Rolled forward onto the side it was being pushed toward — if it is a side it can lie on; a long strip is pushed along, not stood on its end. */
+        const roll = normalize(multiply(axisAngle([uz, 0, -ux], Math.PI / 2), piece.rot));
+        if (sideDown({ ...piece, rot: roll }, true) === sideDown({ ...piece, rot: roll })) {
+          s.settle = { from: [...piece.rot], to: roll, t: 0 };
+        }
       }
     }
     if (moved) events.push({ type: 'stir', count: moved, speed });
@@ -429,7 +434,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
           if (!list) continue;
           for (let n = 0; n < list.length; n++) {
             const q = list[n];
-            if (q.id <= p.id) continue;
+            if (q.id <= p.id || (p.shred && q.shred)) continue;
             const dx = q.pos[0] - p.pos[0], dz = q.pos[2] - p.pos[2];
             const min = (rp + radii.get(q)) * 0.92;
             const d2 = dx * dx + dz * dz;
@@ -470,7 +475,8 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
       const r = Math.hypot(piece.pos[0], piece.pos[2]);
       const t = spread(heat.temp, r, FLAT);
       const e = extents(piece);
-      const footprint = (e.max[0] - e.min[0]) * (e.max[2] - e.min[2]);
+      /** What of it is on the iron: its box across, or, for something thin and curled — a shred, a strip — its own area. */
+      const footprint = Math.min((e.max[0] - e.min[0]) * (e.max[2] - e.min[2]), piece.volume / Math.max(0.05, Math.min(...dimensions(piece))));
       const down = rotate(conjugate(piece.rot), [0, -1, 0]);
       sideWeights(down[0], down[1], down[2], weights);
 

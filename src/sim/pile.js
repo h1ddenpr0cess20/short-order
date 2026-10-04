@@ -436,30 +436,46 @@ export function lieDown(piece, placed, base = FLAT) {
  * Each piece tumbles as it lands, slides off whatever it is not held up by,
  * runs down any slope steeper than a heap stands, and lies along the slope of
  * what it ends up on: a pile, mounded in the middle. Sets each piece's `pos`
- * and `rot`. However much there is, it all goes: a pile just gets bigger.
- * `under` may be a `Nearby` of what is there, kept for the next pour; what
- * is poured goes into it.
+ * and `rot`. `under` may be a `Nearby` of what is there, kept for the next
+ * pour; what is poured goes into it.
+ *
+ * A dish with a `brim` is heaped no higher than that: a piece that would
+ * land above it, however it falls, is left as it was and not poured. Gives
+ * back those pieces; with no brim, none.
  */
 export function pour(list, dish, under = [], random = Math.random) {
-  const { base = FLAT, holds = () => true, centre = [0, 0], spread = 0.4 } = dish;
+  const { base = FLAT, holds = () => true, centre = [0, 0], spread = 0.4, brim = Infinity } = dish;
   const placed = under instanceof Nearby ? under : new Nearby(under);
+  const over = [];
   for (const piece of list) {
-    tumble(piece, random);
-    let x = centre[0], z = centre[1];
-    for (let t = 0; t < 12; t++) {
-      const nx = centre[0] + gauss(random) * spread, nz = centre[1] + gauss(random) * spread;
-      if (holds(nx, nz)) {
-        x = nx;
-        z = nz;
-        break;
+    const was = { pos: [...piece.pos], rot: [...piece.rot] };
+    let fits = false;
+    for (let tries = 0; tries < (brim < Infinity ? 4 : 1) && !fits; tries++) {
+      tumble(piece, random);
+      let x = centre[0], z = centre[1];
+      for (let t = 0; t < 12; t++) {
+        const nx = centre[0] + gauss(random) * spread, nz = centre[1] + gauss(random) * spread;
+        if (holds(nx, nz)) {
+          x = nx;
+          z = nz;
+          break;
+        }
       }
+      piece.pos = [x, 0, z];
+      settleIn(piece, placed, { base, holds });
+      lieDown(piece, placed, base);
+      fits = piece.pos[1] + extents(piece).max[1] <= brim;
     }
-    piece.pos = [x, 0, z];
-    settleIn(piece, placed, { base, holds });
-    lieDown(piece, placed, base);
-    placed.add(piece);
+    if (fits) {
+      placed.add(piece);
+    } else {
+      piece.pos = was.pos;
+      piece.rot = was.rot;
+      piece.version += 1;
+      over.push(piece);
+    }
   }
-  return list;
+  return over;
 }
 
 /**

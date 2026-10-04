@@ -208,16 +208,31 @@ export function sliceUp(piece, thick, flesh) {
   return out;
 }
 
-/** Which of its six sides is facing most nearly down, in the frame it is in. */
-export function sideDown(piece) {
+/**
+ * Which of its six sides it could lie on: any side of a dice, either face of
+ * a slice or a strip, never the end of a long shred or of a strip of pepper —
+ * whatever would leave it standing no more than half again as tall as it is
+ * thin. A piece put down, or tipped, comes to rest on one of these.
+ */
+export function restingSides(piece) {
+  const d = dimensions(piece), least = Math.min(...d);
+  return [0, 1, 2, 3, 4, 5].filter((k) => d[k >> 1] <= least * 1.6);
+}
+
+/**
+ * Which of its six sides is facing most nearly down, in the frame it is in —
+ * of those it could lie on, unless `any`.
+ */
+export function sideDown(piece, any = false) {
   const down = rotate(conjugate(piece.rot), [0, -1, 0]);
-  let best = 0, score = -Infinity;
-  SIDES.forEach((s, k) => {
-    const d = dot3(s, down);
+  const sides = any ? [0, 1, 2, 3, 4, 5] : restingSides(piece);
+  let best = sides[0], score = -Infinity;
+  for (const k of sides) {
+    const d = dot3(SIDES[k], down);
     if (d > score) {
       score = d;
       best = k;
     }
-  });
+  }
   return best;
 }

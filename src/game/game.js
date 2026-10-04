@@ -364,7 +364,7 @@ export function createGame({ stage, GFX, kitchen }) {
     finishFalling();
     if (round.plated || carried.length || !prep[i]?.length) return false;
     begin();
-    hold(prep[i].splice(0), kitchen.prep[i].group.position, { ramekin: i });
+    hold(outOfRamekin(i), kitchen.prep[i].group.position, { ramekin: i });
     emit('pickup', { count: carried.length, from: 'ramekin' });
     return true;
   }
@@ -421,55 +421,51 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   /**
-   * Pieces tipped into ramekin `i` off the flat of the knife, in a jumble, onto
-   * whatever is in it already: each tumbles, lands on what is under it, slides
-   * off anything that will not hold it and down anything too steep, so a diced
-   * onion sits in its dish in a heap, mounded up over the rim if there is a lot.
+   * Pieces into ramekin `i`, all of them, kept as they came off the knife —
+   * on top of whatever went in before — so they come out again as they went
+   * in. What the ramekin shows is a pile of them that fits it: tipped in a
+   * few at a time, each tumbling onto what is under it, heaped a little over
+   * the rim at most. However much went in, it never spills; past that, what
+   * it holds is just not all on show.
    */
   function intoRamekin(i, list) {
+    const below = prep[i].reduce((top, p) => Math.max(top, p.kept.top), 0);
+    for (const p of list) {
+      const pos = [p.carry?.[0] ?? 0, (p.carry?.[1] ?? 0.25) - 0.25 + below, p.carry?.[2] ?? 0];
+      p.kept = { pos, rot: [...p.rot], top: pos[1] + extents(p).max[1] };
+      p.shown = false;
+      delete p.carry;
+      delete p.home;
+      prep[i].push(p);
+    }
     const jumbled = [...list];
     for (let k = jumbled.length - 1; k > 0; k--) {
       const j = Math.floor(Math.random() * (k + 1));
       [jumbled[k], jumbled[j]] = [jumbled[j], jumbled[k]];
     }
-    /**
-     * However much it is, it is a pile: what the dish will not hold heaps up
-     * over the rim and tumbles off onto the counter round it — never into the
-     * next ramekin, nor into what has spilled from it.
-     */
-    const here = kitchen.prep[i];
-    const next = kitchen.prep.flatMap((r, j) => (j === i ? [] : [{ x: r.group.position.x - here.group.position.x, z: r.group.position.z - here.group.position.z, j }]));
-    const { x: hx, z: hz } = here.group.position;
-    const dish = {
-      ...here.dish,
-      holds: (x, z) => Math.hypot(x, z) <= here.radius * 1.8 && next.every((n) => Math.hypot(x - n.x, z - n.z) > here.radius + 0.35) && counterClear(hx + x, hz + z),
-    };
-    /** What is in, or spilled from, the ramekins next to it, where it is as seen from this one. */
-    const beside = next.flatMap((n) => prep[n.j].map((p) => ({ ...p, pos: [p.pos[0] + n.x, p.pos[1], p.pos[2] + n.z], profile: null })));
-    for (const p of list) {
-      delete p.carry;
-      delete p.home;
-    }
-    /** Tipped off the knife a few at a time, each onto what went in before it. */
-    const pile = new Nearby([...prep[i], ...beside]);
+    const dish = kitchen.prep[i].dish;
+    const pile = new Nearby(prep[i].filter((p) => p.shown));
     fall(jumbled, (p) => {
-      pour([p], dish, pile);
-      prep[i].push(p);
+      if (heaped[i] || !prep[i].includes(p)) return;
+      if (pour([p], dish, pile).length) heaped[i] = true;
+      else p.shown = true;
     });
   }
 
-  /**
-   * Whether a spot on the counter is clear of everything standing on it —
-   * the board, the range, the extras, the grater, the towel — for something
-   * spilling there to land on.
-   */
-  function counterClear(x, z) {
-    const off = (cx, cz, w, d, pad = 0.45) => Math.abs(x - cx) > w / 2 + pad || Math.abs(z - cz) > d / 2 + pad;
-    if (!off(LAYOUT.board.x, LAYOUT.board.z, BOARD.w, BOARD.d) || !off(LAYOUT.stove.x, LAYOUT.stove.z, TOP.w, TOP.d)) return false;
-    if (!off(LAYOUT.towel.x, LAYOUT.towel.z, 7.7, 7.7) || Math.hypot(x - LAYOUT.grater.x, z - LAYOUT.grater.z) < 2.1) return false;
-    return FILLING_KINDS.every((kind) => {
-      const at = kitchen.extraAt(kind), [w, , d] = kitchen.extras[kind].size;
-      return off(at.x, at.z, Math.max(w, d), Math.max(w, d));
+  /** Whether each ramekin's pile is heaped as high as it is shown: anything more that goes in is in it, but not on show. */
+  const heaped = kitchen.prep.map(() => false);
+
+  /** What is in ramekin `i`, out of it: each piece as it went in, the pile it was shown as gone. */
+  function outOfRamekin(i) {
+    finishFalling();
+    heaped[i] = false;
+    return prep[i].splice(0).map((p) => {
+      p.pos = [...p.kept.pos];
+      p.rot = [...p.kept.rot];
+      p.version += 1;
+      delete p.kept;
+      delete p.shown;
+      return p;
     });
   }
 
@@ -669,7 +665,7 @@ export function createGame({ stage, GFX, kitchen }) {
     finishFalling();
     if (round.plated || !prep[i]?.length) return false;
     begin();
-    intoPan(prep[i].splice(0), [0, 0]);
+    intoPan(outOfRamekin(i), [0, 0]);
     emit('scrape', { count: 1, from: 'ramekin' });
     return true;
   }
@@ -1203,6 +1199,7 @@ export function createGame({ stage, GFX, kitchen }) {
     slicing = null;
     falling.length = 0;
     for (const list of prep) list.length = 0;
+    heaped.fill(false);
     board.clear();
     pan.clear();
     sheet.clear();
@@ -1988,7 +1985,7 @@ export function createGame({ stage, GFX, kitchen }) {
     for (const p of pan.pieces) views.show(p, panRig, pan.state(p).lean);
     for (const p of carried) views.show(p, carry);
     prep.forEach((list, i) => {
-      for (const p of list) views.show(p, kitchen.prep[i].group);
+      for (const p of list) if (p.shown) views.show(p, kitchen.prep[i].group);
     });
     for (const p of flying) views.show(p, carry);
     for (const p of plated) views.show(p, plateGroup);
