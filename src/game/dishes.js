@@ -9,6 +9,8 @@
  * into the pan, 'omelette' the sheet folded, and 'free' whatever the cook
  * made, marked on what it turned out to be. `style` is the way it was asked
  * for. `par` is how many seconds count as quick for it — none, freestyle.
+ * `potato` is whether one starts on the board; `pantry`, whether one waits on
+ * the counter instead, for the cook to take or leave.
  */
 
 const pct = (v) => `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
@@ -261,7 +263,7 @@ export const DISHES = Object.freeze({
   },
 
   free: {
-    id: 'free', kind: 'free', no: '07', par: null, potato: true, crack: 'bowl', fold: 'half',
+    id: 'free', kind: 'free', no: '07', par: null, potato: false, pantry: true, crack: 'bowl', fold: 'half',
     name: 'Chef’s choice', menu: 'Freestyle',
     tag: 'No ticket. Anything on the counter, any way you like.',
     blurb: 'no ticket — cook what you like from everything on the counter',

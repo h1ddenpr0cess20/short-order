@@ -178,8 +178,9 @@ is on the counter (a potato or not), whether eggs go to the bowl or the pan,
 how it is folded, its par time, and its ticket — each step with a function
 from the game's measurements to a line, a bar and whether it is done.
 
-Freestyle is a dish too, with no par and a ticket that only reads back what
-is happening: how well everything the knife has been at is cut, and what is
+Freestyle is a dish too, with no par, a bare board — the potato waits on the
+counter with the extras, to be taken or left — and a ticket that only reads
+back what is happening: how well everything the knife has been at is cut, and what is
 in the pan and how far along it is. Its eggs go to the bowl, or to the pan if
 the cook drags one there; a toss turns a sheet that holds together and breaks
 one that does not; and it folds.

@@ -236,6 +236,41 @@ export function buildWhole(GFX, { name, solids }) {
   return { group, size: [x1 - x0, y1 - y0, z1 - z0] };
 }
 
+/**
+ * An empty ramekin, for whatever the cook has cut and wants to keep apart
+ * until it goes in the pan: cream china with a green band and a gilt rim,
+ * `radius` across the rim. Its contents hang off `group`, in its own frame,
+ * standing on `floor`.
+ */
+export function buildRamekin(GFX, { name, radius = 1.5 }) {
+  const { gold, cream, green } = finishes(GFX);
+  const outside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
+    [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
+  ]), 40), cream);
+  outside.name = `ramekin-${name}`;
+  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
+    [0.88, 0.84], [0.8, 0.82], [0.76, 0.3], [0.6, 0.2], [0, 0.18],
+  ]), 40), cream);
+  inside.name = `ramekin-${name}-inside`;
+  const band = new GFX.Mesh(new GFX.CylinderGeometry(0.865, 0.85, 0.12, 40, 1, true), green);
+  band.name = `ramekin-${name}-band`;
+  band.position.y = 0.6;
+  const rim = new GFX.Mesh(new GFX.TorusGeometry(0.86, 0.035, 8, 48), gold);
+  rim.name = `ramekin-${name}-rim`;
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.84;
+  for (const m of [outside, inside, band, rim]) m.receiveShadow = true;
+  /** Drawn at the size of the little one, and grown: the china, not what goes in it. */
+  const k = radius / 0.88;
+  const china = new GFX.Group();
+  china.scale.set(k, k * 0.8, k);
+  china.add(outside, inside, band, rim);
+  const group = new GFX.Group();
+  group.name = `ramekin-${name}`;
+  group.add(china);
+  return { group, radius, floor: 0.18 * k * 0.8, inner: 0.76 * k };
+}
+
 /** How many pats there are in a stick of butter. */
 export const PATS = 8;
 

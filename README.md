@@ -46,7 +46,7 @@ build), with a preview for every branch.
 | **knife** | Over the board the knife follows the pointer. Click to chop where the blade is — it goes through whatever is under it. |
 | **roll** | `T`, shift-right-click, or **⤵ roll**, tips one thing onto its side — the one under the pointer, or the biggest — so the knife, which only cuts straight down, can go through it the third way. A tomato goes on the board on its side already, its top toward you: slice it off and it goes in the bin. |
 | **turn** | Right-click the board, or `R`, turns the pile a quarter turn so the next cuts go the other way. On a phone, twist two fingers on the kitchen, or tap **↻ turn** — it lights up when the ticket says to turn. |
-| **carry** | Drag something on the board and every bit of it comes up on the flat of the knife — just the onion, say, leaving the potato; drag from between things for the whole pile. Let go over the pan to drop it in, anywhere else and it goes back just as it was. `S` scrapes the whole board straight in. |
+| **carry** | Drag something on the board and every bit of it comes up on the flat of the knife — just the onion, say, leaving the potato; drag from between things for the whole pile. Let go over the pan to drop it in, over one of the empty ramekins in front of the range to keep it there until a click tips it into the pan, anywhere else and it goes back just as it was. `S` scrapes the whole board straight in. |
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
 | **butter** | Click the butter for a pat into the pan, or `B`. |
@@ -112,8 +112,9 @@ one goes on whatever dish you like, and is marked for how well it suits it —
 chives on a French omelette, yes; ham, an eyebrow — and for how much went in:
 one of each is a portion, four tomatoes is a lot of tomato.
 
-Freestyle has no ticket. Everything is on the counter — the potato, the eggs
-for the bowl or straight into the pan, all six extras — and the plate is
+Freestyle has no ticket and starts with a bare board. Everything is on the
+counter — a potato to take or leave, the eggs for the bowl or straight into
+the pan, all six extras — and the plate is
 marked on what it turns out to be: potato on its dice and its fry, eggs as
 whatever they became — curds, fried, folded or set flat — the extras and the
 seasoning, each weighed by how much of the plate it is. One egg is as right

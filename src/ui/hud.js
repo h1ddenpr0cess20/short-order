@@ -85,6 +85,8 @@ export function createHud({ game, root = document.body }) {
     salt: 'click for a pinch of salt over the pan · drag it to the bowl to salt the eggs',
     pepper: 'click for a twist of pepper over the pan · drag it to the bowl to pepper the eggs',
     butter: 'click to drop a pat of butter in the pan',
+    potato: 'click to put the potato on the board',
+    prep: 'drag something cut from the board here to keep it · click to tip it into the pan',
     extra: 'click to put it on the board — cut it small, then into the pan, onto the egg to fold it in or over the food',
   };
   /** Over fried eggs, the spatula turns them; under an omelette not yet folded, it turns the whole thing. */

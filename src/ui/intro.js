@@ -9,7 +9,7 @@ import { DISHES, MENU } from '../game/dishes.js';
 const CHOSEN = 'short-order:dish';
 
 const POINTER = `
-  <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile; <kbd>T</kbd> or shift-right-click rolls one thing onto its side, to cut it the third way. Drag one thing to carry just that to the pan, or between things for the lot.</span></li>
+  <li><b>Knife</b><span>over the board: click to chop where the blade is. Right-click or <kbd>R</kbd> turns the pile; <kbd>T</kbd> or shift-right-click rolls one thing onto its side, to cut it the third way. Drag one thing to carry just that to the pan, or between things for the lot — or into an empty ramekin, to keep it until a click tips it into the pan.</span></li>
   <li><b>Burner</b><span>click the knob, or <kbd>Q</kbd> <kbd>E</kbd>. Cast iron is slow — let it heat. Oil first: click the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
   <li><b>Pan</b><span>drag to stir with the spatula, click to flip, <kbd>space</kbd> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
   <li><b>Eggs</b><span>click the carton to crack one into the bowl, drag round in the bowl to whisk, <kbd>P</kbd> to pour. Fried eggs go straight into the pan: click one to turn it over. Freestyle, drag an egg to the pan, or <kbd>H</kbd>, to fry it.</span></li>
@@ -21,7 +21,7 @@ const POINTER = `
 
 /** The same, for a finger: no right button, no keys, and the bar along the bottom for everything. */
 const TOUCH = `
-  <li><b>Knife</b><span>tap the board to chop where you tap. Twist two fingers on the kitchen — or tap <i>↻ turn</i> — to turn the pile a quarter turn; <i>⤵ roll</i> rolls the biggest thing onto its side. Drag one thing to carry just that to the pan, or <i>into pan</i> for the lot.</span></li>
+  <li><b>Knife</b><span>tap the board to chop where you tap. Twist two fingers on the kitchen — or tap <i>↻ turn</i> — to turn the pile a quarter turn; <i>⤵ roll</i> rolls the biggest thing onto its side. Drag one thing to carry just that to the pan, or <i>into pan</i> for the lot — or into an empty ramekin, to keep it until a tap tips it into the pan.</span></li>
   <li><b>Burner</b><span>tap the knob, or <i>+</i> and <i>−</i>. Cast iron is slow — let it heat. Oil first: tap the bottle. Butter is for gentler heat: on a hot pan it burns.</span></li>
   <li><b>Pan</b><span>drag to stir with the spatula, tap to flip, <i>toss</i> to toss — or grab the handle, shake, and flick it up. Food browns on the side that is down.</span></li>
   <li><b>Eggs</b><span>tap the carton to crack one into the bowl, drag round in the bowl to whisk, <i>pour</i> to pour. Fried eggs go straight into the pan: tap one to turn it over. Freestyle, drag an egg to the pan, or <i>egg → pan</i>, to fry it.</span></li>
