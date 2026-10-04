@@ -14,11 +14,12 @@
  *
  * What is on the rail decides the rest: whether there is a potato on the
  * board, whether eggs go into the bowl or straight into the pan, whether the
- * sheet of egg is folded, and how the plate is marked (see dishes.js).
+ * sheet of egg is folded, and how the plate is marked (see dishes.js). A
+ * freestyle ticket leaves all of that to the cook.
  */
 
 import { curdSolid, friedSolid, omeletteSolid } from '../food/curd.js';
-import { FILLINGS, FILLING_KINDS, fillingSolid, isFilling } from '../food/fillings.js';
+import { FILLINGS, FILLING_KINDS, isFilling, wholeSolids } from '../food/fillings.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { PLATE } from '../scene/cookware.js';
@@ -30,7 +31,7 @@ import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
-import { makePiece } from '../sim/piece.js';
+import { dimensions, makePiece } from '../sim/piece.js';
 import { axisAngle, multiply, slerp } from '../sim/quat.js';
 import { sprinkle } from '../sim/season.js';
 import { createButterView } from '../view/butter.js';
@@ -41,6 +42,8 @@ import { createEggStation } from './eggs.js';
 import { DISHES } from './dishes.js';
 import { BITE, diceReport, eggReport, fryReport, gradeDish, seasonReport } from './grade.js';
 import { createPointer } from './pointer.js';
+
+const pct = (v) => `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
 
 /** How far the pointer has to travel before a press is a drag rather than a click. */
 const DRAG = 7;
@@ -166,6 +169,8 @@ export function createGame({ stage, GFX, kitchen }) {
   /** A whole potato on the board, lying front to back, a little left of middle. */
   function newPotato(x = -1.5, z = 0) {
     const piece = makePiece({ solid: INGREDIENTS.potato.solid(), kind: 'potato', rot: axisAngle([0, 1, 0], Math.PI / 2) });
+    /** Not cut yet: anything the knife makes of it is a new piece without this. */
+    piece.whole = true;
     piece.pos[0] = x;
     piece.pos[2] = z;
     board.add(piece);
@@ -389,26 +394,58 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   /**
-   * A handful of one of the extras into the pan, scattered over whatever is
-   * in it: on the egg, to be folded in, or over the food as a topping.
+   * Where on the board something `w` across and `d` deep can go down clear of
+   * everything already there: the right-hand end first, out of the way of a
+   * potato being diced, then the left. Null if there is no room.
+   */
+  function boardSpot(w, d) {
+    const boxes = board.pieces.map((p) => board.box(p));
+    const xMax = board.halfWidth - w / 2 - 0.3, zMax = Math.max(0, board.halfDepth - d / 2 - 0.3);
+    if (xMax < 0) return null;
+    const gap = 0.25;
+    for (const x of [4.6, -5.2, 2.2, -2.6, 0]) {
+      for (const z of [0, -2.6, 2.6]) {
+        const cx = Math.max(-xMax, Math.min(xMax, x)), cz = Math.max(-zMax, Math.min(zMax, z));
+        const clear = boxes.every((b) => b.x1 < cx - w / 2 - gap || b.x0 > cx + w / 2 + gap || b.z1 < cz - d / 2 - gap || b.z0 > cz + d / 2 + gap);
+        if (clear) return [cx, cz];
+      }
+    }
+    return null;
+  }
+
+  /**
+   * One of the extras off the counter, whole, onto the board to be cut — a
+   * tomato, half an onion, a block of cheese — wherever there is room for it.
+   * Diced and scraped into the pan it goes over whatever is there: onto the
+   * egg, to be folded in, or over the food as a topping.
    */
   function addExtra(kind) {
-    if (round.plated || !FILLINGS[kind]) return false;
-    begin();
-    const f = FILLINGS[kind];
-    const list = [];
-    /** Over the egg, where there is a sheet of it; else over the middle of the pan. */
-    const spread = sheet.empty ? 2.6 : 3.2;
-    for (let n = 0; n < f.handful; n++) {
-      const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
-      const piece = makePiece({ solid: fillingSolid(kind), kind, pos: [Math.cos(a) * r, 1.2 + Math.random() * 1.4, Math.sin(a) * r], rot: axisAngle([0, 1, 0], Math.random() * Math.PI * 2) });
-      /** Cut and waiting in the fridge's chill, not yet cooked at all. */
-      piece.moisture = kind === 'tomato' ? 1 : 0.6;
-      const s = pan.state(piece);
-      s.vel = [(Math.random() - 0.5) * 1.2, -2 - Math.random() * 2, (Math.random() - 0.5) * 1.2];
-      list.push(piece);
+    if (round.plated || !FILLINGS[kind] || carried.length || board.turning) return false;
+    const list = wholeSolids(kind).map((solid) => {
+      const piece = makePiece({ solid, kind });
+      /** Out of the fridge's chill, not yet cooked at all, and not yet cut. */
+      piece.moisture = FILLINGS[kind].moisture;
+      piece.whole = true;
+      return piece;
+    });
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of list) {
+      x0 = Math.min(x0, p.pos[0] + p.min[0]);
+      x1 = Math.max(x1, p.pos[0] + p.max[0]);
+      z0 = Math.min(z0, p.pos[2] + p.min[2]);
+      z1 = Math.max(z1, p.pos[2] + p.max[2]);
     }
-    pan.add(list);
+    const spot = boardSpot(x1 - x0, z1 - z0);
+    if (!spot) {
+      emit('board-full', { kind });
+      return false;
+    }
+    begin();
+    for (const p of list) {
+      p.pos[0] += spot[0] - (x0 + x1) / 2;
+      p.pos[2] += spot[1] - (z0 + z1) / 2;
+      board.add(p);
+    }
     hops[kind] = 1;
     emit('extra', { kind, count: list.length });
     return true;
@@ -476,18 +513,26 @@ export function createGame({ stage, GFX, kitchen }) {
     turning.length = 0;
   }
 
-  /** The next egg from the carton: into the bowl, or for fried eggs straight into the pan. */
-  function crackEgg() {
+  /**
+   * The next egg from the carton: into the bowl, or for fried eggs straight
+   * into the pan. Freestyle, it goes where the cook says — `into` the bowl,
+   * or the pan — and into the bowl if they do not say.
+   */
+  function crackEgg(into = null) {
     if (round.plated) return false;
-    return eggs.crack(dish.crack);
+    return eggs.crack(dish.kind === 'free' ? into ?? 'bowl' : dish.crack);
   }
+
+  /** Whether the dish on the rail is one whose sheet of egg is folded: an omelette, or anything at all freestyle. */
+  const folds = () => dish.kind === 'omelette' || dish.kind === 'free';
 
   /**
    * The sheet of egg folded over on itself — rolled, for a French omelette,
    * or in half — and from then on one piece in the pan like any other.
    */
   function fold() {
-    if (round.plated || eggs.pouring || sheet.yolks.length) return false;
+    /** Not for a scramble: folding a sheet of egg flat into one big curd is not scrambling it. */
+    if (round.plated || !folds() || eggs.pouring || sheet.yolks.length) return false;
     const shape = dish.fold ?? 'half';
     /** Whatever extras are lying on the egg go inside it. */
     const inside = pan.pieces.filter((p) => isFilling(p) && !pan.state(p).air && sheet.depthAt(p.pos[0], p.pos[2]) > 0.01);
@@ -720,7 +765,14 @@ export function createGame({ stage, GFX, kitchen }) {
 
   /** How seasoned the food is so far: what is in the pan, and the eggs still in the bowl with whatever is in them. */
   function seasonProgress(flat) {
-    const bowl = eggs.bowl;
+    /**
+     * Mid-pour, the bowl's seasoning has already gone into the pan with the
+     * first of the egg: only the egg still in the bowl is counted there, and
+     * none of its salt, or the salt would be counted twice.
+     */
+    const bowl = eggs.pouring
+      ? { volume: eggs.unpoured, salt: 0, pepper: 0 }
+      : { volume: eggs.bowl.volume, salt: eggs.bowl.salt, pepper: eggs.bowl.pepper };
     const egg = (flat?.volume ?? 0) + bowl.volume > 0
       ? { volume: (flat?.volume ?? 0) + bowl.volume, salt: (flat?.salt ?? 0) + bowl.salt, pepper: (flat?.pepper ?? 0) + bowl.pepper }
       : null;
@@ -733,28 +785,49 @@ export function createGame({ stage, GFX, kitchen }) {
     };
   }
 
+  /** The longest side a bit of `kind` can have and still be a bite. */
+  const biteOf = (kind) => FILLINGS[kind]?.bite ?? BITE.max;
+
   /**
-   * What the knife should do next, read off what is on the board: the biggest
-   * share of potato that is not yet a bite, and which way it lies.
+   * What the knife should do next to `list`, read off where it lies on the
+   * board: the biggest share of it that is not yet a bite, and which way it
+   * lies.
    */
-  function diceAdvice() {
-    if (board.pieces.length === 0) return '';
-    if (board.pieces.length === 1) return 'cut it into rounds';
-    let across = 0, along = 0, chunks = 0;
-    for (const p of board.pieces) {
+  function knifeAdvice(list) {
+    if (list.length === 0) return '';
+    if (list.length === 1) return list[0].kind === 'potato' ? 'cut it into rounds' : 'slice it';
+    let across = 0, along = 0, chunks = 0, total = 0;
+    for (const p of list) {
       const b = board.box(p);
-      const w = b.x1 - b.x0, d = b.z1 - b.z0;
-      if (Math.max(w, d) <= BITE.max && b.y1 - b.y0 <= BITE.max) continue;
-      if (b.y1 - b.y0 > BITE.max && w > BITE.max && d > BITE.max) chunks += p.volume;
+      const w = b.x1 - b.x0, d = b.z1 - b.z0, max = biteOf(p.kind);
+      total += p.volume;
+      if (Math.max(w, d) <= max && b.y1 - b.y0 <= max) continue;
+      if (b.y1 - b.y0 > max && w > max && d > max) chunks += p.volume;
       /** Long side to side: the knife runs along it, not through it, until the pile is turned. */
-      else if (w > BITE.max && w >= d) across += p.volume;
+      else if (w > max && w >= d) across += p.volume;
       else along += p.volume;
     }
     const most = Math.max(across, along, chunks);
-    if (most < 0.5) return 'diced — into the pan';
+    if (most < total * 0.035) return 'diced — into the pan';
     if (most === chunks) return 'keep cutting';
     if (most === along) return 'cut across them';
     return 'turn the pile, then cut across';
+  }
+
+  /** What the knife should do next to the potato. */
+  const diceAdvice = () => knifeAdvice(board.pieces.filter((p) => p.kind === 'potato'));
+
+  /**
+   * How well cut everything the knife has been at is so far, wherever it is
+   * now: how many pieces, and what share of it is a bite. Something still
+   * whole on the board is not counted — it may not be wanted — but whole in
+   * the pan, it is.
+   */
+  function cutProgress() {
+    const all = [...[...board.pieces, ...carried].filter((p) => !p.whole), ...pan.pieces.filter((p) => p.kind !== 'egg')];
+    const volume = all.reduce((a, p) => a + p.volume, 0);
+    const bite = all.filter((p) => Math.max(...dimensions(p)) <= biteOf(p.kind)).reduce((a, p) => a + p.volume, 0);
+    return { pieces: all.length, bite: volume > 0 ? bite / volume : 0 };
   }
 
   /** The eggs broken whole into the pan: how many, how much of their white still runs, how many turned or broken. */
@@ -777,7 +850,46 @@ export function createGame({ stage, GFX, kitchen }) {
     const inside = pan.pieces.filter((p) => p.omelette).flatMap((p) => p.inside ?? []);
     const onEgg = loose.filter((p) => sheet.depthAt(p.pos[0], p.pos[2]) > 0.01);
     const kinds = [...new Set([...loose, ...inside].map((p) => p.kind))];
-    return { kinds, inside: inside.length, onEgg: onEgg.length, loose: loose.length, cheese: kinds.includes('cheese') };
+    /** Still on the board, or in the hand on the way to the pan. */
+    const waiting = [...board.pieces, ...carried].filter(isFilling);
+    return {
+      kinds, inside: inside.length, onEgg: onEgg.length, loose: loose.length, cheese: kinds.includes('cheese'),
+      board: [...new Set(waiting.map((p) => p.kind))], next: knifeAdvice(board.pieces.filter(isFilling)),
+    };
+  }
+
+  /**
+   * Freestyle: whatever is in the pan, in a few words, and how far along it
+   * is — the potato golden, the egg set, the onion and pepper soft.
+   */
+  function freeProgress({ inPan, fry, flat, fried }) {
+    const words = [];
+    const done = [];
+    if (inPan.length) {
+      words.push(`potato ${pct(fry.golden)} golden`);
+      done.push(Math.min(1, fry.golden / 0.7));
+    }
+    if (fried.eggs) {
+      words.push(`${fried.eggs} fried, ${pct(1 - fried.runnyWhite)} set`);
+      done.push(1 - fried.runnyWhite);
+    }
+    const curds = pan.pieces.filter((p) => p.kind === 'egg');
+    if (!sheet.yolks.length && (flat.volume > 0.05 || curds.length)) {
+      const liquid = flat.volume > 0.05 ? flat.liquid / (flat.volume + curds.reduce((a, p) => a + p.volume, 0)) : 0;
+      const folded = curds.some((p) => p.omelette);
+      words.push(folded ? 'omelette folded' : curds.length && flat.volume <= 0.05 ? 'eggs in curds' : `eggs ${pct(1 - liquid)} set`);
+      done.push(1 - liquid);
+    }
+    const veg = pan.pieces.filter((p) => FILLINGS[p.kind]?.cooks);
+    if (veg.length) {
+      const soft = veg.filter((p) => p.core >= 0.45).length / veg.length;
+      words.push(soft >= 0.8 ? 'onion and pepper soft' : 'onion and pepper softening');
+      done.push(soft);
+    }
+    const others = [...new Set(pan.pieces.filter((p) => isFilling(p) && !FILLINGS[p.kind].cooks).map((p) => FILLINGS[p.kind].name))];
+    if (others.length) words.push(others.join(', '));
+    const fill = done.length ? done.reduce((a, b) => a + b, 0) / done.length : 0;
+    return { words, fill, done: done.length > 0 && done.every((d) => d >= 0.9) };
   }
 
   /** Where the dish has got to, for the recipe card. Worked out a few times a second. */
@@ -799,6 +911,7 @@ export function createGame({ stage, GFX, kitchen }) {
       ? eggReport({ curds, sheet: flat.volume > 0.05 ? flat : null, beaten: poured.mix / poured.eggs, eggs: poured.eggs })
       : null;
     const bowlEggs = eggs.bowl.eggs;
+    const fried = friedProgress();
     progress = {
       dice: { pieces: dice.pieces, bite: dice.bite, done: dice.pieces > 12 && dice.bite >= 0.7, next: diceAdvice() },
       fry: { inPan: inPan.length, golden: fry.golden, cooked: inPan.length ? 1 - fry.raw : 0, burnt: fry.burnt, done: inPan.length > 0 && fry.golden >= 0.7 },
@@ -815,7 +928,7 @@ export function createGame({ stage, GFX, kitchen }) {
       },
       season: seasonProgress(flat),
       butter: { left: butterLeft, share: pan.butter.share, brown: pan.butter.brown, burnt: pan.butter.burnt },
-      fried: friedProgress(),
+      fried,
       omelette: {
         poured: poured.eggs,
         liquid: flat.volume > 0.05 ? flat.liquid / flat.volume : 1,
@@ -823,6 +936,9 @@ export function createGame({ stage, GFX, kitchen }) {
         folded: pan.pieces.some((p) => p.omelette),
       },
       extras: extrasProgress(),
+      board: { pieces: board.pieces.length, next: knifeAdvice(board.pieces) },
+      cut: cutProgress(),
+      free: freeProgress({ inPan, fry, flat, fried }),
       temp: pan.heat.temp,
       oil: pan.oil,
       fatDone: round.fatDone,
@@ -890,6 +1006,8 @@ export function createGame({ stage, GFX, kitchen }) {
       else if (press.zone.zone === 'pan') press.drag = 'stir';
       else if (press.zone.zone === 'bowl') press.drag = 'whisk';
       else if (press.zone.zone === 'salt' || press.zone.zone === 'pepper') press.drag = 'season';
+      /** An egg taken off the carton and let go over the pan, or the bowl, is broken there. */
+      else if (press.zone.zone === 'carton') press.drag = 'egg';
       else if (press.zone.zone === 'handle' && !toss) {
         press.drag = 'shake';
         shake.on = true;
@@ -965,6 +1083,11 @@ export function createGame({ stage, GFX, kitchen }) {
       kitchen.props[key].group.position.set(LAYOUT[key].x, 0, LAYOUT[key].z);
     }
     else if (press.drag === 'whisk') eggs.stopBeating();
+    else if (press.drag === 'egg') {
+      const over = locate().zone;
+      if (over === 'pan' || over === 'handle') crackEgg('pan');
+      else if (over === 'bowl' || over === 'carton') crackEgg('bowl');
+    }
     else if (press.drag === 'shake') {
       /**
        * Let go with a flick upward and the pan throws what is in it. Only the
@@ -1025,8 +1148,9 @@ export function createGame({ stage, GFX, kitchen }) {
       case 'pan':
         /** Over a fried egg, the spatula goes under it and turns it; anywhere else it flicks over what is there. */
         if (sheet.yolks.length && sheet.flipEgg(at.point[0], at.point[1])) break;
-        /** Under an omelette not yet folded, the spatula turns the whole of it. */
+        /** Under an omelette not yet folded, the spatula turns the whole of it — freestyle, once it holds together. */
         if (dish.kind === 'omelette' && sheet.depthAt(at.point[0], at.point[1]) > 0.01 && sheet.flipSheet()) break;
+        if (dish.kind === 'free' && sheet.holds() && sheet.depthAt(at.point[0], at.point[1]) > 0.01 && sheet.flipSheet()) break;
         if (pan.flip(at.point[0], at.point[1])) emit('flip');
         break;
       case 'knob': heat(pan.heat.level >= SETTINGS.length - 1 ? -(SETTINGS.length - 1) : 1); break;
@@ -1093,6 +1217,7 @@ export function createGame({ stage, GFX, kitchen }) {
     else if (key === 'a') season('salt');
     else if (key === 'f') season('pepper');
     else if (key === 'g') crackEgg();
+    else if (key === 'h' && dish.kind === 'free') crackEgg('pan');
     else if (key === 'l') fold();
     else if (FILLING_KINDS.some((k) => FILLINGS[k].key === key)) addExtra(FILLING_KINDS.find((k) => FILLINGS[k].key === key));
     else if (key === 'enter') plateIt();
@@ -1241,13 +1366,15 @@ export function createGame({ stage, GFX, kitchen }) {
     spatula.work *= Math.exp(-dt * 8);
     /** Held X stirs on its own: the spatula sweeps figure-eights across the floor. */
     const auto = keys.has('x') && !carried.length && !round.plated;
+    /** Where the spatula is: wherever the keys are sweeping it, or under the pointer — which is left where it is. */
+    let at = zone;
     if (auto) {
       stirAngle += dt * 1.6;
-      zone = { zone: 'pan', point: [Math.sin(stirAngle) * 3.4, Math.sin(stirAngle * 2) * 2.2] };
+      at = { zone: 'pan', point: [Math.sin(stirAngle) * 3.4, Math.sin(stirAngle * 2) * 2.2] };
     }
-    const over = zone.zone === 'pan' && !carried.length;
+    const over = at.zone === 'pan' && !carried.length;
     if (over) {
-      const [x, z] = zone.point;
+      const [x, z] = at.point;
       if (press.drag === 'stir' || auto) {
         if (spatula.last) {
           const n = pan.stir(spatula.last, [x, z], dt);
@@ -1303,7 +1430,7 @@ export function createGame({ stage, GFX, kitchen }) {
        */
       if (!sheet.empty) {
         if (sheet.yolks.length) sheet.flipAll();
-        else if (dish.kind === 'omelette') sheet.flipSheet();
+        else if (dish.kind === 'omelette' || (dish.kind === 'free' && sheet.holds())) sheet.flipSheet();
         else sheet.toss();
       }
       pan.toss(toss.strength);
@@ -1391,7 +1518,7 @@ export function createGame({ stage, GFX, kitchen }) {
   newPotato();
 
   return {
-    update, chop, turn, scrapeIntoPan, startToss, heat, oil, butter, season, newPotato, plateIt, reset, order, fold, addExtra, crackEgg,
+    update, chop, turn, scrapeIntoPan, startToss, heat, oil, butter, season, newPotato, plateIt, reset, order, fold, addExtra, crackEgg, folds,
     pourEggs: () => eggs.startPour(),
     board, pan, sheet, eggs, stats, views,
     get zone() { return zone; },

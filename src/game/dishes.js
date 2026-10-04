@@ -6,8 +6,9 @@
  *
  * `kind` is how the plate is marked (see grade.js): 'hash' is the potato and
  * egg scramble, 'scramble' plain scrambled eggs, 'fried' eggs broken whole
- * into the pan, 'omelette' the sheet folded. `style` is the way it was asked
- * for. `par` is how many seconds count as quick for it.
+ * into the pan, 'omelette' the sheet folded, and 'free' whatever the cook
+ * made, marked on what it turned out to be. `style` is the way it was asked
+ * for. `par` is how many seconds count as quick for it — none, freestyle.
  */
 
 const pct = (v) => `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
@@ -160,7 +161,7 @@ export const DISHES = Object.freeze({
           done: p.fried.eggs >= 2 && p.fried.runnyWhite < 0.1,
         }),
       },
-      season('a pinch over each, once they are in'),
+      season('a pinch over the two of them, once they are in'),
       plate,
     ],
   },
@@ -192,7 +193,7 @@ export const DISHES = Object.freeze({
           done: p.fried.turned >= 2,
         }),
       },
-      season('a pinch over each'),
+      season('a pinch over the pair'),
       plate,
     ],
   },
@@ -242,9 +243,10 @@ export const DISHES = Object.freeze({
       },
       {
         id: 'fill', what: 'Fill it', short: 'fill',
-        read: (p) => {
+        read: (p, words) => {
           const e = p.extras;
-          const how = e.kinds.length === 0 ? 'cheese and one more, onto the egg, before it is folded'
+          const how = e.kinds.length === 0
+            ? e.board.length ? `${e.board.join(', ')} on the board — ${words.advice(e.next) || 'cut it small'}, then onto the egg` : 'cheese and one more: cut small, onto the egg, before it is folded'
             : `${e.kinds.join(', ')}${p.omelette.folded ? (e.inside ? ' — folded in' : ' — on the outside') : e.onEgg ? ' — on the egg' : ''}${e.cheese ? '' : ' · no cheese yet'}`;
           return { how, fill: Math.min(1, e.kinds.length / 2), done: e.cheese && e.kinds.length >= 2 && e.inside + e.onEgg >= 6 };
         },
@@ -257,9 +259,37 @@ export const DISHES = Object.freeze({
       plate,
     ],
   },
+
+  free: {
+    id: 'free', kind: 'free', no: '07', par: null, potato: true, crack: 'bowl', fold: 'half',
+    name: 'Chef’s choice', menu: 'Freestyle',
+    tag: 'No ticket. Anything on the counter, any way you like.',
+    blurb: 'no ticket — cook what you like from everything on the counter',
+    steps: [
+      {
+        id: 'cut', what: 'Cut what you want', short: 'cut',
+        read: (p, words) => ({
+          how: p.cut.pieces === 0 ? 'the potato, or any of the extras — as small as you like'
+            : `${p.cut.pieces} pieces · ${pct(p.cut.bite)} bite-size${p.board.next ? ` — ${words.advice(p.board.next)}` : ''}`,
+          fill: p.cut.bite / 0.7,
+          done: p.cut.pieces > 0 && p.cut.bite >= 0.7,
+        }),
+      },
+      {
+        id: 'cook', what: 'Cook it', short: 'cook',
+        read: (p) => ({
+          how: p.free.words.length ? p.free.words.join(' · ') : 'fat in a hot pan, then whatever you like — eggs scrambled, fried or folded',
+          fill: p.free.fill,
+          done: p.free.done,
+        }),
+      },
+      season('salt and pepper, in the bowl or over the pan'),
+      plate,
+    ],
+  },
 });
 
-export const MENU = Object.freeze(['hash', 'scramble', 'sunny', 'easy', 'french', 'american']);
+export const MENU = Object.freeze(['hash', 'scramble', 'sunny', 'easy', 'french', 'american', 'free']);
 
 /** The ticket's lines for `dish`, read off the game's progress. `words` says how the moves are spelled on this screen. */
 export function ticket(dish, progress, words) {

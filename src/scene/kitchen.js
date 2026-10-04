@@ -13,7 +13,7 @@ import { BOARD, buildBoard, buildGuide, buildKnife } from './board.js';
 import { buildBowl, buildPlate, buildSpatula, buildWhisk } from './cookware.js';
 import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
-import { FILLING_KINDS, fillingSolid } from '../food/fillings.js';
+import { FILLING_KINDS, wholeSolids } from '../food/fillings.js';
 import { buildButter, buildMill, buildRamekin, buildSaltDish, buildTowel } from './props.js';
 import { GRATE_TOP, buildStove } from './stove.js';
 import { brushed, greenTile, marble, studio } from './textures.js';
@@ -189,7 +189,7 @@ export function buildKitchen({ stage, GFX }) {
   const props = { towel: buildTowel(GFX), mill: buildMill(GFX), salt: buildSaltDish(GFX), butter: buildButter(GFX) };
   for (const p of Object.values(props)) room.add(p.group);
   /** The extras, each in its ramekin. */
-  const extras = Object.fromEntries(FILLING_KINDS.map((kind) => [kind, buildRamekin(GFX, { name: kind, bits: (random) => fillingSolid(kind, random) })]));
+  const extras = Object.fromEntries(FILLING_KINDS.map((kind) => [kind, buildRamekin(GFX, { name: kind, solids: wholeSolids(kind) })]));
   for (const e of Object.values(extras)) room.add(e.group);
   /** Where the extra of `kind` sits now. */
   const extraAt = (kind) => {
@@ -280,7 +280,7 @@ export function buildKitchen({ stage, GFX }) {
     }
     for (const kind of FILLING_KINDS) {
       const at = extraAt(kind);
-      corners(at.x - 0.9, at.x + 0.9, 0, 1.1, at.z - 0.9, at.z + 0.9);
+      corners(at.x - 0.9, at.x + 0.9, 0, 1.7, at.z - 0.9, at.z + 0.9);
     }
   }
 

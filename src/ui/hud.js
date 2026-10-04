@@ -32,6 +32,7 @@ export function createHud({ game, root = document.body }) {
     </div>
     <div class="group eggs">
       <button class="chip" data-act="egg" title="Crack an egg into the bowl (G)">egg</button>
+      <button class="chip" data-act="fry" title="Break an egg straight into the pan (H)">egg → pan</button>
       <button class="chip" data-act="pour" title="Pour the eggs into the pan (P)">pour</button>
       <button class="chip" data-act="fold" title="Fold the omelette (L)">fold</button>
     </div>
@@ -64,6 +65,7 @@ export function createHud({ game, root = document.body }) {
     else if (name === 'scrape') game.scrapeIntoPan();
     else if (name === 'toss') game.startToss();
     else if (name === 'egg') game.crackEgg();
+    else if (name === 'fry') game.crackEgg('pan');
     else if (name === 'fold') game.fold();
     else if (name === 'pour') game.pourEggs();
   });
@@ -81,11 +83,14 @@ export function createHud({ game, root = document.body }) {
     salt: 'click for a pinch of salt over the pan · drag it to the bowl to salt the eggs',
     pepper: 'click for a twist of pepper over the pan · drag it to the bowl to pepper the eggs',
     butter: 'click to drop a pat of butter in the pan',
-    extra: 'click for a handful in the pan — on the egg to fold it in, or over the food',
+    extra: 'click to put it on the board — cut it small, then into the pan, onto the egg to fold it in or over the food',
   };
   /** Over fried eggs, the spatula turns them; under an omelette not yet folded, it turns the whole thing. */
   const FRIED_PAN = 'click an egg to turn it over · space tosses them all · a drag through a yolk breaks it';
   const OMELETTE_PAN = 'drag to stir while it runs · click to turn it over once it has set · L folds it';
+  /** Freestyle, the egg is whatever the cook makes of it. */
+  const FREE_PAN = 'drag to stir it into curds · click to turn it over once it has set · L folds it';
+  const FREE_CARTON = 'click to crack an egg into the bowl · drag one to the pan to fry it';
   const show = (name, on) => {
     const b = act(name);
     if (b.hidden === !on) return;
@@ -101,10 +106,10 @@ export function createHud({ game, root = document.body }) {
       out('temp').textContent = `${t}°`;
       out('temp').dataset.hot = t > 240 ? 'smoking' : t > 160 ? 'hot' : t > 60 ? 'warm' : 'cold';
       const dish = game.dish;
-      show('turn', dish.potato);
-      show('scrape', dish.potato);
+      const free = dish.kind === 'free';
       show('pour', dish.crack === 'bowl');
-      show('fold', dish.kind === 'omelette');
+      show('fry', free);
+      show('fold', game.folds());
       const toss = act('toss');
       /** Fried eggs and an omelette go over whole when the pan is tossed: for them it is a flip. */
       const word = dish.kind === 'fried' || dish.kind === 'omelette' ? 'flip' : 'toss';
@@ -120,10 +125,12 @@ export function createHud({ game, root = document.body }) {
       act('toss').disabled = game.pan.pieces.length === 0 && game.sheet.empty;
       act('egg').disabled = game.eggs.eggsLeft === 0 || game.eggs.pouring
         || (dish.crack === 'pan' ? game.sheet.yolks.length >= 4 : game.eggs.bowl.eggs >= 4);
+      act('fry').disabled = game.eggs.eggsLeft === 0 || game.eggs.pouring || game.sheet.yolks.length >= 4;
       act('pour').disabled = game.eggs.bowl.eggs === 0 || game.eggs.pouring || game.eggs.cracking;
       act('butter').disabled = game.butterLeft === 0;
-      const pan = game.zone.zone === 'pan' && (game.sheet.yolks.length ? FRIED_PAN : dish.kind === 'omelette' && !game.sheet.empty ? OMELETTE_PAN : null);
-      hint.textContent = (pan || HINTS[game.zone.zone]) ?? '';
+      const pan = game.zone.zone === 'pan' && (game.sheet.yolks.length ? FRIED_PAN : game.sheet.empty ? null : dish.kind === 'omelette' ? OMELETTE_PAN : free ? FREE_PAN : null);
+      const carton = game.zone.zone === 'carton' && free ? FREE_CARTON : null;
+      hint.textContent = (pan || carton || HINTS[game.zone.zone]) ?? '';
     },
   };
 }

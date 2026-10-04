@@ -526,6 +526,12 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
     return 'flip';
   }
 
+  /** Whether the sheet has set enough to hold together, turned over in one piece. */
+  function holds() {
+    const s = summary();
+    return s.volume >= 0.3 && s.set >= RUNS * 1.25;
+  }
+
   /** The whole sheet off the floor at once, folded or rolled — an omelette — or null with too little to fold. */
   function fold() {
     const s = summary();
@@ -676,7 +682,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
   return {
     N, size, amount, set, yolk, brown, top, inside, yolks, events,
     pour, crack, update, stir, toss, takeCurds, summary, lift, clear, liquidAt, area, season, eggCells,
-    fried, flipEgg, flipAll, flipSheet, fold, liftFried, breakYolk, depthAt,
+    fried, flipEgg, flipAll, flipSheet, holds, fold, liftFried, breakYolk, depthAt,
     get poured() { return poured; },
     get empty() { return summary().volume < 0.02; },
   };

@@ -24,6 +24,7 @@ export function wireSound({ game, sound }) {
       case 'yolk-flip': sound.play('flip'); break;
       case 'yolk-turn': sound.play('flip'); break;
       case 'fold': sound.play('flip'); break;
+      case 'extra': sound.play('land', 0); break;
       case 'whisk':
         whiskTick += e.speed;
         if (whiskTick > 0.35) {

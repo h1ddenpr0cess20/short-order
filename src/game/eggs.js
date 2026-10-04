@@ -321,6 +321,8 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   return {
     bowl, crack, inBowl, onCarton, beat, stopBeating, startPour, update, reset,
     get pouring() { return Boolean(pour); },
+    /** How much egg is still in the bowl partway through a pour. */
+    get unpoured() { return pour ? Math.max(0, pour.volume - pour.poured) : bowl.volume; },
     get eggsLeft() { return eggsLeft.length; },
     get cracking() { return cracker.busy; },
   };
