@@ -436,7 +436,7 @@ export function createGame({ stage, GFX, kitchen }) {
       const c = p.carry ?? [(Math.random() - 0.5) * 1.2, 0.3, (Math.random() - 0.5) * 1.2];
       p.pos = [local[0] * 0.6 + c[0] * 1.6, CARRY - PAN_Y + c[1], local[1] * 0.6 + c[2] * 1.6];
       const s = pan.state(p);
-      s.vel = [(Math.random() - 0.5) * 5, -1 - Math.random() * 2, (Math.random() - 0.5) * 5];
+      s.vel = [(Math.random() - 0.5) * 1.6, -1 - Math.random() * 2, (Math.random() - 0.5) * 1.6];
       area += p.volume / 0.6;
       delete p.carry;
       delete p.home;

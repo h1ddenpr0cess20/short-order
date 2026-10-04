@@ -204,6 +204,24 @@ describe('the pan', () => {
     assert.ok(oiled > dry, `oiled ${oiled} against dry ${dry}`);
   });
 
+  it('lets food pushed across the oil come to a stop, rather than skate on', () => {
+    const random = seeded(17);
+    const pan = createPan({ random });
+    pan.pour();
+    pan.add(scatter(dice(), random));
+    run(pan, 2);
+    for (let k = 0; k < 60; k++) {
+      const x = -4 + (k / 60) * 8;
+      pan.stir([x, 0], [x + 8 / 60, 0], 1 / 60);
+      pan.update(1 / 60);
+    }
+    run(pan, 0.5);
+    const before = new Map(pan.pieces.map((p) => [p, [...p.pos]]));
+    run(pan, 0.5);
+    const moved = Math.max(...pan.pieces.map((p) => Math.hypot(p.pos[0] - before.get(p)[0], p.pos[2] - before.get(p)[2])));
+    assert.ok(moved < 0.2, `a piece slid ${moved.toFixed(2)} in the half second after the spatula had been gone half a second`);
+  });
+
   it('turns things over when the spatula goes through them', () => {
     const random = seeded(11);
     const pan = createPan({ random });

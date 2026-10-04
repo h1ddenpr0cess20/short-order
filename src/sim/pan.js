@@ -43,6 +43,13 @@ const DRY_TIME = 40;
 /** Sliding on dry iron stops quickly; on oil it carries. Per second. */
 const FRICTION = { dry: 9, oiled: 3.6 };
 
+/**
+ * And the drag that does not fade with speed, the way friction does not: a
+ * piece let go of slows by this much a second, so it comes to a stop rather
+ * than creeping on across the oil. Diced potato in a film of oil does not skate.
+ */
+const GRIP = { dry: 14, oiled: 6 };
+
 /** How quickly a piece that has landed rocks onto its nearest face. */
 const SETTLE_TIME = 0.09;
 
@@ -214,8 +221,8 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
     s.air = false;
     s.spin = null;
     s.vel[1] = 0;
-    s.vel[0] *= 0.45;
-    s.vel[2] *= 0.45;
+    s.vel[0] *= 0.3;
+    s.vel[2] *= 0.3;
     s.landed = 0.25;
     settleOnto(piece, s);
   }
@@ -301,6 +308,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
    */
   function physics(dt, shove = null) {
     const friction = oil > 0.12 ? FRICTION.oiled : FRICTION.dry;
+    const grip = oil > 0.12 ? GRIP.oiled : GRIP.dry;
     const slip = oil > 0.12 ? 0.85 : 0.45;
     for (const piece of [...pieces]) {
       const s = state(piece);
@@ -331,7 +339,10 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
           }
           continue;
         }
-        if (s.vel[1] < 0 && piece.pos[1] <= rest(piece)) {
+        /** Coming down by the wall, it lands as soon as its outer edge meets the curve of the iron, not once its middle is down. */
+        const rho = reach(piece);
+        const edge = r + rho > FLAT && piece.pos[1] + extents(piece).min[1] <= floorHeight(Math.min(r + rho, COOK_RADIUS));
+        if (s.vel[1] < 0 && (piece.pos[1] <= rest(piece) || edge)) {
           if (r > OUT) continue;
           piece.pos[1] = rest(piece);
           land(piece, s);
@@ -349,10 +360,11 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
         }
       }
 
-      /** Sliding: friction slows it, and the curve of the wall pushes it back in. */
-      const k = Math.exp(-friction * dt);
-      s.vel[0] *= k;
-      s.vel[2] *= k;
+      /**
+       * Sliding: the curve of the wall pushes it back in, and friction slows
+       * it — after the push, so a piece the slope is too gentle to move stays
+       * where it is, rather than creeping down it forever.
+       */
       const r = Math.hypot(piece.pos[0], piece.pos[2]);
       const rho = reach(piece);
       if (r > FLAT - rho * 0.5 && r > 1e-6) {
@@ -361,6 +373,10 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
         s.vel[0] -= (piece.pos[0] / r) * push * dt;
         s.vel[2] -= (piece.pos[2] / r) * push * dt;
       }
+      const speed = Math.hypot(s.vel[0], s.vel[2]);
+      const k = speed > 0 ? Math.max(0, speed * Math.exp(-friction * dt) - grip * dt) / speed : 0;
+      s.vel[0] *= k;
+      s.vel[2] *= k;
       piece.pos[0] += s.vel[0] * dt;
       piece.pos[2] += s.vel[2] * dt;
       contain(piece, s);
