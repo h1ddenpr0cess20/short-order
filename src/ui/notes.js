@@ -4,7 +4,7 @@
  * food is cooked from; one note at a time, held long enough to be read.
  */
 
-import { FILLINGS } from '../food/fillings.js';
+import { FILLINGS, listed } from '../food/fillings.js';
 import { fryReport } from '../game/grade.js';
 
 const HOLD = 2.5;
@@ -61,7 +61,7 @@ export function createNotes({ game, root = document.body }) {
     const raw = pan.pieces.filter((p) => (p.kind === 'onion' || p.kind === 'pepper') && p.core < 0.3);
     /** Eggs beaten and waiting, over onion and pepper still raw: they want a minute first. */
     const eggsReady = game.eggs.bowl.eggs > 0 && game.eggs.bowl.mix > 0.6;
-    if (raw.length > 4 && game.folds() && game.sheet.empty && !pan.pieces.some((p) => p.omelette) && pan.heat.level > 0 && eggsReady) return 'Give the onion and pepper a minute to soften before the eggs go in.';
+    if (raw.length > 4 && game.folds() && game.sheet.empty && !pan.pieces.some((p) => p.omelette) && pan.heat.level > 0 && eggsReady) return `Give the ${listed(raw.map((p) => p.kind))} a minute to soften before the eggs go in.`;
     if (food && pan.heat.level === 0 && t < 120) return 'The burner is off. Nothing is cooking.';
     if (potato.length && pan.oil < 0.12 && t > 130) return 'Dry pan — it is sticking. Oil it, or butter it.';
     if (potato.length && t < 140 && pan.heat.level > 0 && potato.some((p) => p.moisture > 0.8)) return 'The pan is not hot yet — the potato is steaming, not frying.';

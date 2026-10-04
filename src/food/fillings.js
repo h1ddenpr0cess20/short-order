@@ -36,6 +36,12 @@ export const FILLING_KINDS = Object.freeze(Object.keys(FILLINGS));
 
 export const isFilling = (piece) => Boolean(FILLINGS[piece.kind]);
 
+/** The extras named, in the order they sit on the counter: 'ham, cheese and pepper'. */
+export function listed(kinds) {
+  const names = FILLING_KINDS.filter((k) => kinds.includes(k)).map((k) => FILLINGS[k].name);
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /** A little mottle, so a cut face is not one flat colour. */
 const mottle = (c, x, y, z, amount = 0.05, scale = 5) => {
   const m = 1 + amount * vnoise(x * scale + 7.1, y * scale + 2.9, z * scale + 4.3);

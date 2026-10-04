@@ -247,6 +247,13 @@ describe('the extras', () => {
     assert.equal(extrasReport([], { dish: 'fried' }).score, null, 'no extras, nothing to mark');
   });
 
+  it('name only the extras that were raw', () => {
+    const r = gradeDish(DISHES.hash, { pieces: bits('onion', { core: 0 }) });
+    const note = r.parts.find((p) => p.key === 'extras').note;
+    assert.match(note, /The onion wanted cooking first/);
+    assert.doesNotMatch(note, /pepper/);
+  });
+
   it('want cutting: a whole tomato thrown in, or one only sliced, is marked down', () => {
     const whole = onBoard('tomato').pieces.map((p) => Object.assign(p, { core: 0.8 }));
     const sliced = onBoard('tomato');
@@ -274,6 +281,13 @@ describe('marking the other dishes', () => {
   const egg = ({ set = 1, runny = 0, brown = 0.2, yolk = 0.2, whole = true, flips = 0 } = {}) => ({
     white: { volume: 2.3, set, runny, brown, crisp: 0, radius: 2 },
     yolk: { whole, set: yolk, flipped: flips % 2 === 1, flips, down: 0, volume: 1.3 },
+  });
+
+  it('counts broken yolks out of however many eggs there were', () => {
+    const note = (fried) => gradeDish(DISHES.free, { fried }).parts.find((p) => p.key === 'yolks').note;
+    assert.equal(note([egg({ whole: false })]), 'The yolk broke.');
+    assert.equal(note([egg({ whole: false }), egg({ whole: false })]), 'Both yolks broken.');
+    assert.equal(note([egg({ whole: false }), egg({ whole: false }), egg()]), '2 yolks broken.');
   });
 
   it('wants sunny eggs set, whole and runny, and never turned', () => {

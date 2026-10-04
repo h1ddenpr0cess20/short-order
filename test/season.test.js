@@ -98,6 +98,16 @@ describe('the seasoning, marked', () => {
     assert.ok(r.score < 70 && r.score > 30, `scored ${r.score}`);
   });
 
+  it('does not call the extras eggs before there are any', () => {
+    const onion = (volume, salt = 0) => ({ kind: 'onion', volume, salt, pepper: 0 });
+    /** Thin onion takes a lot of salt for its size: on its own it would read as far too salty. */
+    const before = seasonReport({ pieces: [potato(16, 1.4), onion(1.2, 0.6)] });
+    assert.equal(before.egg.volume, 0);
+    assert.ok(before.potato.salt > 0.65 && before.potato.salt < 1.45, `potato salt ${before.potato.salt}`);
+    const after = seasonReport({ pieces: [potato(16, 1.4), onion(1.2, 0.6), egg(10.8)] });
+    assert.ok(Math.abs(after.egg.volume - 12) < 1e-9, 'once there is egg, the onion is cooked in with it');
+  });
+
   it('makes the whole plate bitter if the butter burnt', () => {
     const fine = seasonReport({ pieces: [potato(16, 2, 3), egg(10.8, 1.35, 2)] }).score;
     const burnt = seasonReport({ pieces: [potato(16, 2, 3), egg(10.8, 1.35, 2)], burntButter: true }).score;

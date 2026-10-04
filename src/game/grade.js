@@ -7,7 +7,7 @@
  * and keep the recipe card's running commentary while the cooking goes on.
  */
 
-import { FILLINGS, PORTION, isFilling } from '../food/fillings.js';
+import { FILLINGS, PORTION, isFilling, listed } from '../food/fillings.js';
 import { dimensions } from '../sim/piece.js';
 import { ratio, taste } from '../sim/season.js';
 
@@ -125,9 +125,15 @@ export function seasonReport({ pieces, sheet = null, burntButter = false }) {
     const pepper = list.reduce((s, p) => s + (p.pepper ?? 0), 0) + (extra?.pepper ?? 0);
     return { volume, salt: ratio('salt', salt, volume), pepper: ratio('pepper', pepper, volume) };
   };
-  const potato = part(pieces.filter((p) => p.kind === 'potato'));
-  /** The egg, and anything cooked in with it — salt on the onion before the eggs went over it is still in the dish. */
-  const egg = part(pieces.filter((p) => p.kind !== 'potato'), sheet);
+  /**
+   * The egg, and anything cooked in with it — salt on the onion before the
+   * eggs went over it is still in the dish. Until there is egg, the extras are
+   * cooking with the potato, and tasted with it: an onion is not the eggs.
+   */
+  const hasEgg = pieces.some((p) => p.kind === 'egg') || (sheet?.volume ?? 0) > 0;
+  const withEgg = (p) => p.kind !== 'potato' && (hasEgg || !pieces.some((q) => q.kind === 'potato'));
+  const potato = part(pieces.filter((p) => !withEgg(p)));
+  const egg = part(pieces.filter(withEgg), hasEgg ? sheet : null);
   const volume = potato.volume + egg.volume;
   if (volume <= 0) return { salt: 0, pepper: 0, potato, egg, burntButter, score: 0 };
   /** Each part tasted on its own, then weighed by how much of the plate it is. */
@@ -354,6 +360,7 @@ export function extrasReport(bits, { dish = 'hash', inside = [], wants = false }
   /** How much went in, in portions: one is what comes off the counter — a tomato, half an onion, a block of cheese. */
   const handfuls = kinds.reduce((a, k) => a + volume[k] / PORTION[k], 0);
   const raw = share(all.filter((b) => FILLINGS[b.kind].cooks), (b) => b.core < 0.45);
+  const rawKinds = [...new Set(all.filter((b) => FILLINGS[b.kind].cooks && b.core < 0.45).map((b) => b.kind))];
   const cheese = all.filter((b) => b.kind === 'cheese');
   const melted = share(cheese, (b) => b.core >= 0.5);
   const burnt = share(all, (b) => Math.max(...b.brown) >= 1.6);
@@ -371,13 +378,7 @@ export function extrasReport(bits, { dish = 'hash', inside = [], wants = false }
   } else {
     raw01 = 0.55 + 0.15 * (1 - raw) + 0.15 * (1 - heavy) + 0.15 * (cheese.length ? melted : 1) - 0.4 * odd - 0.4 * burnt - 0.35 * chunky;
   }
-  return { kinds, count, handfuls, wants, inside: folded, melted, raw, burnt, heavy, odd, chunky, whole, score: pct(raw01) };
-}
-
-/** The extras named, in the order they sit on the counter: 'ham, cheese and pepper'. */
-function listed(kinds) {
-  const names = Object.keys(FILLINGS).filter((k) => kinds.includes(k)).map((k) => FILLINGS[k].name);
-  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return { kinds, count, handfuls, wants, inside: folded, melted, raw, rawKinds, burnt, heavy, odd, chunky, whole, score: pct(raw01) };
 }
 
 function extrasNote(r) {
@@ -388,7 +389,7 @@ function extrasNote(r) {
   if (r.whole > 0.5) return `${cap}, in whole. It wanted cutting first.`;
   if (r.wants && r.inside < 0.4) return `${cap} — mostly on the outside, not folded in.`;
   if (r.chunky > 0.4) return `${cap}, in big pieces. Cut it smaller.`;
-  if (r.raw > 0.5) return `${cap}. The onion and pepper wanted cooking first.`;
+  if (r.raw > 0.5) return `${cap}. The ${listed(r.rawKinds)} wanted cooking first.`;
   if (r.heavy > 0.3) return `${cap}, and a lot of it.`;
   if (r.odd > 0.4) return `${cap} — an odd thing to put on it.`;
   if (r.kinds.includes('cheese') && r.melted < 0.5) return `${cap}. The cheese never melted.`;
@@ -558,7 +559,12 @@ function whitesNote(r) {
 
 function yolksNote(r, style) {
   if (r.eggs === 0) return 'No yolks.';
-  if (r.whole < 1) return r.whole === 0 ? 'Both yolks broken.' : 'One yolk broken.';
+  if (r.whole < 1) {
+    const broken = Math.round((1 - r.whole) * r.eggs);
+    if (r.eggs === 1) return 'The yolk broke.';
+    if (broken === r.eggs) return r.eggs === 2 ? 'Both yolks broken.' : 'Every yolk broken.';
+    return broken === 1 ? 'One yolk broken.' : `${broken} yolks broken.`;
+  }
   if (style === 'easy' && r.turned < 1) return 'Never turned — that is sunny side up.';
   if (style === 'sunny' && r.turned < 1) return 'Turned over — that is over easy.';
   if (r.runny < 0.5) return 'The yolks set hard.';

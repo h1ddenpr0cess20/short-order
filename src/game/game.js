@@ -19,7 +19,7 @@
  */
 
 import { curdSolid, friedSolid, omeletteSolid } from '../food/curd.js';
-import { FILLINGS, FILLING_KINDS, isFilling, isTrimming, wholeSolids } from '../food/fillings.js';
+import { FILLINGS, FILLING_KINDS, isFilling, isTrimming, listed, wholeSolids } from '../food/fillings.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { PLATE } from '../scene/cookware.js';
@@ -994,7 +994,8 @@ export function createGame({ stage, GFX, kitchen }) {
     const veg = pan.pieces.filter((p) => FILLINGS[p.kind]?.cooks);
     if (veg.length) {
       const soft = veg.filter((p) => p.core >= 0.45).length / veg.length;
-      words.push(soft >= 0.8 ? 'onion and pepper soft' : 'onion and pepper softening');
+      const what = listed(veg.map((p) => p.kind));
+      words.push(soft >= 0.8 ? `${what} soft` : `${what} softening`);
       done.push(soft);
     }
     const others = [...new Set(pan.pieces.filter((p) => isFilling(p) && !FILLINGS[p.kind].cooks).map((p) => FILLINGS[p.kind].name))];
