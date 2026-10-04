@@ -22,14 +22,14 @@ import { curdSolid, friedSolid, omeletteSolid } from '../food/curd.js';
 import { FILLINGS, FILLING_KINDS, HASH, isFilling, isTrimming, listed, shredSolids, wholeSolids } from '../food/fillings.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
-import { PLATE, plateDish } from '../scene/cookware.js';
+import { plateDish } from '../scene/cookware.js';
 import { HANDLE_TURN, LAYOUT, PAN_Y } from '../scene/kitchen.js';
 import { COOK_RADIUS, FLAT, LIP_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
 import { PATS } from '../scene/props.js';
 import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
-import { Nearby, flatten, pour } from '../sim/pile.js';
+import { Nearby, flatten, lieDown, pour } from '../sim/pile.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
 import { dimensions, extents, makePiece, slicer } from '../sim/piece.js';
@@ -294,8 +294,9 @@ export function createGame({ stage, GFX, kitchen }) {
    * every bit of one `only` kind — the onion, leaving the potato where it is.
    */
   function pickUp(only = null) {
-    /** Whatever is still coming off the grater lands first, so all of it comes up together. */
+    /** Whatever is still coming off the grater or the slicer lands first, so all of it comes up together. */
     finishFalling();
+    finishSlicing();
     if (carried.length || board.pieces.length === 0 || board.turning) return false;
     const list = only ? board.take(board.pieces.filter((p) => p.kind === only)) : board.takeAll();
     if (!list.length) return false;
@@ -444,21 +445,25 @@ export function createGame({ stage, GFX, kitchen }) {
       [jumbled[k], jumbled[j]] = [jumbled[j], jumbled[k]];
     }
     const dish = kitchen.prep[i].dish;
-    const pile = new Nearby(prep[i].filter((p) => p.shown));
     fall(jumbled, (p) => {
       if (heaped[i] || !prep[i].includes(p)) return;
-      if (pour([p], dish, pile).length) heaped[i] = true;
+      /** Onto the one pile it shows, whatever else is still tipping in on top of it. */
+      shownPile[i] ??= new Nearby();
+      if (pour([p], dish, shownPile[i]).length) heaped[i] = true;
       else p.shown = true;
     });
   }
 
   /** Whether each ramekin's pile is heaped as high as it is shown: anything more that goes in is in it, but not on show. */
   const heaped = kitchen.prep.map(() => false);
+  /** The pile each ramekin shows, for what is tipped in next to land on. */
+  const shownPile = kitchen.prep.map(() => null);
 
   /** What is in ramekin `i`, out of it: each piece as it went in, the pile it was shown as gone. */
   function outOfRamekin(i) {
     finishFalling();
     heaped[i] = false;
+    shownPile[i] = null;
     return prep[i].splice(0).map((p) => {
       p.pos = [...p.kept.pos];
       p.rot = [...p.kept.rot];
@@ -1118,16 +1123,20 @@ export function createGame({ stage, GFX, kitchen }) {
      * touch over the one before; the rest falls on the plate and on them in a
      * pile, each worked out as it comes off the spatula, onto those before it.
      */
+    /** What is on the plate as it will lie there: stand-ins, since the real pieces are in the air until they land. */
+    const landed = (piece) => ({ ...piece, pos: [...piece.pos], rot: [...piece.rot], extents: null, profile: null });
+    const down = [];
     for (const f of flights.filter((f) => f.piece.keepUp)) {
       const k = laid.indexOf(f.piece), n = laid.length;
       f.piece.rot = f.turn;
-      const x = (k - (n - 1) / 2) * (f.piece.fried ? 3.2 : 2.4);
-      f.to = [x, PLATE.floor - extents(f.piece).min[1] + k * 0.06, (k % 2) * 0.6 - 0.3];
-      f.piece.pos = [...f.to];
+      f.piece.pos = [(k - (n - 1) / 2) * (f.piece.fried ? 3.2 : 2.4), 0, (k % 2) * 0.6 - 0.3];
+      /** Side by side, and where one comes over the edge of the one before, lying on it rather than in it. */
+      lieDown(f.piece, down, plateDish.base);
+      f.to = [...f.piece.pos];
+      f.turn = [...f.piece.rot];
+      down.push(landed(f.piece));
     }
-    /** What is on the plate as it will lie there: stand-ins, since the real pieces are in the air until they land. */
-    const landed = (piece) => ({ ...piece, pos: [...piece.pos], rot: [...piece.rot], extents: null, profile: null });
-    const pile = new Nearby(laid.map(landed));
+    const pile = new Nearby(down);
     for (const f of flights) {
       if (!f.piece.keepUp) f.to = null;
       f.piece.rot = f.rot;
@@ -1200,6 +1209,7 @@ export function createGame({ stage, GFX, kitchen }) {
     falling.length = 0;
     for (const list of prep) list.length = 0;
     heaped.fill(false);
+    shownPile.fill(null);
     board.clear();
     pan.clear();
     sheet.clear();

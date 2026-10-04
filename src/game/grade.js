@@ -43,12 +43,14 @@ const share = (list, test) => {
 
 /** How well it was cut: what share of the potato is a good bite, and how alike the bites are. */
 export function diceReport(potato) {
-  if (potato.length === 0) return { pieces: 0, bite: 0, even: 0, whole: 0, score: 0 };
+  if (potato.length === 0) return { pieces: 0, bite: 0, even: 0, whole: 0, shredded: 0, score: 0 };
   const bite = share(potato, (p) => {
     const d = dimensions(p);
     return Math.max(...d) <= BITE.max && Math.min(...d) >= BITE.min;
   });
-  const whole = share(potato, (p) => Math.max(...dimensions(p)) > 2.2);
+  /** Long, but a shred off the grater is not a potato left uncut. */
+  const whole = share(potato, (p) => !p.shred && Math.max(...dimensions(p)) > 2.2);
+  const shredded = share(potato, (p) => p.shred);
   /** Evenness: how little the bite-size pieces vary in size. */
   const sizes = potato.map((p) => Math.max(...dimensions(p))).filter((s) => s <= BITE.max);
   let even = 0;
@@ -58,7 +60,7 @@ export function diceReport(potato) {
     even = Math.max(0, 1 - (sd / mean) * 1.6);
   }
   const score = Math.round(100 * Math.max(0, Math.min(1, 0.78 * bite + 0.22 * even)));
-  return { pieces: potato.length, bite, even, whole, score };
+  return { pieces: potato.length, bite, even, whole, shredded, score };
 }
 
 /** How it fried: golden all over and cooked through, against pale, burnt and raw. */
@@ -198,6 +200,7 @@ export function grade({ pieces, sheet = null, beaten = 0, eggs = 0, seconds = 0,
 function diceNote(d, n) {
   if (n === 0) return 'No potato on the plate.';
   if (d.whole > 0.4) return 'That is most of a potato, uncut.';
+  if (d.shredded > 0.5) return 'Shredded, not diced — that is hash browns.';
   if (d.bite >= 0.85 && d.even >= 0.6) return 'Neat, even dice.';
   if (d.bite >= 0.7) return 'Good dice, a few odd sizes.';
   if (d.bite >= 0.45) return 'Some big chunks in there.';
@@ -364,8 +367,8 @@ export function extrasReport(bits, { dish = 'hash', inside = [], wants = false }
   const cheese = all.filter((b) => b.kind === 'cheese');
   const melted = share(cheese, (b) => b.core >= 0.5);
   const burnt = share(all, (b) => Math.max(...b.brown) >= 1.6);
-  /** Cut too big to eat in a mouthful — or not cut at all. */
-  const chunky = share(all, (b) => Math.max(...dimensions(b)) > FILLINGS[b.kind].bite);
+  /** Cut too big to eat in a mouthful — or not cut at all. Shreds and slices off the grater are as they are meant to be. */
+  const chunky = share(all, (b) => !b.shred && !b.sliced && Math.max(...dimensions(b)) > FILLINGS[b.kind].bite);
   const whole = share(all, (b) => b.whole === true);
   const heavy = clamp01((handfuls - 3) / 2);
   const suits = SUITS[dish] ?? SUITS.hash;

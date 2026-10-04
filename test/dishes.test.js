@@ -10,7 +10,7 @@ import { DISHES, MENU, ticket } from '../src/game/dishes.js';
 import { extrasReport, friedReport, gradeDish, omeletteReport, timeReport } from '../src/game/grade.js';
 import { createBoard } from '../src/sim/board.js';
 import { EGG_VOLUME, YOLK_SHARE, createSheet } from '../src/sim/eggs.js';
-import { dimensions, makePiece } from '../src/sim/piece.js';
+import { dimensions, makePiece, sliceUp } from '../src/sim/piece.js';
 import { axisAngle } from '../src/sim/quat.js';
 
 function seeded(seed = 4) {
@@ -404,6 +404,20 @@ describe('freestyle', () => {
     const r = gradeDish(DISHES.free, { pieces: extras, seconds: 60 });
     assert.deepEqual(r.parts.map((p) => p.key), ['extras', 'season']);
     assert.ok(r.parts[0].score > 70, `${r.parts[0].score}: ${r.parts[0].note}`);
+  });
+
+  it('does not tell the cook to cut slices of cheese smaller, nor call shredded potato uncut', () => {
+    const slices = sliceUp(makePiece({ solid: wholeSolids('cheese')[0], kind: 'cheese' }), 0.2, FLESH.cheese)
+      .map((p) => Object.assign(p, { sliced: true, core: 0.8 }));
+    const extras = extrasReport(slices, { dish: 'free' });
+    assert.equal(extras.chunky, 0, 'slices off the slicer counted as big pieces');
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    const strands = shredSolids('potato', volume, seeded(3), { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
+    const r = gradeDish(DISHES.hash, { pieces: strands, seconds: 100 });
+    const dice = r.parts.find((p) => p.key === 'dice');
+    assert.doesNotMatch(dice.note, /uncut/);
+    assert.match(dice.note, /hash browns/);
   });
 
   it('marks a grated potato, fried, as hash browns: on how it fried, not as badly diced', () => {

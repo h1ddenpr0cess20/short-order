@@ -106,16 +106,36 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
     return piece.pan;
   };
 
-  /**
-   * Half the piece's width across the floor, as it now lies: what it bumps
-   * others with. A shred is limp and thin: it only bumps with its width, and
-   * shreds do not bump each other at all — they tangle together into a layer,
-   * the way hash browns do, rather than shoving one another round the pan.
-   */
+  /** Half the piece's width across the floor, as it now lies: how far out it comes, for keeping it off the wall. */
   function reach(piece) {
-    if (piece.shred) return dimensions(piece).sort((a, b) => a - b)[1] / 2;
     const e = extents(piece);
     return ((e.max[0] - e.min[0]) + (e.max[2] - e.min[2])) * 0.25;
+  }
+
+  /**
+   * What it bumps others with. A shred is limp and thin: it only bumps with
+   * its width, and shreds do not bump each other at all — they tangle
+   * together into a layer, the way hash browns do, rather than shoving one
+   * another round the pan. All of it is still kept off the wall.
+   */
+  function bump(piece) {
+    return piece.shred ? dimensions(piece).sort((a, b) => a - b)[1] / 2 : reach(piece);
+  }
+
+  /**
+   * How far a piece comes out toward the wall from its middle, where it lies
+   * now. For a dice, about half its width whichever way it is turned; for
+   * something long — a shred, a strip of ham — it depends which way it points:
+   * half its width lying along the wall, half its length pointing at it.
+   */
+  function out(piece) {
+    const d = dimensions(piece), long = Math.max(...d), [, mid] = [...d].sort((a, b) => a - b);
+    const r = Math.hypot(piece.pos[0], piece.pos[2]);
+    if (long < mid * 1.8 || r < 1e-6) return reach(piece);
+    const axis = [0, 0, 0];
+    axis[d.indexOf(long)] = 1;
+    const a = rotate(piece.rot, axis);
+    return Math.abs((a[0] * piece.pos[0] + a[2] * piece.pos[2]) / r) * (long / 2) + mid / 2;
   }
 
   /**
@@ -127,7 +147,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   function lie(piece) {
     const e = extents(piece);
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
-    const rho = reach(piece);
+    const rho = out(piece);
     const inner = floorHeight(Math.max(0, r - rho));
     const outer = floorHeight(Math.min(r + rho, COOK_RADIUS));
     const angle = Math.atan2(outer - inner, 2 * rho);
@@ -146,7 +166,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   function offWall(piece, s) {
     const e = extents(piece);
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
-    const rho = reach(piece);
+    const rho = out(piece);
     if (r < 1e-6 || r + rho <= COOK_RADIUS || r - rho >= LIP_RADIUS) return 0;
     const bottom = piece.pos[1] + e.min[1];
     const clear = (x) => floorHeight(Math.min(x + rho, LIP_RADIUS)) <= bottom;
@@ -182,7 +202,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
    * its middle — and sits it on the floor, leaning where the floor curves up.
    */
   function contain(piece, s) {
-    const rho = reach(piece);
+    const rho = out(piece);
     const limit = COOK_RADIUS - rho;
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
     if (r > limit && r > 1e-6) {
@@ -419,7 +439,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
     for (const p of pieces) {
       if (state(p).air) continue;
       floor.push(p);
-      radii.set(p, reach(p));
+      radii.set(p, bump(p));
       const k = cellKey(Math.floor(p.pos[0] / CELL), Math.floor(p.pos[2] / CELL));
       const list = grid.get(k);
       if (list) list.push(p);

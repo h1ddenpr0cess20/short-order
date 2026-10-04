@@ -8,7 +8,8 @@ import { potatoSolid } from '../src/food/potato.js';
 import { plateDish } from '../src/scene/cookware.js';
 import { buildRamekin } from '../src/scene/props.js';
 import { createBoard } from '../src/sim/board.js';
-import { inEachOther, pour } from '../src/sim/pile.js';
+import { inEachOther, lieDown, pour } from '../src/sim/pile.js';
+import { friedSolid } from '../src/food/curd.js';
 import { dimensions, extents, makePiece, sliceUp } from '../src/sim/piece.js';
 import { axisAngle } from '../src/sim/quat.js';
 
@@ -117,6 +118,21 @@ describe('a pile on a plate', () => {
     assert.ok(h > 1 && h < 4, `a mound ${h.toFixed(2)} high`);
     const spread = Math.max(...dice.map((p) => Math.hypot(p.pos[0], p.pos[2])));
     assert.ok(spread > 1.8, 'it is all in a column in the middle');
+  });
+});
+
+describe('things laid side by side on a plate', () => {
+  it('lets a big fried egg lie over the edge of the one beside it, not in it', () => {
+    const down = [];
+    for (const k of [0, 1]) {
+      const p = makePiece({ solid: friedSolid({ radius: 2.2, whole: true, seed: 7 + k * 13 }), kind: 'egg' });
+      p.rot = axisAngle([0, 1, 0], (k - 0.5) * 0.5);
+      p.pos = [(k - 0.5) * 3.2, 0, (k % 2) * 0.6 - 0.3];
+      lieDown(p, down, plateDish.base);
+      down.push(p);
+    }
+    assert.equal(inEachOther(down[0], down[1]), false);
+    for (const p of down) assert.ok(bottom(p) >= plateDish.floor(0) - 0.02, 'an egg is through the plate');
   });
 });
 
