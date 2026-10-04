@@ -281,13 +281,14 @@ export const SHRED = Object.freeze({ thick: 0.13, wide: 0.2, long: 0.9, most: 90
 /**
  * `volume` of `kind` through the grater: thin strips, as many as it makes —
  * up to `most` of them, thicker if there would be more — each lying flat at
- * the origin, its length along x. `random` gives each its own length, and
- * `flesh` their colour, for a kind that is not one of the extras.
+ * the origin, its length along x, about `long` long. `random` gives each its
+ * own length, and `flesh` their colour, for a kind that is not one of the
+ * extras.
  */
-export function shredSolids(kind, volume, random = Math.random, { flesh = FILLING_FLESH[kind] ?? (() => FILLINGS[kind].colour), most = SHRED.most } = {}) {
-  const one = SHRED.thick * SHRED.wide * SHRED.long;
+export function shredSolids(kind, volume, random = Math.random, { flesh = FILLING_FLESH[kind] ?? (() => FILLINGS[kind].colour), most = SHRED.most, long = SHRED.long } = {}) {
+  const one = SHRED.thick * SHRED.wide * long;
   const n = Math.max(3, Math.min(most, Math.round(volume / one)));
-  const lengths = Array.from({ length: n }, () => SHRED.long * (0.6 + 0.62 * random()));
+  const lengths = Array.from({ length: n }, () => long * (0.6 + 0.62 * random()));
   /** Thickened or thinned all alike so that, between them, the strips are all there was. */
   const k = Math.sqrt(volume / (SHRED.thick * SHRED.wide * lengths.reduce((a, b) => a + b, 0)));
   return lengths.map((l) => box([l, SHRED.thick * k, SHRED.wide * k], (x, y, z) => flesh(x, y, z)));

@@ -8,7 +8,7 @@
 import { cast } from './cast.js';
 import { extrude } from './sdf.js';
 import { walnut } from './textures.js';
-import { floorFrom } from '../sim/heap.js';
+import { floorFrom } from '../sim/pile.js';
 
 /** The bowl's inside, as (radius, height) from the bottom of the well up to the rim. */
 export const BOWL = Object.freeze({ rim: 3.6, depth: 2.7, floor: 1.55, wall: 0.16, foot: 0.22 });
@@ -199,8 +199,16 @@ export const PLATE = Object.freeze({ radius: 5.2, well: 3.3, floor: 0.18 });
 /** The plate's top: the well, the rise out of it, and the rim out to the edge. */
 const PLATE_TOP = [[0, PLATE.floor], [PLATE.well, PLATE.floor], [PLATE.well + 0.5, 0.32], [PLATE.radius - 0.4, 0.55], [PLATE.radius, 0.62]];
 
-/** What is served heaps in the well, and a little way up out of it. */
-export const plateDish = Object.freeze({ floor: floorFrom(PLATE_TOP), reach: PLATE.well + 0.3 });
+const plateTop = floorFrom(PLATE_TOP);
+
+/** What is served falls in a pile in the middle of the well, and spreads as far as it slumps. */
+export const plateDish = Object.freeze({
+  floor: plateTop,
+  base: (x, z) => (Math.hypot(x, z) <= PLATE.radius ? plateTop(Math.hypot(x, z)) : 0),
+  holds: (x, z) => Math.hypot(x, z) <= PLATE.well + 0.4,
+  centre: [0, 0],
+  spread: 0.9,
+});
 
 export function buildPlate(GFX) {
   const porcelain = new GFX.MeshPhysicalMaterial({

@@ -327,7 +327,7 @@ export function buildKitchen({ stage, GFX }) {
       const hx = (turned ? d : w) / 2, hz = (turned ? w : d) / 2;
       corners(LAYOUT.potato.x - hx, LAYOUT.potato.x + hx, 0, h, LAYOUT.potato.z - hz, LAYOUT.potato.z + hz);
     }
-    for (const at of LAYOUT.prep) corners(at.x - 1.5, at.x + 1.5, 0, 1.3, at.z - 1.5, at.z + 1.5);
+    for (const at of LAYOUT.prep) corners(at.x - 1.5, at.x + 1.5, 0, 1.9, at.z - 1.5, at.z + 1.5);
   }
 
   /** A wide window too low for the full ticket and bar: a phone turned on its side. */

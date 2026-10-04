@@ -29,7 +29,7 @@ import { TOP } from '../scene/stove.js';
 import { PATS } from '../scene/props.js';
 import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
-import { heap } from '../sim/heap.js';
+import { Nearby, flatten, pour } from '../sim/pile.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
 import { dimensions, extents, makePiece, slicer } from '../sim/piece.js';
@@ -384,11 +384,12 @@ export function createGame({ stage, GFX, kitchen }) {
     bz = fit(bz, z0, z1, board.halfDepth);
     for (const p of list) {
       p.pos = [bx + p.carry[0] / 0.72, p.carry[1] - 0.25, bz + p.carry[2] / 0.72];
-      p.version += 1;
+      /** Whatever was lying tipped in a heap lies down on a face, put down on the flat. */
+      flatten(p);
       delete p.carry;
       delete p.home;
     }
-    /** Down onto whatever is there already, each piece on what it was lying on in the pile. */
+    /** Down onto whatever is there already, each piece on what it was lying on in the pile; whatever is not held up slides off. */
     board.lay(list);
   }
 
@@ -417,18 +418,34 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   /**
-   * Pieces into ramekin `i`, heaped on whatever is in it already: the biggest
-   * first, each where it settles lowest, so a diced onion sits in its dish
-   * like one and a whole one sits on top of it rather than through it.
+   * Pieces tipped into ramekin `i` off the flat of the knife, in a jumble, onto
+   * whatever is in it already: each tumbles, lands on what is under it, slides
+   * off anything that will not hold it and down anything too steep, so a diced
+   * onion sits in its dish in a heap, mounded up over the rim if there is a lot.
    */
-  function intoRamekin(i, list) {
-    for (const p of list) {
+  function intoRamekin(i, list, { all = false } = {}) {
+    const jumbled = [...list];
+    for (let k = jumbled.length - 1; k > 0; k--) {
+      const j = Math.floor(Math.random() * (k + 1));
+      [jumbled[k], jumbled[j]] = [jumbled[j], jumbled[k]];
+    }
+    /** As much as it will hold, heaped; what will not go in is given back, as it was — unless it all has to. */
+    const dish = kitchen.prep[i].dish;
+    const over = pour(jumbled, all ? { ...dish, brim: Infinity } : dish, prep[i]);
+    const taken = jumbled.filter((p) => !over.includes(p));
+    for (const p of taken) {
       delete p.carry;
       delete p.home;
     }
-    heap([...list].sort((a, b) => b.volume - a.volume), kitchen.prep[i].dish, prep[i]);
-    prep[i].push(...list);
+    prep[i].push(...taken);
+    return over;
   }
+
+  /** Somewhere on the board to pour something out, round `spot`: anywhere on it, so long as the middle of each piece is. */
+  const boardPour = (spot, spread) => ({
+    centre: spot, spread,
+    holds: (x, z) => Math.abs(x) < board.halfWidth - 0.4 && Math.abs(z) < board.halfDepth - 0.4,
+  });
 
   /**
    * Which side of the grater the pointer is on, letting go — where it points,
@@ -443,8 +460,11 @@ export function createGame({ stage, GFX, kitchen }) {
     return dx * Math.cos(yaw) - dz * Math.sin(yaw) > 0.3 ? 'slice' : 'grate';
   }
 
-  /** What goes through the grater, either side of it: cheese, and a potato. */
+  /** What goes through the grater: cheese, and a potato. */
   const graterTakes = (p) => p.kind === 'potato' || Boolean(FILLINGS[p.kind]?.grates);
+
+  /** What its slicing side is for: cheese. A potato goes through the grater, whichever side it meets. */
+  const slicerTakes = (p) => Boolean(FILLINGS[p.kind]?.grates) && p.kind !== 'potato';
 
   /** How thick the slicing side cuts. */
   const SLICE = 0.2;
@@ -462,21 +482,21 @@ export function createGame({ stage, GFX, kitchen }) {
     }
     const byKind = new Map();
     for (const p of list) byKind.set(p.kind, (byKind.get(p.kind) ?? 0) + p.volume);
-    let count = 0;
+    const shreds = [];
     for (const [kind, volume] of byKind) {
-      /** A potato is a lot more than a block of cheese: more shreds of it, so they are still shreds. */
-      for (const solid of shredSolids(kind, volume, Math.random, { flesh: FLESH[kind], most: kind === 'potato' ? 150 : SHRED.most })) {
-        const yaw = Math.random() * Math.PI;
-        const piece = makePiece({ solid, kind, rot: axisAngle([0, 1, 0], yaw) });
+      /** A potato is a lot more than a block of cheese: more shreds of it, and longer, so they are still shreds. */
+      const potato = kind === 'potato';
+      for (const solid of shredSolids(kind, volume, Math.random, { flesh: FLESH[kind], most: potato ? 220 : SHRED.most, long: potato ? 1.5 : SHRED.long })) {
+        const piece = makePiece({ solid, kind });
         piece.moisture = FILLINGS[kind]?.moisture ?? 1;
         piece.shred = true;
-        /** Fallen in a loose heap: thickest in the middle, thinning out to its edges, each shred on those before it. */
-        const a = Math.random() * Math.PI * 2, r = Math.random() * 0.9;
-        piece.pos = [spot[0] + Math.cos(a) * r * 1.2, 0, spot[1] + Math.sin(a) * r * 0.9];
-        board.lay([piece]);
-        count += 1;
+        shreds.push(piece);
       }
     }
+    /** Fallen off the grater in a heap on the board, each shred landing on those before it. */
+    pour(shreds, boardPour(spot, 0.45), board.pieces);
+    for (const piece of shreds) board.lay([piece], { slump: false });
+    const count = shreds.length;
     hops.grater = 1;
     emit('grate', { count });
     return true;
@@ -523,11 +543,10 @@ export function createGame({ stage, GFX, kitchen }) {
       slicing = null;
       return false;
     }
-    const [sx, sz] = slicing.spot;
+    /** Off the slicer and onto the pile of slices under it, landing however it lands. */
+    pour(pieces, boardPour(slicing.spot, 0.5), board.pieces);
     for (const p of pieces) {
-      const a = Math.random() * Math.PI * 2, r = Math.random();
-      p.pos = [sx + Math.cos(a) * r * 1.3, 0, sz + Math.sin(a) * r * 0.8];
-      board.lay([p]);
+      board.lay([p], { slump: false });
       slicing.count += 1;
     }
     hops.grater = 1;
@@ -609,15 +628,18 @@ export function createGame({ stage, GFX, kitchen }) {
     /** Over a ramekin that will not take it: it goes back where it came from. */
     const refused = dish >= 0 && !ramekinTakes(dish, list);
     const through = grater && list.every(graterTakes);
-    if (through && grater === 'grate' && grate(list)) {
+    const toSlicer = grater === 'slice' && list.every(slicerTakes);
+    if (through && !toSlicer && grate(list)) {
       /** Grated: what was held is the shreds on the board now. */
-    } else if (through && grater === 'slice' && slice(list)) {
+    } else if (through && toSlicer && slice(list)) {
       /** Going through the slicer: what was held comes out on the board as slices. */
     } else if (refused) {
       putBack(list, from, { ramekin: dish, holds: prep[dish][0]?.kind ?? null });
     } else if (dish >= 0) {
-      intoRamekin(dish, list);
-      emit('ramekin', { count: list.length, index: dish });
+      const over = intoRamekin(dish, list);
+      emit('ramekin', { count: list.length - over.length, index: dish });
+      /** Full: the rest goes back where it came from. */
+      if (over.length) putBack(over, from, { full: dish });
     } else if (Math.hypot(local[0], local[1]) < COOK_RADIUS + 0.4) {
       intoPan(list, local);
       stats.scrapes += 1;
@@ -645,7 +667,7 @@ export function createGame({ stage, GFX, kitchen }) {
   /** What was held, back where it came from: its ramekin, the counter, or the board just as it lay. */
   function putBack(list, from, why) {
     if (from?.ramekin !== undefined) {
-      intoRamekin(from.ramekin, list);
+      intoRamekin(from.ramekin, list, { all: true });
     } else if (from?.counter) {
       /** Back on the counter: it was only ever borrowed from there, and its meshes go with the next sweep. */
     } else {
@@ -1035,24 +1057,27 @@ export function createGame({ stage, GFX, kitchen }) {
     /**
      * Where each lands, worked out the way it will lie when it gets there: what
      * has a right way up side by side, its underside on the plate and each a
-     * touch over the one before; the rest heaped on the plate and on them.
+     * touch over the one before; the rest falls on the plate and on them in a
+     * pile, each worked out as it comes off the spatula, onto those before it.
      */
-    for (const f of flights) f.piece.rot = f.turn;
     for (const f of flights.filter((f) => f.piece.keepUp)) {
       const k = laid.indexOf(f.piece), n = laid.length;
+      f.piece.rot = f.turn;
       const x = (k - (n - 1) / 2) * (f.piece.fried ? 3.2 : 2.4);
       f.to = [x, PLATE.floor - extents(f.piece).min[1] + k * 0.06, (k % 2) * 0.6 - 0.3];
       f.piece.pos = [...f.to];
     }
-    heap(loose, plateDish, laid);
+    /** What is on the plate as it will lie there: stand-ins, since the real pieces are in the air until they land. */
+    const landed = (piece) => ({ ...piece, pos: [...piece.pos], rot: [...piece.rot], extents: null, profile: null });
+    const pile = new Nearby(laid.map(landed));
     for (const f of flights) {
-      if (!f.piece.keepUp) f.to = [...f.piece.pos];
+      if (!f.piece.keepUp) f.to = null;
       f.piece.rot = f.rot;
       f.piece.pos = [f.from.x, f.from.y, f.from.z];
       f.piece.version += 1;
     }
     for (const f of flights) flying.push(f.piece);
-    plating = { t: 0, flights };
+    plating = { t: 0, flights, pile };
     round.plated = true;
     pan.heat.set(0);
     kitchen.focus(plateGroup.getWorldPosition(new GFX.Vector3()).add(new GFX.Vector3(0, 0.5, 0)), { distance: 26, pitch: 0.98 });
@@ -1072,6 +1097,13 @@ export function createGame({ stage, GFX, kitchen }) {
         left += 1;
         f.piece.pos = [f.from.x, f.from.y, f.from.z];
         continue;
+      }
+      if (!f.to) {
+        /** Off the spatula: where it will land on the pile, and how it will lie there. */
+        const ghost = { ...f.piece, rot: [...f.rot], extents: null, profile: null };
+        pour([ghost], plateDish, plating.pile);
+        f.to = [...ghost.pos];
+        f.turn = [...ghost.rot];
       }
       const e = k * k * (3 - 2 * k);
       f.piece.rot = slerp(f.rot, f.turn, e);

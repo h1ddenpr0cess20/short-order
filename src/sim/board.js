@@ -8,15 +8,17 @@
  * in three passes: rounds, which are too tall to stand and fall over flat;
  * strips, cut across the rounds; and, turned, cubes.
  *
- * Pieces rest on the board or on each other. A slice that falls over lands on
- * whatever it falls on, the way rounds shingle off the end of a potato, and
- * pieces lying side by side at the same height are kept from passing through
- * one another. That is the whole of the physics on the board: nothing here
- * slides or bounces, it only falls into place.
+ * Pieces rest on the board or on each other, where their undersides meet
+ * what is under them (see pile.js). A slice that falls over lands on whatever
+ * it falls on; a piece whose middle is not over what it is lying on slides
+ * off it and falls, so a pile slumps into a heap rather than standing up in a
+ * tower; and pieces lying side by side at the same height are kept from
+ * passing through one another. Nothing here bounces: it falls into place.
  */
 
 import { axisAngle, multiply, rotate, slerp } from './quat.js';
 import { cutPiece, extents } from './piece.js';
+import { inEachOther, lieDown, restOn, settleIn } from './pile.js';
 
 /** How far the blade pushes the two sides of a cut apart. */
 const KERF = 0.05;
@@ -32,8 +34,9 @@ const TIPPY = 2.4;
 const TOPPLE_TIME = 0.22;
 const TURN_TIME = 0.32;
 
-/** How fast a piece drops onto whatever is under it. */
+/** How fast a piece drops onto whatever is under it, and slides off what does not hold it up. */
 const FALL = 9;
+const SLIDE = 4;
 
 export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
   /** @type {any[]} */
@@ -51,20 +54,27 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
   }
 
   /**
-   * Sets a pile down: `list`, each piece where it lay in the pile and at the
-   * height it had in it. Each comes down onto whatever it ends up over — what
-   * was on the board already, and the pieces under it in the pile, wherever
-   * those have come to rest — so a pile put down across another lies on top
-   * of it, not in it, and keeps its own shape.
+   * Sets a pile down: `list`, each piece where it lay in the pile, the lowest
+   * first. Each comes down onto whatever it ends up over — what was on the
+   * board already, and the pieces of the pile under it — and then, unless
+   * `slump` is false, does what a pile put down does: whatever is not held up
+   * slides off, whatever is on a slope steeper than a heap stands runs down
+   * it, and each lies along what it is on. So a pile set down is a heap,
+   * never a tower, however it was held.
    */
-  function lay(list) {
-    const was = new Set(pieces);
+  function lay(list, { slump = true } = {}) {
     const low = new Map(list.map((p) => [p, box(p).y0]));
+    const holds = (x, z) => Math.abs(x) < halfWidth - 0.3 && Math.abs(z) < halfDepth - 0.3;
     for (const piece of [...list].sort((a, b) => low.get(a) - low.get(b))) {
-      pieces.push(piece);
       keepOn(piece);
-      const under = (other) => was.has(other) || low.get(other) < low.get(piece) - 1e-3;
-      piece.pos[1] = piece.rest = support(piece, false, under) - extents(piece).min[1];
+      const others = pieces.filter((p) => !moves.has(p));
+      if (slump) {
+        settleIn(piece, others, { holds });
+        lieDown(piece, others);
+        keepOn(piece);
+      }
+      pieces.push(piece);
+      piece.pos[1] = piece.rest = restOn(piece, others, { landing: true }).y;
     }
     return list;
   }
@@ -85,41 +95,20 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
     };
   }
 
-  function overlap(a, b) {
-    const w = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0);
-    const d = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
-    return w > 0 && d > 0 ? w * d : 0;
-  }
+  const moving = (p) => moves.has(p);
 
   /**
-   * How high the board, or the pieces already on it, come up under `piece` —
-   * only counting the ones that are lower than it, so two pieces can never both
-   * be resting on each other. A piece that has just fallen over is coming down
-   * from above, so it lands on top of anything it ends up across. `under`, if
-   * given, says instead which pieces it can be lying on.
+   * Puts a piece down on whatever is under it — at once, or by falling: the
+   * board, or the pieces lower than it, where its underside meets them. A
+   * piece that has just fallen over is coming down from above, so it lands on
+   * top of anything it ends up across. Says whether it is held up there, and
+   * if not which way it slides off.
    */
-  function support(piece, landing = false, under = null) {
-    const me = box(piece);
-    const area = (me.x1 - me.x0) * (me.z1 - me.z0);
-    let top = 0;
-    for (const other of pieces) {
-      if (other === piece || moves.has(other)) continue;
-      const them = box(other);
-      const below = under ? under(other) : landing || them.y0 < me.y0 - 1e-3 || them.y1 <= me.y0 + 1e-3;
-      if (!below) continue;
-      const shared = overlap(me, them);
-      const smaller = Math.min(area, (them.x1 - them.x0) * (them.z1 - them.z0));
-      if (shared > smaller * 0.18 && them.y1 > top) top = them.y1;
-    }
-    return top;
-  }
-
-  /** Puts a piece down on whatever is under it — at once, or by falling. */
   function settle(piece, now = false, landing = false) {
-    const e = extents(piece);
-    const rest = support(piece, landing) - e.min[1];
-    if (now || rest > piece.pos[1]) piece.pos[1] = rest;
-    piece.rest = rest;
+    const r = restOn(piece, pieces, { landing, skip: moving });
+    if (now || r.y > piece.pos[1]) piece.pos[1] = r.y;
+    piece.rest = r.y;
+    return r;
   }
 
   /** Keeps every piece's footprint on the board. */
@@ -148,6 +137,8 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
         const pz = Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0);
         if (px <= 0.002 || pz <= 0.002) continue;
         const P = pieces[i], Q = pieces[j];
+        /** Their boxes cross; they themselves may not, the way two tumbled dice lie close. */
+        if (!inEachOther(P, Q)) continue;
         if (px < pz) {
           const s = (a.x0 + a.x1 < b.x0 + b.x1 ? -1 : 1) * (px / 2 + 0.002);
           P.pos[0] += s;
@@ -270,13 +261,26 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
       }
     }
 
-    /** Everything at rest finds what it is lying on, and drops to it. */
+    /**
+     * Everything at rest finds what it is lying on, and drops to it; and
+     * whatever is lying on something that does not hold it up — its middle
+     * out past where it is touching — slides off it, and falls.
+     */
     if (!turning) {
       const order = pieces.filter((p) => !moves.has(p)).sort((a, b) => box(a).y0 - box(b).y0);
       for (const p of order) {
-        settle(p);
+        const r = settle(p);
         if (p.pos[1] > p.rest) p.pos[1] = Math.max(p.rest, p.pos[1] - FALL * dt);
         else p.pos[1] = p.rest;
+        p.sliding = false;
+        if (!r.held && p.pos[1] - p.rest < 1e-3) {
+          const was = [p.pos[0], p.pos[2]];
+          p.pos[0] += r.away[0] * SLIDE * dt;
+          p.pos[2] += r.away[1] * SLIDE * dt;
+          keepOn(p);
+          p.sliding = Math.hypot(p.pos[0] - was[0], p.pos[2] - was[1]) > 1e-5;
+          if (p.sliding) p.version += 1;
+        }
       }
       separate();
     }
@@ -346,7 +350,7 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
 
   /** Whether everything has finished falling and turning. */
   function still() {
-    return !turning && moves.size === 0 && pieces.every((p) => Math.abs(p.pos[1] - p.rest) < 1e-3);
+    return !turning && moves.size === 0 && pieces.every((p) => !p.sliding && Math.abs(p.pos[1] - p.rest) < 1e-3);
   }
 
   /** Bare, as it started. */

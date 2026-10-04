@@ -8,7 +8,7 @@
 import { cast } from './cast.js';
 import { extrude, planarUV, roundRect } from './sdf.js';
 import { flakes, graterFace, slicerFace, towel, walnut } from './textures.js';
-import { floorFrom } from '../sim/heap.js';
+import { floorFrom } from '../sim/pile.js';
 
 const v2 = (GFX, points) => points.map(([x, y]) => new GFX.Vector2(x, y));
 
@@ -303,9 +303,11 @@ export function buildWhole(GFX, { name, solids }) {
  * An empty ramekin, for whatever the cook has cut and wants to keep apart
  * until it goes in the pan: cream china with a green band and a gilt rim,
  * `radius` across the rim. Its contents hang off `group`, in its own frame,
- * heaped in `dish`.
+ * poured into `dish`.
  */
 export function buildRamekin(GFX, { name, radius = 1.5 }) {
+  /** How deep it is drawn, for how wide: deep enough to hold half a potato, diced. */
+  const DEEP = 1.15;
   const { gold, cream, green } = finishes(GFX);
   const outside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
     [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
@@ -326,13 +328,25 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
   /** Drawn at the size of the little one, and grown: the china, not what goes in it. */
   const k = radius / 0.88;
   const china = new GFX.Group();
-  china.scale.set(k, k * 0.8, k);
+  china.scale.set(k, k * DEEP, k);
   china.add(outside, inside, band, rim);
   const group = new GFX.Group();
   group.name = `ramekin-${name}`;
   group.add(china);
-  /** What goes in it heaps on its floor, which curves up into the side, and stops short of the side. */
-  const dish = { floor: floorFrom(well.slice(0, 3).map(([r, y]) => [r * k, y * k * 0.8])), reach: 0.76 * k - 0.04 };
+  /**
+   * What is poured in piles on its floor, which curves up into the side, and
+   * on over the rim if there is a lot of it; the middle of every piece is
+   * inside, but a heap can spill over the rim.
+   */
+  const wellAt = floorFrom(well.map(([r, y]) => [r * k, y * k * DEEP]));
+  const dish = {
+    base: (x, z) => (Math.hypot(x, z) <= 0.9 * k ? wellAt(Math.hypot(x, z)) : 0),
+    holds: (x, z) => Math.hypot(x, z) <= 0.7 * k,
+    centre: [0, 0],
+    spread: 0.3,
+    /** Heaped up over the rim, as much as it will take, and no more. */
+    brim: 0.84 * k * DEEP + 0.8,
+  };
   return { group, radius, dish };
 }
 
