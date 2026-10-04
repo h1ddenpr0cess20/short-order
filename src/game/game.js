@@ -296,19 +296,100 @@ export function createGame({ stage, GFX, kitchen }) {
     if (carried.length || board.pieces.length === 0 || board.turning) return false;
     const list = only ? board.take(board.pieces.filter((p) => p.kind === only)) : board.takeAll();
     if (!list.length) return false;
-    const centre = new GFX.Vector3();
-    for (const p of list) centre.add(new GFX.Vector3(p.pos[0], 0, p.pos[2]));
-    centre.multiplyScalar(1 / list.length);
-    for (const p of list) {
-      p.carry = [(p.pos[0] - centre.x) * 0.72, p.pos[1] + 0.25, (p.pos[2] - centre.z) * 0.72];
-      /** Where it lay, so a pile that does not go in the pan goes back exactly as it was. */
-      p.home = { pos: [...p.pos], rot: [...p.rot] };
-      carried.push(p);
-    }
-    carryAt.set(boardOrigin.x + centre.x, CARRY, boardOrigin.z + centre.z);
-    knife.mode = 'scrape';
+    hold(list, boardOrigin, { board: true });
     emit('pickup', { count: list.length });
     return true;
+  }
+
+  /** Where what is in the hand came from, for putting it back: the board, a ramekin, or the counter. */
+  let carriedFrom = null;
+
+  /**
+   * `list` into the hand, held round its middle the way it lay. Its places
+   * are in the frame of whatever it lay on, which sits at `origin` in the
+   * room; it is lifted from there, so it rises rather than jumps.
+   */
+  function hold(list, origin, from) {
+    let cx = 0, cz = 0;
+    for (const p of list) {
+      cx += p.pos[0] / list.length;
+      cz += p.pos[2] / list.length;
+    }
+    for (const p of list) {
+      p.carry = [(p.pos[0] - cx) * 0.72, p.pos[1] + 0.25, (p.pos[2] - cz) * 0.72];
+      /** Where it lay, so a pile that does not go anywhere goes back exactly as it was. */
+      p.home = { pos: [...p.pos], rot: [...p.rot] };
+      p.pos = [origin.x + p.pos[0], origin.y + p.pos[1], origin.z + p.pos[2]];
+      p.version += 1;
+      carried.push(p);
+    }
+    carryAt.set(origin.x + cx, CARRY, origin.z + cz);
+    carriedFrom = from;
+    knife.mode = 'scrape';
+  }
+
+  /** One of the extras, whole, as it comes off the counter: not yet cooked at all, and not yet cut. */
+  function wholeExtra(kind) {
+    /** A tomato goes down on its side, its top toward the cook: one slice off the near end takes it off. */
+    const rot = kind === 'tomato' ? axisAngle([1, 0, 0], Math.PI / 2) : [0, 0, 0, 1];
+    return wholeSolids(kind).map((solid) => {
+      const piece = makePiece({ solid, kind, rot });
+      piece.moisture = FILLINGS[kind].moisture;
+      piece.whole = true;
+      return piece;
+    });
+  }
+
+  /** Something off the counter and into the hand, to go wherever it is let go: the board, a ramekin, the pan. */
+  function takeFromCounter(kind) {
+    if (round.plated || carried.length || board.turning || onBoard(kind)) return false;
+    if (kind === 'potato' ? !dish.pantry : !FILLINGS[kind]) return false;
+    const list = kind === 'potato'
+      ? [Object.assign(makePiece({ solid: INGREDIENTS.potato.solid(), kind: 'potato', rot: axisAngle([0, 1, 0], Math.PI / 2) }), { whole: true })]
+      : wholeExtra(kind);
+    for (const p of list) p.pos[1] = -extents(p).min[1];
+    begin();
+    const at = kind === 'potato' ? LAYOUT.potato : kitchen.extraAt(kind);
+    hold(list, new GFX.Vector3(at.x, 0, at.z), { counter: kind });
+    if (hops[kind] !== undefined) hops[kind] = 1;
+    emit('pickup', { count: list.length, from: 'counter' });
+    return true;
+  }
+
+  /** Whatever is in ramekin `i`, into the hand. */
+  function takeFromRamekin(i) {
+    if (round.plated || carried.length || !prep[i]?.length) return false;
+    begin();
+    hold(prep[i].splice(0), kitchen.prep[i].group.position, { ramekin: i });
+    emit('pickup', { count: carried.length, from: 'ramekin' });
+    return true;
+  }
+
+  /**
+   * The pile let go over the board, straight down from where it hangs: each
+   * piece where it lay in the pile, the whole of it kept on the board.
+   */
+  function ontoBoard(list, [bx, bz]) {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of list) {
+      const e = extents(p);
+      x0 = Math.min(x0, p.carry[0] / 0.72 + e.min[0]);
+      x1 = Math.max(x1, p.carry[0] / 0.72 + e.max[0]);
+      z0 = Math.min(z0, p.carry[2] / 0.72 + e.min[2]);
+      z1 = Math.max(z1, p.carry[2] / 0.72 + e.max[2]);
+    }
+    const fit = (v, lo, hi, half) => (hi - lo > 2 * half ? -(lo + hi) / 2 : Math.max(-half - lo, Math.min(half - hi, v)));
+    bx = fit(bx, x0, x1, board.halfWidth);
+    bz = fit(bz, z0, z1, board.halfDepth);
+    /** Lowest first, so each piece finds what it was lying on already back under it. */
+    list.sort((a, b) => a.carry[1] - b.carry[1]);
+    for (const p of list) {
+      p.pos = [bx + p.carry[0] / 0.72, p.carry[1] - 0.25, bz + p.carry[2] / 0.72];
+      p.version += 1;
+      delete p.carry;
+      delete p.home;
+      board.add(p);
+    }
   }
 
   /** What is in each of the ramekins on the counter. */
@@ -372,11 +453,19 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
-  /** Lets go of the pile: into the pan if it is over the pan, into a ramekin over one, back where it came from if not. */
+  /**
+   * Lets go of the pile: into the pan if it is over the pan, into a ramekin
+   * over one, down on the board where it hangs over the board, and back where
+   * it came from if it is over none of them.
+   */
   function letGo({ aimed = true } = {}) {
     if (!carried.length) return;
     const list = carried.splice(0);
+    const from = carriedFrom;
+    carriedFrom = null;
+    knife.mode = 'rest';
     const local = [carryAt.x - panHome.x, carryAt.z - panHome.z];
+    const onto = [carryAt.x - boardOrigin.x, carryAt.z - boardOrigin.z];
     const dish = aimed ? overRamekin() : -1;
     if (dish >= 0) {
       intoRamekin(dish, list);
@@ -385,6 +474,16 @@ export function createGame({ stage, GFX, kitchen }) {
       intoPan(list, local);
       stats.scrapes += 1;
       emit('scrape', { count: list.length });
+    } else if (aimed && Math.abs(onto[0]) < BOARD.w / 2 && Math.abs(onto[1]) < BOARD.d / 2) {
+      ontoBoard(list, onto);
+      emit('putdown', { count: list.length, from: from?.counter ? 'counter' : from?.ramekin !== undefined ? 'ramekin' : 'board' });
+      if (from?.counter && FILLINGS[from.counter]) emit('extra', { kind: from.counter, count: list.length });
+    } else if (from?.ramekin !== undefined) {
+      intoRamekin(from.ramekin, list);
+      emit('putback', { count: list.length });
+    } else if (from?.counter) {
+      /** Back on the counter: it was only ever borrowed from there, and its meshes go with the next sweep. */
+      emit('putback', { count: list.length });
     } else {
       /** Lowest first, so each piece finds what it was lying on already back under it. */
       list.sort((a, b) => a.home.pos[1] - b.home.pos[1]);
@@ -398,7 +497,6 @@ export function createGame({ stage, GFX, kitchen }) {
       }
       emit('putback', { count: list.length });
     }
-    knife.mode = 'rest';
   }
 
   /** Scrapes the board into the pan in one go: the button for it, and the key. */
@@ -528,15 +626,7 @@ export function createGame({ stage, GFX, kitchen }) {
    */
   function addExtra(kind) {
     if (round.plated || !FILLINGS[kind] || carried.length || board.turning || onBoard(kind)) return false;
-    /** A tomato goes down on its side, its top toward the cook: one slice off the near end takes it off. */
-    const rot = kind === 'tomato' ? axisAngle([1, 0, 0], Math.PI / 2) : [0, 0, 0, 1];
-    const list = wholeSolids(kind).map((solid) => {
-      const piece = makePiece({ solid, kind, rot });
-      /** Out of the fridge's chill, not yet cooked at all, and not yet cut. */
-      piece.moisture = FILLINGS[kind].moisture;
-      piece.whole = true;
-      return piece;
-    });
+    const list = wholeExtra(kind);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of list) {
       const e = extents(p);
@@ -838,6 +928,7 @@ export function createGame({ stage, GFX, kitchen }) {
     plated.length = 0;
     flying.length = 0;
     carried.length = 0;
+    carriedFrom = null;
     for (const list of prep) list.length = 0;
     board.clear();
     pan.clear();
@@ -1113,6 +1204,13 @@ export function createGame({ stage, GFX, kitchen }) {
       if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp(board.pieceAt(...press.zone.point)?.kind ?? null)) {
         press.drag = 'scrape';
         /** The pile stays where it is under the pointer, rather than jumping to it. */
+        const p = pointer.at(CARRY);
+        press.grab = p ? [carryAt.x - p.x, carryAt.z - p.z] : [0, 0];
+      }
+      /** Something whole off the counter, or what is in a ramekin, comes up in the hand to go wherever it is let go. */
+      else if ((press.zone.zone === 'extra' && takeFromCounter(press.zone.kind)) || (press.zone.zone === 'potato' && takeFromCounter('potato'))
+        || (press.zone.zone === 'prep' && takeFromRamekin(press.zone.index))) {
+        press.drag = 'scrape';
         const p = pointer.at(CARRY);
         press.grab = p ? [carryAt.x - p.x, carryAt.z - p.z] : [0, 0];
       }
