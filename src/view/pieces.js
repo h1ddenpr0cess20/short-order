@@ -19,7 +19,7 @@ import { FILLINGS } from '../food/fillings.js';
 import { sideWeights } from '../sim/piece.js';
 import { conjugate, multiply, rotate } from '../sim/quat.js';
 import { eggColour } from './eggs.js';
-import { melt, subdivide } from './melt.js';
+import { melt, meltable } from './melt.js';
 
 /**
  * Flesh as it fries: buttery yellow, gold, golden brown, a deep fried brown,
@@ -170,7 +170,7 @@ export function createPieceViews(GFX) {
   function build(piece) {
     /** Cheese is drawn finer than it is cut, and on its own copy of the surface, so that it can melt. */
     const melts = Boolean(FILLINGS[piece.kind]?.melts);
-    const solid = melts ? subdivide(piece.solid, piece.solid.pos.length / 9 <= 24 ? 3 : 2) : piece.solid;
+    const solid = melts ? meltable(piece.solid) : piece.solid;
     const n = solid.pos.length / 3;
     const geometry = new GFX.BufferGeometry();
     geometry.setAttribute('position', new GFX.BufferAttribute(melts ? solid.pos.slice() : solid.pos, 3));
@@ -353,22 +353,36 @@ export function createPieceViews(GFX) {
   }
 
   /**
-   * Cheese slumps as it melts, the way down is in the room: worked out again
-   * only once it has melted further, or been turned over.
+   * Cheese slumps as it melts, the way down is in the room. It is reshaped
+   * only once it has melted a step further or been turned over, and only a
+   * few bits a frame, the ones waiting longest first, however much is in the pan.
    */
+  const reshaping = new Set();
+  const RESHAPES = 4;
   function slump(view, q) {
     const m = smooth(0.15, 0.95, view.piece.core);
     const up = rotate(conjugate(q), [0, 1, 0]);
     const was = view.melted;
-    const turned = up[0] * was.up[0] + up[1] * was.up[1] + up[2] * was.up[2] < 0.995;
-    if (Math.abs(m - was.m) < 0.015 && !(turned && m > 0.01)) return;
-    view.melted = { m, up };
-    const g = view.geometry;
-    melt(view.solid, g.attributes.position.array, g.attributes.normal.array, up, m);
-    g.attributes.position.needsUpdate = true;
-    g.attributes.normal.needsUpdate = true;
-    g.computeBoundingSphere();
-    view.mesh.material = m > 0.35 ? cheeseMaterial.melted : cheeseMaterial.firm;
+    const turned = up[0] * was.up[0] + up[1] * was.up[1] + up[2] * was.up[2] < 0.985;
+    if (Math.abs(m - was.m) < 0.04 && !(turned && m > 0.01) && !(m === 1 && was.m < 1)) return;
+    view.want = { m, up };
+    reshaping.add(view);
+  }
+  function reshape() {
+    let done = 0;
+    for (const view of reshaping) {
+      if (done >= RESHAPES) break;
+      reshaping.delete(view);
+      const { m, up } = view.want;
+      view.melted = view.want;
+      const g = view.geometry;
+      melt(view.solid, g.attributes.position.array, g.attributes.normal.array, up, m);
+      g.attributes.position.needsUpdate = true;
+      g.attributes.normal.needsUpdate = true;
+      g.computeBoundingSphere();
+      view.mesh.material = m > 0.35 ? cheeseMaterial.melted : cheeseMaterial.firm;
+      done += 1;
+    }
   }
 
   return {
@@ -412,8 +426,10 @@ export function createPieceViews(GFX) {
 
     /** Drops the meshes of any piece that was not shown since the last sweep. */
     sweep() {
+      reshape();
       for (const [id, view] of views) {
         if (!view.seen) {
+          reshaping.delete(view);
           view.mesh.removeFromParent();
           view.geometry.dispose();
           view.flecks?.mesh.geometry.dispose();

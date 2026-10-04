@@ -5,7 +5,7 @@ import { wholeSolids } from '../src/food/fillings.js';
 import { potatoSolid } from '../src/food/potato.js';
 import { createPan } from '../src/sim/pan.js';
 import { makePiece } from '../src/sim/piece.js';
-import { melt, subdivide } from '../src/view/melt.js';
+import { melt, meltable } from '../src/view/melt.js';
 
 const block = () => makePiece({ solid: wholeSolids('cheese')[0], kind: 'cheese' });
 
@@ -23,7 +23,7 @@ function span(pos, up = [0, 1, 0]) {
 
 describe('cheese melting', () => {
   it('slumps and spreads, sitting where it sat, whichever way up it lies', () => {
-    const src = subdivide(block().solid, 2);
+    const src = meltable(block().solid);
     for (const up of [[0, 1, 0], [1, 0, 0], [0, 0, -1]]) {
       const pos = new Float32Array(src.pos.length), nrm = new Float32Array(src.nrm.length);
       melt(src, pos, nrm, up, 1);
@@ -35,7 +35,7 @@ describe('cheese melting', () => {
   });
 
   it('is unchanged before it melts, and stays one closed surface as it does', () => {
-    const src = subdivide(block().solid, 2);
+    const src = meltable(block().solid);
     const pos = new Float32Array(src.pos.length), nrm = new Float32Array(src.nrm.length);
     melt(src, pos, nrm, [0, 1, 0], 0);
     assert.ok(src.pos.every((v, i) => Math.abs(v - pos[i]) < 1e-5), 'a block that has not melted is still the block');

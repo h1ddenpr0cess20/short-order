@@ -7,27 +7,44 @@
  * A solid here is a soup of triangles, every corner its own vertex, so the
  * shape is worked out from where each vertex is and nothing else: two
  * vertices at one place go to one place, and the surface stays closed.
+ *
+ * It is worked out again as the cheese melts, for every bit of it in the pan,
+ * so it is kept cheap: a bit is only made finer if it is a plain block with
+ * too few corners to bend, and which corners are the same point is found
+ * once, not every time.
  */
 
-/** One triangle in four, `levels` times over: enough vertices for a block to bend rather than stay a box. */
-export function subdivide(solid, levels = 2) {
-  let pos = solid.pos, nrm = solid.nrm, col = solid.col, cap = solid.cap;
+/** A piece with fewer triangles than this is split finer, so it has something to round off. */
+const COARSE = 96;
+
+/** One triangle in four, `levels` times over. */
+function subdivide(solid, levels) {
+  let { pos, nrm, col, cap } = solid;
   for (let l = 0; l < levels; l++) {
     const tris = pos.length / 9;
     const P = new Float32Array(tris * 36), N = new Float32Array(tris * 36), C = new Float32Array(tris * 36);
     const K = new Uint8Array(tris * 4);
-    const corner = (src, t, k) => [src[t * 9 + k * 3], src[t * 9 + k * 3 + 1], src[t * 9 + k * 3 + 2]];
-    const half = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
-    for (let t = 0; t < tris; t++) {
-      for (const [src, out] of [[pos, P], [nrm, N], [col, C]]) {
-        const a = corner(src, t, 0), b = corner(src, t, 1), c = corner(src, t, 2);
-        const ab = half(a, b), bc = half(b, c), ca = half(c, a);
-        [[a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]].forEach((tri, i) => {
-          tri.forEach((v, k) => out.set(v, (t * 4 + i) * 9 + k * 3));
-        });
+    /** Corners a, b, c and the middles of ab, bc, ca, as offsets into a scratch row of six points. */
+    const row = new Float32Array(18);
+    const order = [0, 3, 5, 3, 1, 4, 5, 4, 2, 3, 4, 5];
+    for (const [src, out] of [[pos, P], [nrm, N], [col, C]]) {
+      for (let t = 0; t < tris; t++) {
+        const o = t * 9;
+        for (let k = 0; k < 9; k++) row[k] = src[o + k];
+        for (let k = 0; k < 3; k++) {
+          row[9 + k] = (row[k] + row[3 + k]) / 2;
+          row[12 + k] = (row[3 + k] + row[6 + k]) / 2;
+          row[15 + k] = (row[6 + k] + row[k]) / 2;
+        }
+        for (let v = 0; v < 12; v++) {
+          const from = order[v] * 3, to = t * 36 + v * 3;
+          out[to] = row[from];
+          out[to + 1] = row[from + 1];
+          out[to + 2] = row[from + 2];
+        }
       }
-      K.fill(cap[t], t * 4, t * 4 + 4);
     }
+    for (let t = 0; t < tris; t++) K.fill(cap[t], t * 4, t * 4 + 4);
     pos = P;
     nrm = N;
     col = C;
@@ -36,12 +53,28 @@ export function subdivide(solid, levels = 2) {
   return { pos, nrm, col, cap };
 }
 
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (a) => {
-  const l = Math.hypot(a[0], a[1], a[2]) || 1;
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
+/**
+ * The surface a piece of cheese is drawn with: its own, or finer if it is
+ * too plain to bend, and for each vertex which point of the surface it is.
+ */
+export function meltable(solid) {
+  const tris = solid.pos.length / 9;
+  const levels = tris <= COARSE / 8 ? 2 : tris < COARSE ? 1 : 0;
+  const out = subdivide(solid, levels);
+  const n = out.pos.length / 3;
+  const weld = new Int32Array(n);
+  const seen = new Map();
+  for (let i = 0; i < n; i++) {
+    const key = `${Math.round(out.pos[i * 3] * 1e4)},${Math.round(out.pos[i * 3 + 1] * 1e4)},${Math.round(out.pos[i * 3 + 2] * 1e4)}`;
+    let id = seen.get(key);
+    if (id === undefined) {
+      id = seen.size;
+      seen.set(key, id);
+    }
+    weld[i] = id;
+  }
+  return { ...out, weld, points: seen.size, sum: new Float32Array(seen.size * 3) };
+}
 
 /** A little unevenness of its own at each point, so a melted top is not machined smooth. */
 function lumpy(x, y, z) {
@@ -50,43 +83,53 @@ function lumpy(x, y, z) {
 }
 
 /**
- * `src` (from `subdivide`) melted by `m`, 0 to 1, with `up` the room's up in
+ * `src` (from `meltable`) melted by `m`, 0 to 1, with `up` the room's up in
  * the piece's own frame: positions into `pos`, normals into `nrm`. Nothing
  * moves below the bottom of the block, so it stays sitting where it sat.
  */
 export function melt(src, pos, nrm, up, m) {
   const n = src.pos.length / 3;
-  up = unit(up);
+  const P = src.pos;
+  let ul = Math.hypot(up[0], up[1], up[2]) || 1;
+  const ux = up[0] / ul, uy = up[1] / ul, uz = up[2] / ul;
   /** Two level directions across the block, from whichever of its own sides is least upright. */
-  const seed = Math.abs(up[0]) < 0.7 ? [1, 0, 0] : [0, 0, 1];
-  const e1 = unit([seed[0] - up[0] * dot(seed, up), seed[1] - up[1] * dot(seed, up), seed[2] - up[2] * dot(seed, up)]);
-  const e2 = cross(up, e1);
+  let ax = 0, az = 0;
+  if (Math.abs(ux) < 0.7) ax = 1;
+  else az = 1;
+  const along = ax * ux + az * uz;
+  let e1x = ax - ux * along, e1y = -uy * along, e1z = az - uz * along;
+  ul = Math.hypot(e1x, e1y, e1z);
+  e1x /= ul;
+  e1y /= ul;
+  e1z /= ul;
+  const e2x = uy * e1z - uz * e1y, e2y = uz * e1x - ux * e1z, e2z = ux * e1y - uy * e1x;
 
   let h0 = Infinity, h1 = -Infinity, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (let i = 0; i < n; i++) {
-    const p = [src.pos[i * 3], src.pos[i * 3 + 1], src.pos[i * 3 + 2]];
-    const h = dot(p, up), x = dot(p, e1), y = dot(p, e2);
-    h0 = Math.min(h0, h);
-    h1 = Math.max(h1, h);
-    x0 = Math.min(x0, x);
-    x1 = Math.max(x1, x);
-    y0 = Math.min(y0, y);
-    y1 = Math.max(y1, y);
+  for (let i = 0; i < n * 3; i += 3) {
+    const h = P[i] * ux + P[i + 1] * uy + P[i + 2] * uz;
+    const x = P[i] * e1x + P[i + 1] * e1y + P[i + 2] * e1z;
+    const y = P[i] * e2x + P[i + 1] * e2y + P[i + 2] * e2z;
+    if (h < h0) h0 = h;
+    if (h > h1) h1 = h;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
   }
   const H = Math.max(1e-6, h1 - h0);
-  const ax = Math.max(1e-6, (x1 - x0) / 2), by = Math.max(1e-6, (y1 - y0) / 2);
+  const hx = Math.max(1e-6, (x1 - x0) / 2), hy = Math.max(1e-6, (y1 - y0) / 2);
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   /** Down to under a third of its height, and out as far as keeps it about as much cheese. */
   const tall = 1 - 0.7 * m;
   const wide = 1 / Math.sqrt(tall);
   /** A long block melts round: its two widths go toward each other. */
-  const mean = (ax + by) / 2;
-  const A = ax + (mean - ax) * m * 0.6, B = by + (mean - by) * m * 0.6;
+  const mean = (hx + hy) / 2;
+  const A = hx + (mean - hx) * m * 0.6, B = hy + (mean - hy) * m * 0.6;
 
-  for (let i = 0; i < n; i++) {
-    const p = [src.pos[i * 3], src.pos[i * 3 + 1], src.pos[i * 3 + 2]];
-    const t = (dot(p, up) - h0) / H;
-    const X = (dot(p, e1) - cx) / ax, Y = (dot(p, e2) - cy) / by;
+  for (let i = 0; i < n * 3; i += 3) {
+    const px = P[i], py = P[i + 1], pz = P[i + 2];
+    const t = (px * ux + py * uy + pz * uz - h0) / H;
+    const X = (px * e1x + py * e1y + pz * e1z - cx) / hx, Y = (px * e2x + py * e2y + pz * e2z - cy) / hy;
     /** The square of its footprint drawn toward a disc, corners first. */
     const dX = X * Math.sqrt(Math.max(0, 1 - (Y * Y) / 2)), dY = Y * Math.sqrt(Math.max(0, 1 - (X * X) / 2));
     const rX = X + (dX - X) * m, rY = Y + (dY - Y) * m;
@@ -94,46 +137,52 @@ export function melt(src, pos, nrm, up, m) {
     /** The foot runs out furthest; the top stays in over it. */
     const spread = 1 + (wide - 1) * (1.2 - 0.6 * t);
     /** The top sinks most toward its edges, into a dome, and is a little uneven. */
-    const lump = (lumpy(p[0], p[1], p[2]) - 0.5) * 0.08 * m * t;
-    const h = H * t * tall * (1 - 0.55 * m * t * out) + H * lump;
+    const lump = (lumpy(px, py, pz) - 0.5) * 0.08 * m * t;
+    const h = h0 + H * (t * tall * (1 - 0.55 * m * t * out) + lump);
     const x = cx + rX * A * spread, y = cy + rY * B * spread;
-    for (let k = 0; k < 3; k++) pos[i * 3 + k] = up[k] * (h0 + h) + e1[k] * x + e2[k] * y;
+    pos[i] = ux * h + e1x * x + e2x * y;
+    pos[i + 1] = uy * h + e1y * x + e2y * y;
+    pos[i + 2] = uz * h + e1z * x + e2z * y;
   }
 
   /**
    * Normals: each face's own while it is still a block, and shared smoothly
    * between the faces round a point as it melts, so its edges go soft.
    */
-  const key = (i) => `${Math.round(pos[i * 3] * 1e4)},${Math.round(pos[i * 3 + 1] * 1e4)},${Math.round(pos[i * 3 + 2] * 1e4)}`;
-  const shared = new Map();
-  const face = new Float32Array(n * 3);
-  for (let t = 0; t < n / 3; t++) {
-    const a = t * 9;
-    const u = [pos[a + 3] - pos[a], pos[a + 4] - pos[a + 1], pos[a + 5] - pos[a + 2]];
-    const v = [pos[a + 6] - pos[a], pos[a + 7] - pos[a + 1], pos[a + 8] - pos[a + 2]];
-    const f = cross(u, v);
+  const { weld, sum } = src;
+  const N = src.nrm;
+  sum.fill(0);
+  for (let i = 0; i < n * 3; i += 9) {
+    const ex = pos[i + 3] - pos[i], ey = pos[i + 4] - pos[i + 1], ez = pos[i + 5] - pos[i + 2];
+    const fx = pos[i + 6] - pos[i], fy = pos[i + 7] - pos[i + 1], fz = pos[i + 8] - pos[i + 2];
+    let nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx;
     /** Facing out, the way the block's own face did, whichever way round its corners run. */
-    if (f[0] * src.nrm[a] + f[1] * src.nrm[a + 1] + f[2] * src.nrm[a + 2] < 0) {
-      f[0] = -f[0];
-      f[1] = -f[1];
-      f[2] = -f[2];
+    if (nx * N[i] + ny * N[i + 1] + nz * N[i + 2] < 0) {
+      nx = -nx;
+      ny = -ny;
+      nz = -nz;
     }
-    for (let k = 0; k < 3; k++) {
-      const i = t * 3 + k;
-      face.set(unit(f), i * 3);
-      const id = key(i);
-      const sum = shared.get(id) ?? [0, 0, 0];
-      sum[0] += f[0];
-      sum[1] += f[1];
-      sum[2] += f[2];
-      shared.set(id, sum);
+    const l = Math.hypot(nx, ny, nz) || 1;
+    for (let k = 0; k < 9; k += 3) {
+      nrm[i + k] = nx / l;
+      nrm[i + k + 1] = ny / l;
+      nrm[i + k + 2] = nz / l;
+      const w = weld[(i + k) / 3] * 3;
+      sum[w] += nx;
+      sum[w + 1] += ny;
+      sum[w + 2] += nz;
     }
   }
-  for (let i = 0; i < n; i++) {
-    const s = unit(shared.get(key(i)));
-    const f = [face[i * 3], face[i * 3 + 1], face[i * 3 + 2]];
-    const b = Math.min(1, m * 1.6);
-    const out = unit([f[0] + (s[0] - f[0]) * b, f[1] + (s[1] - f[1]) * b, f[2] + (s[2] - f[2]) * b]);
-    nrm.set(out, i * 3);
+  const b = Math.min(1, m * 1.6);
+  for (let i = 0; i < n * 3; i += 3) {
+    const w = weld[i / 3] * 3;
+    const sl = Math.hypot(sum[w], sum[w + 1], sum[w + 2]) || 1;
+    const nx = nrm[i] + (sum[w] / sl - nrm[i]) * b;
+    const ny = nrm[i + 1] + (sum[w + 1] / sl - nrm[i + 1]) * b;
+    const nz = nrm[i + 2] + (sum[w + 2] / sl - nrm[i + 2]) * b;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nrm[i] = nx / l;
+    nrm[i + 1] = ny / l;
+    nrm[i + 2] = nz / l;
   }
 }
