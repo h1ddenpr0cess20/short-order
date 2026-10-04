@@ -45,9 +45,16 @@ export const LAYOUTS = Object.freeze({
     butter: { x: 5.4, z: -10.3 },
     /** A potato on the counter, between the bowl and the butter, for when one is not already on the board. */
     potato: { x: 1.5, z: -9.6, yaw: Math.PI / 2 },
-    /** Empty ramekins along the front of the counter, in front of the range, clear of the plate and the handle. */
-    prep: [{ x: 7.0, z: 10.6 }, { x: 10.1, z: 10.6 }, { x: 13.2, z: 10.6 }],
-    /** The grater at the end of the row of extras, by the cheese, clear of the towel. */
+    /**
+     * Empty ramekins in a row along the front of the counter on the left, in
+     * front of the extras and the grater, clear of the plate: one for each
+     * thing the cook might want kept apart.
+     */
+    prep: [
+      { x: -21.7, z: 13.3 }, { x: -18.6, z: 13.3 }, { x: -15.5, z: 13.3 },
+      { x: -12.4, z: 13.3 }, { x: -9.3, z: 13.3 }, { x: -6.2, z: 13.3 },
+    ],
+    /** The grater at the end of the row of extras, by the cheese, clear of the towel, its slicing side to the board. */
     grater: { x: -18.0, z: 9.8 },
     wall: -13.6,
   },
@@ -66,9 +73,12 @@ export const LAYOUTS = Object.freeze({
     butter: { x: -9.1, z: -6.6, yaw: Math.PI / 2 },
     potato: { x: 10.3, z: -11.5, yaw: Math.PI / 2 },
     /** Down the left of the range, past the spatula's handle. */
-    prep: [{ x: -12, z: 6.6 }, { x: -12, z: 9.9 }, { x: -12, z: 13.2 }],
-    /** Right of the range, below the mill, clear of the pan's handle. */
-    grater: { x: 11.4, z: 5.4 },
+    prep: [
+      { x: -12, z: 5.6 }, { x: -12, z: 8.7 }, { x: -12, z: 11.8 },
+      { x: -12, z: 14.9 }, { x: -12, z: 18.0 }, { x: -12, z: 21.1 },
+    ],
+    /** Right of the range, below the mill, clear of the pan's handle: turned round, its slicing side to the range. */
+    grater: { x: 11.4, z: 5.4, yaw: Math.PI },
     /**
      * Between the board and the range, in a row, where a hand going from one
      * to the other passes them — turned side to side, to fit the gap.

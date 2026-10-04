@@ -50,6 +50,25 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
     return piece;
   }
 
+  /**
+   * Sets a pile down: `list`, each piece where it lay in the pile and at the
+   * height it had in it. Each comes down onto whatever it ends up over — what
+   * was on the board already, and the pieces under it in the pile, wherever
+   * those have come to rest — so a pile put down across another lies on top
+   * of it, not in it, and keeps its own shape.
+   */
+  function lay(list) {
+    const was = new Set(pieces);
+    const low = new Map(list.map((p) => [p, box(p).y0]));
+    for (const piece of [...list].sort((a, b) => low.get(a) - low.get(b))) {
+      pieces.push(piece);
+      keepOn(piece);
+      const under = (other) => was.has(other) || low.get(other) < low.get(piece) - 1e-3;
+      piece.pos[1] = piece.rest = support(piece, false, under) - extents(piece).min[1];
+    }
+    return list;
+  }
+
   function remove(piece) {
     const i = pieces.indexOf(piece);
     if (i !== -1) pieces.splice(i, 1);
@@ -76,16 +95,18 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
    * How high the board, or the pieces already on it, come up under `piece` —
    * only counting the ones that are lower than it, so two pieces can never both
    * be resting on each other. A piece that has just fallen over is coming down
-   * from above, so it lands on top of anything it ends up across.
+   * from above, so it lands on top of anything it ends up across. `under`, if
+   * given, says instead which pieces it can be lying on.
    */
-  function support(piece, landing = false) {
+  function support(piece, landing = false, under = null) {
     const me = box(piece);
     const area = (me.x1 - me.x0) * (me.z1 - me.z0);
     let top = 0;
     for (const other of pieces) {
       if (other === piece || moves.has(other)) continue;
       const them = box(other);
-      if (!landing && them.y0 >= me.y0 - 1e-3 && !(them.y1 <= me.y0 + 1e-3)) continue;
+      const below = under ? under(other) : landing || them.y0 < me.y0 - 1e-3 || them.y1 <= me.y0 + 1e-3;
+      if (!below) continue;
       const shared = overlap(me, them);
       const smaller = Math.min(area, (them.x1 - them.x0) * (them.z1 - them.z0));
       if (shared > smaller * 0.18 && them.y1 > top) top = them.y1;
@@ -337,7 +358,7 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
   }
 
   return {
-    pieces, add, remove, chop, turn, roll, update, takeAll, take, pieceAt, bounds, still, box, clear,
+    pieces, add, lay, remove, chop, turn, roll, update, takeAll, take, pieceAt, bounds, still, box, clear,
     get turning() { return Boolean(turning); },
     get chops() { return chops; },
     halfWidth, halfDepth,

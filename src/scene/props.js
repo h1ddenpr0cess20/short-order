@@ -7,7 +7,8 @@
 
 import { cast } from './cast.js';
 import { extrude, planarUV, roundRect } from './sdf.js';
-import { flakes, graterFace, towel, walnut } from './textures.js';
+import { flakes, graterFace, slicerFace, towel, walnut } from './textures.js';
+import { floorFrom } from '../sim/heap.js';
 
 const v2 = (GFX, points) => points.map(([x, y]) => new GFX.Vector2(x, y));
 
@@ -188,13 +189,34 @@ export function buildGrater(GFX) {
   const handle = new GFX.Mesh(new GFX.TorusGeometry(0.62, 0.13, 10, 24, Math.PI), black);
   handle.name = 'grater-handle';
   handle.position.y = H + 0.02;
+  /**
+   * The slicing side, on +x: a plain panel with one wide slot, laid over the
+   * side it is on, which leans in toward the top like the rest.
+   */
+  const slicer = slicerFace(GFX);
+  const sliceSteel = new GFX.MeshPhysicalMaterial({
+    name: 'grater-slicer', color: slicer ? 0xffffff : 0xc3c6ca, map: slicer, roughness: 0.28, metalness: 0.85, side: GFX.DoubleSide,
+  });
+  const out = (y) => (1.45 + ((0.95 - 1.45) * y) / H) * Math.SQRT1_2;
+  const y0 = 0.12, y1 = H - 0.06;
+  const corners = [[out(y0) + 0.012, y0, -out(y0) + 0.03], [out(y0) + 0.012, y0, out(y0) - 0.03], [out(y1) + 0.012, y1, out(y1) - 0.03], [out(y1) + 0.012, y1, -out(y1) + 0.03]];
+  const lean = Math.hypot(H, 0.5 * Math.SQRT1_2);
+  const n = [H / lean, (0.5 * Math.SQRT1_2) / lean, 0];
+  const panel = new GFX.BufferGeometry();
+  panel.setAttribute('position', new GFX.BufferAttribute(Float32Array.from([0, 2, 1, 0, 3, 2].flatMap((i) => corners[i])), 3));
+  panel.setAttribute('normal', new GFX.BufferAttribute(Float32Array.from(Array.from({ length: 6 }, () => n).flat()), 3));
+  panel.setAttribute('uv', new GFX.BufferAttribute(Float32Array.from([0, 2, 1, 0, 3, 2].flatMap((i) => [[0, 0], [1, 0], [1, 1], [0, 1]][i])), 2));
+  panel.computeBoundingSphere?.();
+  const slicing = new GFX.Mesh(panel, sliceSteel);
+  slicing.name = 'grater-slicer';
   const shape = new GFX.Group();
   shape.scale.set(1, 1, 0.72);
-  shape.add(body, rim, foot, handle);
+  shape.add(body, rim, foot, handle, slicing);
   const group = new GFX.Group();
   group.name = 'grater';
   group.add(shape);
   for (const m of [body, rim, foot, handle]) m.castShadow = m.receiveShadow = true;
+  slicing.receiveShadow = true;
   return { group, height: H + 0.75 };
 }
 
@@ -281,7 +303,7 @@ export function buildWhole(GFX, { name, solids }) {
  * An empty ramekin, for whatever the cook has cut and wants to keep apart
  * until it goes in the pan: cream china with a green band and a gilt rim,
  * `radius` across the rim. Its contents hang off `group`, in its own frame,
- * standing on `floor`.
+ * heaped in `dish`.
  */
 export function buildRamekin(GFX, { name, radius = 1.5 }) {
   const { gold, cream, green } = finishes(GFX);
@@ -289,9 +311,9 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
     [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
   ]), 40), cream);
   outside.name = `ramekin-${name}`;
-  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
-    [0.88, 0.84], [0.8, 0.82], [0.76, 0.3], [0.6, 0.2], [0, 0.18],
-  ]), 40), cream);
+  /** The inside, from the middle of the floor out and up to the rim. */
+  const well = [[0, 0.18], [0.6, 0.2], [0.76, 0.3], [0.8, 0.82], [0.88, 0.84]];
+  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [...well].reverse()), 40), cream);
   inside.name = `ramekin-${name}-inside`;
   const band = new GFX.Mesh(new GFX.CylinderGeometry(0.865, 0.85, 0.12, 40, 1, true), green);
   band.name = `ramekin-${name}-band`;
@@ -309,7 +331,9 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
   const group = new GFX.Group();
   group.name = `ramekin-${name}`;
   group.add(china);
-  return { group, radius, floor: 0.18 * k * 0.8, inner: 0.76 * k };
+  /** What goes in it heaps on its floor, which curves up into the side, and stops short of the side. */
+  const dish = { floor: floorFrom(well.slice(0, 3).map(([r, y]) => [r * k, y * k * 0.8])), reach: 0.76 * k - 0.04 };
+  return { group, radius, dish };
 }
 
 /** How many pats there are in a stick of butter. */

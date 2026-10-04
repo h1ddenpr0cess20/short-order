@@ -313,6 +313,46 @@ export function graterFace(GFX, size = 256) {
   return texture(GFX, c.el, { wrap: true });
 }
 
+/**
+ * The slicing side of a box grater: plain brushed steel with one wide slot
+ * across it, its blade a bright edge along the bottom of the slot.
+ */
+export function slicerFace(GFX, size = 256) {
+  const c = canvas(size);
+  if (!c) return null;
+  const { ctx } = c;
+  const random = seeded(23);
+  ctx.fillStyle = '#c3c6ca';
+  ctx.fillRect(0, 0, size, size);
+  for (let k = 0; k < 500; k++) {
+    const y = random() * size, x = random() * size, v = random() < 0.5 ? 255 : 70;
+    ctx.strokeStyle = `rgba(${v},${v},${v},0.05)`;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + 30 + random() * 90);
+    ctx.stroke();
+  }
+  const x0 = size * 0.16, x1 = size * 0.84, y0 = size * 0.4, y1 = size * 0.5;
+  /** The lip pressed out above the slot, catching the light. */
+  const lip = ctx.createLinearGradient(0, y0 - size * 0.08, 0, y0);
+  lip.addColorStop(0, 'rgba(255,255,255,0)');
+  lip.addColorStop(1, 'rgba(255,255,255,0.55)');
+  ctx.fillStyle = lip;
+  ctx.fillRect(x0, y0 - size * 0.08, x1 - x0, size * 0.08);
+  ctx.fillStyle = '#16181b';
+  ctx.beginPath();
+  ctx.roundRect?.(x0, y0, x1 - x0, y1 - y0, size * 0.02);
+  if (!ctx.roundRect) ctx.rect(x0, y0, x1 - x0, y1 - y0);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 2, y1 - 1);
+  ctx.lineTo(x1 - 2, y1 - 1);
+  ctx.stroke();
+  return texture(GFX, c.el);
+}
+
 /** A soft round blot, black at the middle and gone at the edge: a cheap shadow. */
 export function blot(GFX, size = 128) {
   const c = canvas(size);

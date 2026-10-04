@@ -46,7 +46,7 @@ build), with a preview for every branch.
 | **knife** | Over the board the knife follows the pointer. Click to chop where the blade is — it goes through whatever is under it. |
 | **roll** | `T`, shift-right-click, or **⤵ roll**, tips one thing onto its side — the one under the pointer, or the biggest — so the knife, which only cuts straight down, can go through it the third way. A tomato goes on the board on its side already, its top toward you: slice it off and it goes in the bin. |
 | **turn** | Right-click the board, or `R`, turns the pile a quarter turn so the next cuts go the other way. On a phone, twist two fingers on the kitchen, or tap **↻ turn** — it lights up when the ticket says to turn. |
-| **carry** | Drag something on the board and every bit of it comes up on the flat of the knife — just the onion, say, leaving the potato; drag from between things for the whole pile. Let go over the pan to drop it in, over one of the empty ramekins in front of the range to keep it there until a click tips it into the pan, anywhere else and it goes back just as it was. `S` scrapes the whole board straight in. |
+| **carry** | Drag something on the board and every bit of it comes up on the flat of the knife — just the onion, say, leaving the potato; drag from between things for the whole pile. Let go over the pan to drop it in, over one of the six empty ramekins along the front of the counter to keep it there until a click tips it into the pan — one thing to a ramekin — over the counter where the extras lie to be rid of it (whole, it goes back; cut, in the bin), anywhere else and it goes back just as it was. `S` scrapes the whole board straight in. |
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
 | **butter** | Click the butter for a pat into the pan, or `B`. |
@@ -57,7 +57,7 @@ build), with a preview for every branch.
 | **turn an egg** | Click a fried egg to slide the spatula under it and turn it over; `space` turns them all. Not before the white has set enough to hold. A spatula dragged through a yolk breaks it. |
 | **order** | The dish's name on the ticket, or **change order** in the menu, for another dish. |
 | **fold** | `L`, or the bar's **fold**, folds the sheet of egg: rolled for a French omelette, in half for a diner one. Whatever is lying on the egg goes inside. Before that, **flip** (or a click on it) turns the whole omelette over once it has set. |
-| **extras** | Click one on the counter — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6` — and it goes onto the board: a block of cheddar, a tomato, a slice of ham, a quarter of a pepper, half an onion, a bunch of chives. Cut it small and scrape it in. Onto the egg before folding is a filling; over the food after is a topping. |
+| **extras** | Click one on the counter — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6` — and it goes onto the board: a block of cheddar, a tomato, a slice of ham, a quarter of a pepper, half an onion, a bunch of chives. Cut it small and scrape it in — or drag the cheese, or a potato, to the box grater: over its front it is grated, over the side with the one wide slot it is sliced. Onto the egg before folding is a filling; over the food after is a topping. |
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
 
 Everything in that list is also a button in the bar along the bottom, so it all

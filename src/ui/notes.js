@@ -38,7 +38,12 @@ export function createNotes({ game, root = document.body }) {
     else if (e.type === 'trim') tell('The top, into the bin.', 1.6);
     else if (e.type === 'board-full') tell('No room on the board — clear it into the pan first.');
     else if (e.type === 'grate') tell('Grated onto the board.', 1.6);
-    else if (e.type === 'putback' && e.grater) tell('Only cheese goes through the grater.');
+    else if (e.type === 'slice') tell('Sliced onto the board.', 1.6);
+    else if (e.type === 'bin') tell(e.whole ? 'Back on the counter.' : 'Into the bin.', 1.6);
+    else if (e.type === 'putback' && e.grater) tell('Only cheese and potato go through the grater.');
+    else if (e.type === 'putback' && e.ramekin !== undefined) {
+      tell(e.holds ? `That ramekin has the ${FILLINGS[e.holds]?.name ?? e.holds} in it — one thing to a ramekin.` : 'One thing to a ramekin — take them over one at a time.');
+    }
     else if (e.type === 'scrape' && game.pan.pieces.some((p) => p.whole)) tell('In whole — it wanted cutting first.');
     else if (e.type === 'fold') tell(e.liquid > 0.45 ? 'Folded with a lot still running — it will want a moment.' : e.shape === 'roll' ? 'Rolled.' : 'Folded.', 1.8);
   });

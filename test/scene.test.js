@@ -74,6 +74,21 @@ describe('the kitchen', () => {
       }
     });
 
+    it(`puts the ramekins clear of each other, the plate and every station when ${name}`, () => {
+      const R = 1.5;
+      const near = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+      const clear = (at, x, z, w, d) => Math.abs(at.x - x) > w / 2 + R || Math.abs(at.z - z) > d / 2 + R;
+      assert.equal(layout.prep.length, 6);
+      for (const [i, at] of layout.prep.entries()) {
+        for (const other of layout.prep.slice(i + 1)) assert.ok(near(at, other) >= 2 * R, 'two ramekins overlap');
+        assert.ok(near(at, layout.plate) > 5.2 + R, 'a ramekin is under the plate');
+        assert.ok(clear(at, layout.board.x, layout.board.z, BOARD.w, BOARD.d), 'a ramekin is on the board');
+        assert.ok(clear(at, layout.stove.x, layout.stove.z, TOP.w, TOP.d), 'a ramekin is on the range');
+        assert.ok(near(at, layout.grater) > R + 1.45, 'a ramekin is in the grater');
+        assert.ok(at.z - R > layout.wall, 'a ramekin is in the wall');
+      }
+    });
+
     it(`gives the pan's handle room when ${name}`, () => {
       const reach = RIM_RADIUS + 6.6;
       const tip = { x: layout.stove.x - Math.sin(HANDLE_TURN) * reach, z: layout.stove.z - Math.cos(HANDLE_TURN) * reach };

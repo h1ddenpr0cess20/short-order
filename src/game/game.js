@@ -19,19 +19,20 @@
  */
 
 import { curdSolid, friedSolid, omeletteSolid } from '../food/curd.js';
-import { FILLINGS, FILLING_KINDS, isFilling, isTrimming, listed, shredSolids, wholeSolids } from '../food/fillings.js';
+import { FILLINGS, FILLING_KINDS, SHRED, isFilling, isTrimming, listed, shredSolids, wholeSolids } from '../food/fillings.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
-import { PLATE } from '../scene/cookware.js';
+import { PLATE, plateDish } from '../scene/cookware.js';
 import { HANDLE_TURN, LAYOUT, PAN_Y } from '../scene/kitchen.js';
 import { COOK_RADIUS, FLAT, LIP_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
 import { PATS } from '../scene/props.js';
 import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
+import { heap } from '../sim/heap.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
-import { dimensions, extents, makePiece } from '../sim/piece.js';
+import { dimensions, extents, makePiece, slicer } from '../sim/piece.js';
 import { axisAngle, multiply, slerp } from '../sim/quat.js';
 import { sprinkle } from '../sim/season.js';
 import { createButterView } from '../view/butter.js';
@@ -381,15 +382,14 @@ export function createGame({ stage, GFX, kitchen }) {
     const fit = (v, lo, hi, half) => (hi - lo > 2 * half ? -(lo + hi) / 2 : Math.max(-half - lo, Math.min(half - hi, v)));
     bx = fit(bx, x0, x1, board.halfWidth);
     bz = fit(bz, z0, z1, board.halfDepth);
-    /** Lowest first, so each piece finds what it was lying on already back under it. */
-    list.sort((a, b) => a.carry[1] - b.carry[1]);
     for (const p of list) {
       p.pos = [bx + p.carry[0] / 0.72, p.carry[1] - 0.25, bz + p.carry[2] / 0.72];
       p.version += 1;
       delete p.carry;
       delete p.home;
-      board.add(p);
     }
+    /** Down onto whatever is there already, each piece on what it was lying on in the pile. */
+    board.lay(list);
   }
 
   /** What is in each of the ramekins on the counter. */
@@ -407,33 +407,47 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   /**
-   * Pieces into ramekin `i`, heaped in it: spiralling out from the middle, a
-   * layer at a time, so a diced onion sits in its dish like one.
+   * Whether ramekin `i` will take `list`: one thing to a ramekin — all of it
+   * the same, and the same as anything in it already. Cheese grated and cheese
+   * in a block are both cheese.
    */
-  function intoRamekin(i, list) {
-    const r = kitchen.prep[i];
-    const all = [...prep[i], ...list];
-    const room = r.inner * 0.82;
-    const perLayer = Math.max(5, Math.round((Math.PI * room * room) / 0.3));
-    all.forEach((p, n) => {
-      const e = extents(p);
-      const layer = Math.floor(n / perLayer), k = n % perLayer;
-      /** A big piece sits further in, so none of it is through the side of the dish. */
-      const half = Math.max(e.max[0] - e.min[0], e.max[2] - e.min[2]) / 2;
-      const rad = Math.min(room * Math.sqrt((k + 0.5) / perLayer), Math.max(0, r.inner - half - 0.05)), a = k * 2.399963 + layer;
-      p.pos = [Math.cos(a) * rad, r.floor - e.min[1] + layer * 0.32, Math.sin(a) * rad];
-      p.version += 1;
-      delete p.carry;
-      delete p.home;
-    });
-    prep[i] = all;
+  function ramekinTakes(i, list) {
+    const kind = list[0]?.kind;
+    return list.every((p) => p.kind === kind) && prep[i].every((p) => p.kind === kind);
   }
 
-  /** Whether the pointer is on the grater, letting go: where it points, as for a ramekin. */
+  /**
+   * Pieces into ramekin `i`, heaped on whatever is in it already: the biggest
+   * first, each where it settles lowest, so a diced onion sits in its dish
+   * like one and a whole one sits on top of it rather than through it.
+   */
+  function intoRamekin(i, list) {
+    for (const p of list) {
+      delete p.carry;
+      delete p.home;
+    }
+    heap([...list].sort((a, b) => b.volume - a.volume), kitchen.prep[i].dish, prep[i]);
+    prep[i].push(...list);
+  }
+
+  /**
+   * Which side of the grater the pointer is on, letting go — where it points,
+   * as for a ramekin: 'slice' over the slicing side, the one it has turned to
+   * the kitchen, 'grate' over the rest of it; or null, off it.
+   */
   function overGrater() {
     const q = pointer.at(2.0);
-    return Boolean(q) && Math.hypot(q.x - LAYOUT.grater.x, q.z - LAYOUT.grater.z) < 1.9;
+    if (!q) return null;
+    const dx = q.x - LAYOUT.grater.x, dz = q.z - LAYOUT.grater.z, yaw = LAYOUT.grater.yaw ?? 0;
+    if (Math.hypot(dx, dz) >= 1.9) return null;
+    return dx * Math.cos(yaw) - dz * Math.sin(yaw) > 0.3 ? 'slice' : 'grate';
   }
+
+  /** What goes through the grater, either side of it: cheese, and a potato. */
+  const graterTakes = (p) => p.kind === 'potato' || Boolean(FILLINGS[p.kind]?.grates);
+
+  /** How thick the slicing side cuts. */
+  const SLICE = 0.2;
 
   /**
    * `list` through the grater: shredded, and the shreds in a heap on the
@@ -443,28 +457,114 @@ export function createGame({ stage, GFX, kitchen }) {
   function grate(list) {
     const spot = boardSpot(3.0, 2.4);
     if (!spot) {
-      emit('board-full', { kind: 'cheese' });
+      emit('board-full', { kind: list[0].kind });
       return false;
     }
     const byKind = new Map();
     for (const p of list) byKind.set(p.kind, (byKind.get(p.kind) ?? 0) + p.volume);
     let count = 0;
     for (const [kind, volume] of byKind) {
-      for (const solid of shredSolids(kind, volume)) {
+      /** A potato is a lot more than a block of cheese: more shreds of it, so they are still shreds. */
+      for (const solid of shredSolids(kind, volume, Math.random, { flesh: FLESH[kind], most: kind === 'potato' ? 150 : SHRED.most })) {
         const yaw = Math.random() * Math.PI;
         const piece = makePiece({ solid, kind, rot: axisAngle([0, 1, 0], yaw) });
-        piece.moisture = FILLINGS[kind].moisture;
+        piece.moisture = FILLINGS[kind]?.moisture ?? 1;
         piece.shred = true;
-        /** Fallen in a loose heap: thickest in the middle, thinning out to its edges. */
-        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.9;
+        /** Fallen in a loose heap: thickest in the middle, thinning out to its edges, each shred on those before it. */
+        const a = Math.random() * Math.PI * 2, r = Math.random() * 0.9;
         piece.pos = [spot[0] + Math.cos(a) * r * 1.2, 0, spot[1] + Math.sin(a) * r * 0.9];
-        board.add(piece);
+        board.lay([piece]);
         count += 1;
       }
     }
     hops.grater = 1;
     emit('grate', { count });
     return true;
+  }
+
+  /** What is going through the slicing side: a slicer for each thing, a slice off one every beat, and where on the board they fall. */
+  let slicing = null;
+
+  /**
+   * `list` through the slicing side of the grater: sliced across, a slice at
+   * a time, and the slices falling in a loose pile on the board wherever
+   * there is room for one. False, and nothing sliced, if there is not.
+   */
+  function slice(list) {
+    finishSlicing();
+    const spot = boardSpot(4.2, 3.2);
+    if (!spot) {
+      emit('board-full', { kind: list[0].kind });
+      return false;
+    }
+    const cuts = list.map((p) => {
+      p.pos = [0, 0, 0];
+      p.version += 1;
+      delete p.carry;
+      delete p.home;
+      return { cut: slicer(p, SLICE, FLESH[p.kind]) };
+    });
+    slicing = { cuts, spot, wait: 0, count: 0 };
+    hops.grater = 1;
+    emit('slice', { kind: list[0].kind });
+    return true;
+  }
+
+  /** What is still waiting to go through the slicer, uncut or part cut. */
+  const slicingLeft = () => (slicing ? slicing.cuts.flatMap((c) => c.cut.left) : []);
+
+  /** The next slice off the slicer, onto the board: true while there is more to come. */
+  function sliceOne() {
+    const pieces = slicing.cuts[0]?.cut.next();
+    if (!pieces) {
+      slicing.cuts.shift();
+      if (slicing.cuts.length) return true;
+      emit('sliced', { count: slicing.count });
+      slicing = null;
+      return false;
+    }
+    const [sx, sz] = slicing.spot;
+    for (const p of pieces) {
+      const a = Math.random() * Math.PI * 2, r = Math.random();
+      p.pos = [sx + Math.cos(a) * r * 1.3, 0, sz + Math.sin(a) * r * 0.8];
+      board.lay([p]);
+      slicing.count += 1;
+    }
+    hops.grater = 1;
+    return true;
+  }
+
+  function updateSlicing(dt) {
+    if (!slicing) return;
+    slicing.wait -= dt;
+    while (slicing && slicing.wait <= 0) {
+      slicing.wait += 0.07;
+      sliceOne();
+    }
+  }
+
+  /** Whatever is still on the slicer, through it now. */
+  function finishSlicing() {
+    while (slicing) sliceOne();
+  }
+
+  /**
+   * Whether the pointer is on the counter where the extras lie, or the potato
+   * when it has a place there, letting go: where whatever was taken off the
+   * board can be put back, or got rid of. Each place counts whether or not
+   * what lies there is on the board now.
+   */
+  function overCounter() {
+    const places = FILLING_KINDS.map((kind) => ({ at: kitchen.extraAt(kind), size: kitchen.extras[kind].size }));
+    if (dish.pantry) places.push({ at: LAYOUT.potato, size: kitchen.spud.size });
+    for (const { at, size: [w, h, d] } of places) {
+      const q = pointer.at(h * 0.6);
+      if (!q) continue;
+      const yaw = at.yaw ?? 0, c = Math.cos(yaw), s = Math.sin(yaw);
+      const dx = q.x - at.x, dz = q.z - at.z;
+      if (Math.abs(dx * c - dz * s) < w / 2 + 0.5 && Math.abs(dx * s + dz * c) < d / 2 + 0.5) return true;
+    }
+    return false;
   }
 
   /** Pieces dropped into the pan from above where the hand is, falling. */
@@ -505,9 +605,16 @@ export function createGame({ stage, GFX, kitchen }) {
     const local = [carryAt.x - panHome.x, carryAt.z - panHome.z];
     const onto = [carryAt.x - boardOrigin.x, carryAt.z - boardOrigin.z];
     const dish = aimed ? overRamekin() : -1;
-    const grater = aimed && overGrater();
-    if (grater && list.every((p) => FILLINGS[p.kind]?.grates) && grate(list)) {
+    const grater = aimed ? overGrater() : null;
+    /** Over a ramekin that will not take it: it goes back where it came from. */
+    const refused = dish >= 0 && !ramekinTakes(dish, list);
+    const through = grater && list.every(graterTakes);
+    if (through && grater === 'grate' && grate(list)) {
       /** Grated: what was held is the shreds on the board now. */
+    } else if (through && grater === 'slice' && slice(list)) {
+      /** Going through the slicer: what was held comes out on the board as slices. */
+    } else if (refused) {
+      putBack(list, from, { ramekin: dish, holds: prep[dish][0]?.kind ?? null });
     } else if (dish >= 0) {
       intoRamekin(dish, list);
       emit('ramekin', { count: list.length, index: dish });
@@ -519,25 +626,40 @@ export function createGame({ stage, GFX, kitchen }) {
       ontoBoard(list, onto);
       emit('putdown', { count: list.length, from: from?.counter ? 'counter' : from?.ramekin !== undefined ? 'ramekin' : 'board' });
       if (from?.counter && FILLINGS[from.counter]) emit('extra', { kind: from.counter, count: list.length });
-    } else if (from?.ramekin !== undefined) {
+    } else if (aimed && overCounter() && list.every((p) => !p.whole || p.kind !== 'potato' || dish.pantry)) {
+      /**
+       * Back where the extras lie: whatever is whole goes back on the counter,
+       * anything cut in the bin. Not a whole potato with no place on the
+       * counter, for a ticket that brings its own: there would be no other.
+       */
+      for (const p of list) {
+        delete p.carry;
+        delete p.home;
+      }
+      emit('bin', { count: list.length, whole: list.every((p) => p.whole), from: from?.counter ? 'counter' : from?.ramekin !== undefined ? 'ramekin' : 'board' });
+    } else {
+      putBack(list, from, { grater: Boolean(grater) });
+    }
+  }
+
+  /** What was held, back where it came from: its ramekin, the counter, or the board just as it lay. */
+  function putBack(list, from, why) {
+    if (from?.ramekin !== undefined) {
       intoRamekin(from.ramekin, list);
-      emit('putback', { count: list.length, grater });
     } else if (from?.counter) {
       /** Back on the counter: it was only ever borrowed from there, and its meshes go with the next sweep. */
-      emit('putback', { count: list.length, grater });
     } else {
-      /** Lowest first, so each piece finds what it was lying on already back under it. */
-      list.sort((a, b) => a.home.pos[1] - b.home.pos[1]);
       for (const p of list) {
         p.pos = [...p.home.pos];
         p.rot = [...p.home.rot];
         p.version += 1;
         delete p.carry;
         delete p.home;
-        board.add(p);
       }
-      emit('putback', { count: list.length, grater });
+      /** Onto whatever has dropped into where it was since, rather than into it. */
+      board.lay(list);
     }
+    emit('putback', { count: list.length, ...why });
   }
 
   /** Scrapes the board into the pan in one go: the button for it, and the key. */
@@ -643,7 +765,7 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   /** Whether one of `kind` is lying whole on the board, or in the hand: then it is not on the counter. */
-  const onBoard = (kind) => [...board.pieces, ...carried, ...prep.flat()].some((p) => p.kind === kind && p.whole);
+  const onBoard = (kind) => [...board.pieces, ...carried, ...prep.flat(), ...slicingLeft()].some((p) => p.kind === kind && p.whole);
 
   /** The potato off the counter onto the board, for a dish that leaves it to the cook. */
   function addPotato() {
@@ -896,25 +1018,39 @@ export function createGame({ stage, GFX, kitchen }) {
     const all = [...laid, ...loose];
 
     plateGroup.visible = true;
-    const golden = 2.399963;
     const flights = all.map((piece, i) => {
       const from = panRig.localToWorld(new GFX.Vector3(...piece.pos));
       const u = (i + 0.5) / all.length;
-      if (piece.keepUp) {
-        const k = laid.indexOf(piece), n = laid.length;
-        const x = (k - (n - 1) / 2) * (piece.fried ? 3.2 : 2.4);
-        const yaw = axisAngle([0, 1, 0], piece.fried ? (k - 0.5) * 0.5 : 0.25);
-        return { piece, from, to: [x, PLATE.floor + 0.35 - piece.min[1] * 0 + k * 0.06, (k % 2) * 0.6 - 0.3], rot: [...piece.rot], turn: piece.fried ? yaw : multiply(yaw, piece.rot), delay: u * 1.1, done: false };
-      }
-      const r = Math.sqrt(u) * (PLATE.well - 0.3);
-      const a = i * golden;
-      const mound = 0.9 * (1 - (r / PLATE.well) ** 2) + (laid.length ? 0.6 : 0);
-      const to = [Math.cos(a) * r, PLATE.floor + 0.2 + mound + (piece.kind === 'egg' ? 0.1 : 0) + Math.random() * 0.15, Math.sin(a) * r];
+      const rot = [...piece.rot];
       /** Each piece turns over on the way: off the spatula the faces that were down show as often as the tops. */
       const axis = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
-      const turn = multiply(axisAngle(axis, Math.PI * (0.5 + Math.random())), piece.rot);
-      return { piece, from, to, rot: [...piece.rot], turn, delay: u * 1.1, done: false };
+      let turn = multiply(axisAngle(axis, Math.PI * (0.5 + Math.random())), rot);
+      if (piece.keepUp) {
+        const k = laid.indexOf(piece);
+        const yaw = axisAngle([0, 1, 0], piece.fried ? (k - 0.5) * 0.5 : 0.25);
+        turn = piece.fried ? yaw : multiply(yaw, rot);
+      }
+      return { piece, from, to: null, rot, turn, delay: u * 1.1, done: false };
     });
+    /**
+     * Where each lands, worked out the way it will lie when it gets there: what
+     * has a right way up side by side, its underside on the plate and each a
+     * touch over the one before; the rest heaped on the plate and on them.
+     */
+    for (const f of flights) f.piece.rot = f.turn;
+    for (const f of flights.filter((f) => f.piece.keepUp)) {
+      const k = laid.indexOf(f.piece), n = laid.length;
+      const x = (k - (n - 1) / 2) * (f.piece.fried ? 3.2 : 2.4);
+      f.to = [x, PLATE.floor - extents(f.piece).min[1] + k * 0.06, (k % 2) * 0.6 - 0.3];
+      f.piece.pos = [...f.to];
+    }
+    heap(loose, plateDish, laid);
+    for (const f of flights) {
+      if (!f.piece.keepUp) f.to = [...f.piece.pos];
+      f.piece.rot = f.rot;
+      f.piece.pos = [f.from.x, f.from.y, f.from.z];
+      f.piece.version += 1;
+    }
     for (const f of flights) flying.push(f.piece);
     plating = { t: 0, flights };
     round.plated = true;
@@ -970,6 +1106,7 @@ export function createGame({ stage, GFX, kitchen }) {
     flying.length = 0;
     carried.length = 0;
     carriedFrom = null;
+    slicing = null;
     for (const list of prep) list.length = 0;
     board.clear();
     pan.clear();
@@ -1067,7 +1204,7 @@ export function createGame({ stage, GFX, kitchen }) {
    * the pan, it is.
    */
   function cutProgress() {
-    const all = [...[...board.pieces, ...carried, ...prep.flat()].filter((p) => !p.whole), ...pan.pieces.filter((p) => p.kind !== 'egg')];
+    const all = [...[...board.pieces, ...carried, ...prep.flat(), ...slicingLeft()].filter((p) => !p.whole), ...pan.pieces.filter((p) => p.kind !== 'egg')];
     const volume = all.reduce((a, p) => a + p.volume, 0);
     const bite = all.filter((p) => Math.max(...dimensions(p)) <= biteOf(p.kind)).reduce((a, p) => a + p.volume, 0);
     return { pieces: all.length, bite: volume > 0 ? bite / volume : 0 };
@@ -1094,7 +1231,7 @@ export function createGame({ stage, GFX, kitchen }) {
     const onEgg = loose.filter((p) => sheet.depthAt(p.pos[0], p.pos[2]) > 0.01);
     const kinds = [...new Set([...loose, ...inside].map((p) => p.kind))];
     /** Still on the board, or in the hand on the way to the pan. */
-    const waiting = [...board.pieces, ...carried, ...prep.flat()].filter(isFilling);
+    const waiting = [...board.pieces, ...carried, ...prep.flat(), ...slicingLeft()].filter(isFilling);
     return {
       kinds, inside: inside.length, onEgg: onEgg.length, loose: loose.length, cheese: kinds.includes('cheese'),
       board: [...new Set(waiting.map((p) => p.kind))], next: knifeAdvice(board.pieces.filter(isFilling)),
@@ -1144,7 +1281,7 @@ export function createGame({ stage, GFX, kitchen }) {
       progress.plated = true;
       return progress;
     }
-    const potato = [...board.pieces, ...pan.pieces, ...carried, ...prep.flat()].filter((p) => p.kind === 'potato');
+    const potato = [...board.pieces, ...pan.pieces, ...carried, ...prep.flat(), ...slicingLeft()].filter((p) => p.kind === 'potato');
     const inPan = pan.pieces.filter((p) => p.kind === 'potato');
     const curds = pan.pieces.filter((p) => p.kind === 'egg');
     const dice = diceReport(potato);
@@ -1738,6 +1875,7 @@ export function createGame({ stage, GFX, kitchen }) {
     updateSpatula(dt);
     updateToss(dt);
     updatePlating(dt);
+    updateSlicing(dt);
     kitchen.updateCamera(dt);
 
     /** The pile in the hand follows it, a little behind. */
