@@ -13,8 +13,9 @@ import { BOARD, buildBoard, buildGuide, buildKnife } from './board.js';
 import { buildBowl, buildPlate, buildSpatula, buildWhisk } from './cookware.js';
 import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
-import { FILLING_KINDS, fillingSolid } from '../food/fillings.js';
-import { buildButter, buildMill, buildRamekin, buildSaltDish, buildTowel } from './props.js';
+import { FILLING_KINDS, wholeSolids } from '../food/fillings.js';
+import { buildButter, buildMill, buildRamekin, buildSaltDish, buildTowel, buildWhole } from './props.js';
+import { potatoSolid } from '../food/potato.js';
 import { GRATE_TOP, buildStove } from './stove.js';
 import { brushed, greenTile, marble, studio } from './textures.js';
 
@@ -35,10 +36,17 @@ export const LAYOUTS = Object.freeze({
     spatula: { x: -0.1, z: 6.6, yaw: Math.PI },
     towel: { x: -21.5, z: 4.5, yaw: 1.4 },
     mill: { x: 15.4, z: -10.6 },
-    /** The extras in a row along the front of the counter, under the board: the first, and the step to the next. */
-    extras: { x: -15.2, z: 9.5, dx: 2.5, dz: 0 },
+    /** The extras, whole, in a row along the front of the counter under the board, each lying front to back. */
+    extras: {
+      cheese: { x: -15.25, z: 9.6, yaw: 0 }, tomato: { x: -12.85, z: 9.6, yaw: 0 }, ham: { x: -10.25, z: 9.6, yaw: 0 },
+      pepper: { x: -7.65, z: 9.6, yaw: 0 }, onion: { x: -5.1, z: 9.6, yaw: 0 }, chives: { x: -3.15, z: 9.6, yaw: 0 },
+    },
     salt: { x: 11.6, z: -10.4 },
     butter: { x: 5.4, z: -10.3 },
+    /** A potato on the counter, between the bowl and the butter, for when one is not already on the board. */
+    potato: { x: 1.5, z: -9.6, yaw: Math.PI / 2 },
+    /** Empty ramekins along the front of the counter, in front of the range, clear of the plate and the handle. */
+    prep: [{ x: 7.0, z: 10.6 }, { x: 10.1, z: 10.6 }, { x: 13.2, z: 10.6 }],
     wall: -13.6,
   },
   tall: {
@@ -54,8 +62,17 @@ export const LAYOUTS = Object.freeze({
     mill: { x: 9.2, z: -1.4 },
     salt: { x: 9.1, z: -6.6 },
     butter: { x: -9.1, z: -6.6, yaw: Math.PI / 2 },
-    /** Between the board and the range, in a row, where a hand going from one to the other passes them. */
-    extras: { x: -6.25, z: 1.85, dx: 2.5, dz: 0 },
+    potato: { x: 10.3, z: -11.5, yaw: Math.PI / 2 },
+    /** Down the left of the range, past the spatula's handle. */
+    prep: [{ x: -12, z: 6.6 }, { x: -12, z: 9.9 }, { x: -12, z: 13.2 }],
+    /**
+     * Between the board and the range, in a row, where a hand going from one
+     * to the other passes them — turned side to side, to fit the gap.
+     */
+    extras: {
+      cheese: { x: -6.6, z: 2.3, yaw: Math.PI / 2 }, tomato: { x: -4.55, z: 2.3, yaw: Math.PI / 2 }, ham: { x: -2.2, z: 2.3, yaw: Math.PI / 2 },
+      pepper: { x: 0.2, z: 2.3, yaw: Math.PI / 2 }, onion: { x: 2.65, z: 2.3, yaw: Math.PI / 2 }, chives: { x: 5.7, z: 2.3, yaw: Math.PI / 2 },
+    },
     wall: -19.6,
   },
 });
@@ -188,14 +205,18 @@ export function buildKitchen({ stage, GFX }) {
 
   const props = { towel: buildTowel(GFX), mill: buildMill(GFX), salt: buildSaltDish(GFX), butter: buildButter(GFX) };
   for (const p of Object.values(props)) room.add(p.group);
-  /** The extras, each in its ramekin. */
-  const extras = Object.fromEntries(FILLING_KINDS.map((kind) => [kind, buildRamekin(GFX, { name: kind, bits: (random) => fillingSolid(kind, random) })]));
+  /** The extras, whole on the counter. */
+  const extras = Object.fromEntries(FILLING_KINDS.map((kind) => [kind, buildWhole(GFX, { name: kind, solids: wholeSolids(kind) })]));
   for (const e of Object.values(extras)) room.add(e.group);
-  /** Where the extra of `kind` sits now. */
-  const extraAt = (kind) => {
-    const i = FILLING_KINDS.indexOf(kind), e = LAYOUT.extras;
-    return { x: e.x + e.dx * i, z: e.z + e.dz * i };
-  };
+  /** Where the extra of `kind` sits now, and which way it is turned. */
+  const extraAt = (kind) => LAYOUT.extras[kind];
+  /** A potato, whole, for a dish that leaves it to the cook whether to have one. Only on the counter when it is wanted. */
+  const spud = buildWhole(GFX, { name: 'potato', solids: [potatoSolid()] });
+  spud.group.visible = false;
+  room.add(spud.group);
+  /** The empty ramekins, for keeping what has been cut until it goes in. */
+  const prep = LAYOUTS.wide.prep.map((_, i) => buildRamekin(GFX, { name: `prep-${i + 1}`, radius: 1.5 }));
+  for (const r of prep) room.add(r.group);
 
   /** Told whenever the stations move, so anything that remembers where they were can catch up. */
   const arranged = new Set();
@@ -232,7 +253,11 @@ export function buildKitchen({ stage, GFX }) {
     for (const kind of FILLING_KINDS) {
       const at = extraAt(kind);
       extras[kind].group.position.set(at.x, 0, at.z);
+      extras[kind].group.rotation.y = at.yaw;
     }
+    spud.group.position.set(LAYOUT.potato.x, 0, LAYOUT.potato.z);
+    spud.group.rotation.y = LAYOUT.potato.yaw;
+    prep.forEach((r, i) => r.group.position.set(LAYOUT.prep[i].x, 0, LAYOUT.prep[i].z));
     for (const fn of arranged) fn(name);
     return true;
   }
@@ -279,9 +304,16 @@ export function buildKitchen({ stage, GFX }) {
       corners(LAYOUT[key].x - half, LAYOUT[key].x + half, 0, height, LAYOUT[key].z - half, LAYOUT[key].z + half);
     }
     for (const kind of FILLING_KINDS) {
-      const at = extraAt(kind);
-      corners(at.x - 0.9, at.x + 0.9, 0, 1.1, at.z - 0.9, at.z + 0.9);
+      const at = extraAt(kind), [w, h, d] = extras[kind].size;
+      const half = Math.max(w, d) / 2;
+      corners(at.x - half, at.x + half, 0, h, at.z - half, at.z + half);
     }
+    {
+      const [w, h, d] = spud.size, turned = Math.abs(Math.sin(LAYOUT.potato.yaw)) > 0.5;
+      const hx = (turned ? d : w) / 2, hz = (turned ? w : d) / 2;
+      corners(LAYOUT.potato.x - hx, LAYOUT.potato.x + hx, 0, h, LAYOUT.potato.z - hz, LAYOUT.potato.z + hz);
+    }
+    for (const at of LAYOUT.prep) corners(at.x - 1.5, at.x + 1.5, 0, 1.3, at.z - 1.5, at.z + 1.5);
   }
 
   /** A wide window too low for the full ticket and bar: a phone turned on its side. */
@@ -435,7 +467,7 @@ export function buildKitchen({ stage, GFX }) {
       arranged.add(fn);
       return () => arranged.delete(fn);
     },
-    stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate, props, extras, extraAt,
+    stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate, props, extras, extraAt, spud, prep,
   };
 }
 

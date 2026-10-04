@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { measure } from '../src/geometry/slice.js';
-import { friedSolid, omeletteSolid } from '../src/food/curd.js';
-import { FILLINGS, FILLING_KINDS, fillingSolid } from '../src/food/fillings.js';
+import { curdSolid, friedSolid, omeletteSolid } from '../src/food/curd.js';
+import { FILLINGS, FILLING_KINDS, PORTION, wholeSolids } from '../src/food/fillings.js';
+import { FLESH } from '../src/food/index.js';
+import { potatoSolid } from '../src/food/potato.js';
 import { DISHES, MENU, ticket } from '../src/game/dishes.js';
 import { extrasReport, friedReport, gradeDish, omeletteReport, timeReport } from '../src/game/grade.js';
+import { createBoard } from '../src/sim/board.js';
 import { EGG_VOLUME, YOLK_SHARE, createSheet } from '../src/sim/eggs.js';
-import { makePiece } from '../src/sim/piece.js';
+import { dimensions, makePiece } from '../src/sim/piece.js';
+import { axisAngle } from '../src/sim/quat.js';
 
 function seeded(seed = 4) {
   let s = seed;
@@ -136,25 +140,94 @@ describe('the omelette', () => {
   });
 });
 
+/** Every edge of a closed solid is walked once each way. */
+function unpaired(solid) {
+  const p = solid.pos;
+  const key = (i) => `${p[i]},${p[i + 1]},${p[i + 2]}`;
+  const edges = new Map();
+  for (let t = 0; t < p.length; t += 9) {
+    for (let e = 0; e < 3; e++) {
+      const k = `${key(t + e * 3)}|${key(t + ((e + 1) % 3) * 3)}`;
+      edges.set(k, (edges.get(k) ?? 0) + 1);
+    }
+  }
+  let bad = 0;
+  for (const [k, n] of edges) {
+    const [a, b] = k.split('|');
+    if ((edges.get(`${b}|${a}`) ?? 0) !== n) bad += 1;
+  }
+  return bad;
+}
+
+const settle = (board, seconds = 1.5) => {
+  for (let t = 0; t < seconds; t += 1 / 60) board.update(1 / 60);
+};
+
+/** One of the extras off the counter, onto a board of its own, as the kitchen puts it down. */
+function onBoard(kind) {
+  const board = createBoard();
+  for (const solid of wholeSolids(kind)) {
+    const p = makePiece({ solid, kind });
+    p.whole = true;
+    board.add(p);
+  }
+  return board;
+}
+
+/** Diced the way a cook would: slices, across them, turned, and across again. */
+function dice(kind, step = 0.4) {
+  const board = onBoard(kind);
+  for (let pass = 0; pass < 2; pass++) {
+    const b = board.bounds();
+    for (let z = b.z0 + step; z < b.z1; z += step) board.chop({ z, flesh: FLESH });
+    settle(board);
+    board.turn(1);
+    settle(board);
+  }
+  const b = board.bounds();
+  for (let z = b.z0 + step; z < b.z1; z += step) board.chop({ z, flesh: FLESH });
+  settle(board);
+  return board.pieces;
+}
+
 describe('the extras', () => {
-  it('are each a small closed solid of their own colour', () => {
+  it('come off the counter whole: closed solids, lying front to back', () => {
     for (const kind of FILLING_KINDS) {
-      const s = fillingSolid(kind, seeded());
-      const m = measure(s);
-      assert.ok(m.volume > 0 && m.volume < 0.1, `${kind} ${m.volume}`);
-      assert.ok(FILLINGS[kind].handful > 0);
+      const solids = wholeSolids(kind);
+      let volume = 0;
+      for (const s of solids) {
+        const m = measure(s);
+        assert.ok(m.volume > 0, `${kind} ${m.volume}`);
+        assert.equal(unpaired(s), 0, `${kind} is not closed`);
+        volume += m.volume;
+        assert.ok(m.max[2] - m.min[2] >= 1.3, `${kind} should lie along the knife's path`);
+      }
+      assert.ok(Math.abs(volume - PORTION[kind]) < 1e-6, `${kind} is a portion`);
+      assert.ok(FILLINGS[kind].bite > 0 && FILLINGS[kind].whole);
     }
   });
 
-  const bits = (kind, n, { core = 0.8, brown = 0 } = {}) => Array.from({ length: n }, (_, i) => {
-    const p = makePiece({ solid: fillingSolid(kind, seeded(i + 1)), kind });
+  it('dice on the board into bite-size bits, and lose none of themselves doing it', () => {
+    for (const kind of ['tomato', 'onion', 'cheese', 'chives']) {
+      const before = PORTION[kind];
+      const bits = dice(kind, kind === 'chives' ? 0.3 : 0.4);
+      const after = bits.reduce((a, p) => a + p.volume, 0);
+      assert.ok(Math.abs(after - before) / before < 1e-3, `${kind} ${before} → ${after}`);
+      assert.ok(bits.length > 12, `${kind}: ${bits.length} bits`);
+      assert.ok(bits.every((p) => p.kind === kind && !p.whole), 'cut pieces are the same thing, and no longer whole');
+      const big = bits.filter((p) => Math.max(...dimensions(p)) > FILLINGS[kind].bite).reduce((a, p) => a + p.volume, 0);
+      assert.ok(big / after < 0.2, `${kind}: ${(big / after).toFixed(2)} still too big`);
+    }
+  });
+
+  const bits = (kind, { core = 0.8, brown = 0 } = {}) => dice(kind).map((p) => {
     p.core = core;
     p.brown.fill(brown);
     return p;
   });
 
   it('want cheese and one more folded into a diner omelette', () => {
-    const inside = [...bits('cheese', 12), ...bits('ham', 8)];
+    const inside = [...bits('cheese'), ...bits('ham')];
     const good = extrasReport([], { dish: 'american', inside, wants: true });
     const outside = extrasReport(inside, { dish: 'american', wants: true });
     const none = extrasReport([], { dish: 'american', wants: true });
@@ -164,14 +237,36 @@ describe('the extras', () => {
   });
 
   it('mark raw onion, unmelted cheese and odd choices down', () => {
-    const cooked = extrasReport(bits('onion', 8, { core: 0.8 }), { dish: 'hash' });
-    const raw = extrasReport(bits('onion', 8, { core: 0 }), { dish: 'hash' });
+    const cooked = extrasReport(bits('onion', { core: 0.8 }), { dish: 'hash' });
+    const raw = extrasReport(bits('onion', { core: 0 }), { dish: 'hash' });
     assert.ok(raw.score < cooked.score);
-    const melted = extrasReport(bits('cheese', 12, { core: 0.9 }), { dish: 'scramble' });
-    const cold = extrasReport(bits('cheese', 12, { core: 0 }), { dish: 'scramble' });
+    const melted = extrasReport(bits('cheese', { core: 0.9 }), { dish: 'scramble' });
+    const cold = extrasReport(bits('cheese', { core: 0 }), { dish: 'scramble' });
     assert.ok(cold.score < melted.score);
-    assert.ok(extrasReport(bits('ham', 8), { dish: 'french' }).odd > 0);
+    assert.ok(extrasReport(bits('ham'), { dish: 'french' }).odd > 0);
     assert.equal(extrasReport([], { dish: 'fried' }).score, null, 'no extras, nothing to mark');
+  });
+
+  it('want cutting: a whole tomato thrown in, or one only sliced, is marked down', () => {
+    const whole = onBoard('tomato').pieces.map((p) => Object.assign(p, { core: 0.8 }));
+    const sliced = onBoard('tomato');
+    for (let z = -0.8; z < 0.9; z += 0.35) sliced.chop({ z, flesh: FLESH });
+    settle(sliced);
+    for (const p of sliced.pieces) p.core = 0.8;
+    const diced = bits('tomato');
+    const r = (list) => extrasReport(list, { dish: 'hash' });
+    assert.equal(r(whole).whole, 1);
+    assert.ok(r(sliced.pieces).chunky > 0.8, `rounds are not dice: ${r(sliced.pieces).chunky}`);
+    assert.ok(r(diced).chunky < 0.2);
+    assert.ok(r(whole).score < r(diced).score - 25, `${r(whole).score} vs ${r(diced).score}`);
+    assert.ok(r(sliced.pieces).score < r(diced).score - 25);
+  });
+
+  it('weigh how much went in by volume: four tomatoes is a lot of tomato', () => {
+    const one = extrasReport(bits('tomato'), { dish: 'hash' });
+    const four = extrasReport([...bits('tomato'), ...bits('tomato'), ...bits('tomato'), ...bits('tomato')], { dish: 'hash' });
+    assert.ok(Math.abs(one.handfuls - 1) < 0.01);
+    assert.ok(four.heavy > 0 && four.score < one.score);
   });
 });
 
@@ -187,6 +282,8 @@ describe('marking the other dishes', () => {
     assert.ok(friedReport([egg({ runny: 0.5, set: 0.6 }), egg({ runny: 0.5, set: 0.6 })], 'sunny').whites.score < 40);
     assert.ok(friedReport([egg({ whole: false }), egg({ whole: false })], 'sunny').yolks.score < 30);
     assert.ok(friedReport([egg({ flips: 1 }), egg({ flips: 1 })], 'sunny').yolks.score < good.yolks.score);
+    const back = friedReport([egg({ flips: 2 }), egg({ flips: 2 })], 'sunny');
+    assert.ok(back.yolks.score < good.yolks.score, 'turned over and back again is still turned');
   });
 
   it('wants over easy eggs turned, the yolks still runny', () => {
@@ -228,6 +325,72 @@ describe('marking the other dishes', () => {
     assert.equal(timeReport(140, 150).score, 100);
     assert.ok(timeReport(300, 150).score < timeReport(300, 240).score);
   });
+
+  it('reads the clock to the second without ever showing sixty of them', () => {
+    const r = gradeDish(DISHES.scramble, { pieces: [], seconds: 119.6, eggs: 0 });
+    assert.match(r.parts.find((p) => p.key === 'time').note, /^2:00/);
+  });
+
+  it('gives a hash plate with extras the verdict its own total earns', () => {
+    const board = createBoard();
+    board.add(makePiece({ solid: potatoSolid(), kind: 'potato', rot: axisAngle([0, 1, 0], Math.PI / 2) }));
+    for (let pass = 0; pass < 3; pass++) {
+      const b = board.bounds();
+      for (let z = b.z0 + 0.75; z < b.z1; z += 0.75) board.chop({ z, flesh: FLESH });
+      settle(board);
+      if (pass < 2) {
+        board.turn(1);
+        settle(board);
+      }
+    }
+    const seasoned = (p) => Object.assign(p, { core: 1, salt: p.volume / 8, pepper: p.volume / 5 });
+    const potato = board.pieces.map((p) => seasoned(Object.assign(p, { brown: new Float32Array(6).fill(1) })));
+    const curds = Array.from({ length: 36 }, (_, i) => seasoned(makePiece({ solid: curdSolid({ volume: 0.3, seed: i + 1 }), kind: 'egg' })));
+    const plate = { pieces: [...potato, ...curds], seconds: 60, eggs: 3, beaten: 1, buttered: true };
+    assert.equal(gradeDish(DISHES.hash, plate).verdict, 'Order up. That is the one.');
+    /** Half an onion thrown in whole and burnt takes it under five stars: the verdict has to follow. */
+    const onion = wholeSolids('onion').map((solid) => Object.assign(makePiece({ solid, kind: 'onion' }), { whole: true, brown: new Float32Array(6).fill(2) }));
+    const r = gradeDish(DISHES.hash, { ...plate, pieces: [...plate.pieces, ...onion] });
+    assert.ok(r.total < 92, `${r.total}`);
+    assert.notEqual(r.verdict, 'Order up. That is the one.');
+  });
+});
+
+describe('freestyle', () => {
+  const omelette = (core, brown) => {
+    const p = makePiece({ solid: omeletteSolid({ volume: 7.2, shape: 'half' }), kind: 'egg' });
+    p.core = core;
+    p.brown.fill(brown);
+    p.omelette = 'half';
+    p.inside = [];
+    return p;
+  };
+
+  it('marks whatever is on the plate, the way its own dish would, with no clock and no shortfall', () => {
+    const r = gradeDish(DISHES.free, { pieces: [omelette(1.1, 0.5)], seconds: 3600, eggs: 2, beaten: 1 });
+    assert.deepEqual(r.parts.map((p) => p.key), ['omelette', 'season']);
+    assert.equal(r.time.seconds, 3600, 'the ticket\'s clock stops at the plate, even with no par');
+    assert.ok(r.parts[0].score > 80, `two eggs is a fine omelette freestyle: ${r.parts[0].score}`);
+    assert.ok(Math.abs(r.parts.reduce((a, p) => a + p.weight, 0) - 1) < 1e-9);
+  });
+
+  it('marks one fried egg as an order of one, turned or not', () => {
+    const egg = (flips) => ({
+      white: { volume: 2.3, set: 1, runny: 0, brown: 0.2, crisp: 0, radius: 2 },
+      yolk: { whole: true, set: 0.2, flipped: flips % 2 === 1, flips, down: 0, volume: 1.3 },
+    });
+    for (const flips of [0, 1]) {
+      const r = gradeDish(DISHES.free, { pieces: [], fried: [egg(flips)], seconds: 60 });
+      assert.ok(r.parts.find((p) => p.key === 'yolks').score > 85, `flips ${flips}`);
+    }
+  });
+
+  it('marks diced extras, and the potato only if there is any', () => {
+    const extras = dice('pepper').map((p) => Object.assign(p, { core: 0.8 }));
+    const r = gradeDish(DISHES.free, { pieces: extras, seconds: 60 });
+    assert.deepEqual(r.parts.map((p) => p.key), ['extras', 'season']);
+    assert.ok(r.parts[0].score > 70, `${r.parts[0].score}: ${r.parts[0].note}`);
+  });
 });
 
 describe('the menu', () => {
@@ -241,7 +404,10 @@ describe('the menu', () => {
       butter: { left: 8, share: 0, brown: 0, burnt: false },
       fried: { eggs: 0, runnyWhite: 1, turned: 0, broken: 0 },
       omelette: { poured: 0, liquid: 1, brown: 0, folded: false },
-      extras: { kinds: [], inside: 0, onEgg: 0, loose: 0, cheese: false },
+      extras: { kinds: [], inside: 0, onEgg: 0, loose: 0, cheese: false, board: [], next: '' },
+      board: { pieces: 1, next: 'cut it into rounds' },
+      cut: { pieces: 0, bite: 0 },
+      free: { words: [], fill: 0, done: false },
       temp: 22, oil: 0, fatDone: false, ready: false, plated: false,
     };
     const words = { advice: (n) => n, flip: 'flip', fold: (w) => w };

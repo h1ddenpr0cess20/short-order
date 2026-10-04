@@ -3,8 +3,9 @@
 A cooking game in one cast iron pan. There is one ticket on the rail at a
 time — pick it from the menu — and everything on the counter to make it with:
 a russet on the board, a chef's knife, a carton of eggs, a bowl and a whisk, a
-bottle of oil, a stick of butter, salt and a pepper mill, six ramekins of
-extras, and the pan on a gas burner that starts cold.
+bottle of oil, a stick of butter, salt and a pepper mill, six extras lying
+whole on the counter for the knife, and the pan on a gas burner that starts
+cold.
 
 | | |
 |---|---|
@@ -14,6 +15,7 @@ extras, and the pan on a gas burner that starts cold.
 | **Over easy** | The same, turned over once — briefly, so the yolks still run. |
 | **French omelette** | Stirred while it runs, left to settle, rolled: pale, soft inside, no colour. |
 | **Diner omelette** | Set flat, filled — cheese and one more at least — and folded in half. |
+| **Freestyle** | No ticket. Anything on the counter, any way you like, marked on what it turns out to be. |
 
 Season it and plate it. The plate is marked on what is actually on it.
 
@@ -42,27 +44,28 @@ build), with a preview for every branch.
 | | |
 |---|---|
 | **knife** | Over the board the knife follows the pointer. Click to chop where the blade is — it goes through whatever is under it. |
+| **roll** | `T`, shift-right-click, or **⤵ roll**, tips one thing onto its side — the one under the pointer, or the biggest — so the knife, which only cuts straight down, can go through it the third way. A tomato goes on the board on its side already, its top toward you: slice it off and it goes in the bin. |
 | **turn** | Right-click the board, or `R`, turns the pile a quarter turn so the next cuts go the other way. On a phone, twist two fingers on the kitchen, or tap **↻ turn** — it lights up when the ticket says to turn. |
-| **carry** | Drag the pile and it comes up on the flat of the knife; let go over the pan to drop it in, anywhere else and it goes back just as it was. `S` scrapes the board straight in. |
+| **carry** | Drag something on the board and every bit of it comes up on the flat of the knife — just the onion, say, leaving the potato; drag from between things for the whole pile. Let go over the pan to drop it in, over one of the empty ramekins in front of the range to keep it there until a click tips it into the pan, anywhere else and it goes back just as it was. `S` scrapes the whole board straight in. |
 | **burner** | Click the knob to turn it up, right-click to turn it down — or `Q` and `E`. The pan's temperature is in the bar. |
 | **oil** | Click the bottle, or `O`. |
 | **butter** | Click the butter for a pat into the pan, or `B`. |
 | **salt, pepper** | Click the salt for a pinch (`A`), the mill for a twist (`F`): over the food in the pan, or into the eggs in the bowl if the pan is empty. Drag either to the bowl or the pan to choose. |
 | **spatula** | Over the pan, drag to stir and click to flip what is under it. `space` tosses the whole pan. |
 | **handle** | Drag the pan's handle to shake it — the food slides — and flick upward as you let go to toss. |
-| **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. For fried eggs the carton breaks them straight into the pan instead. |
+| **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. For fried eggs the carton breaks them straight into the pan instead. Freestyle, drag an egg from the carton to the pan — or `H`, or **egg → pan** — to fry it. |
 | **turn an egg** | Click a fried egg to slide the spatula under it and turn it over; `space` turns them all. Not before the white has set enough to hold. A spatula dragged through a yolk breaks it. |
 | **order** | The dish's name on the ticket, or **change order** in the menu, for another dish. |
 | **fold** | `L`, or the bar's **fold**, folds the sheet of egg: rolled for a French omelette, in half for a diner one. Whatever is lying on the egg goes inside. Before that, **flip** (or a click on it) turns the whole omelette over once it has set. |
-| **extras** | Click a ramekin for a handful in the pan — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6`. Onto the egg before folding is a filling; over the food after is a topping. |
+| **extras** | Click one on the counter — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6` — and it goes onto the board: a block of cheddar, a tomato, a slice of ham, a quarter of a pepper, half an onion, a bunch of chives. Cut it small and scrape it in. Onto the egg before folding is a filling; over the food after is a topping. |
 | **plate** | The button on the ticket, or `enter`, whenever it looks right. |
 
 Everything in that list is also a button in the bar along the bottom, so it all
 works on a phone: a tap on the board chops, a drag carries or stirs or whisks, upright or
 on its side.
 And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
-chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg,
-`L` folds, `1`–`6` the extras, `B` butters, `A` salts, `F` peppers, `enter`
+chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg
+(`H` into the pan, freestyle), `L` folds, `T` rolls, `1`–`6` the extras, `B` butters, `A` salts, `F` peppers, `enter`
 plates, `M` mutes.
 
 ### What it takes
@@ -99,10 +102,23 @@ other — a French omelette wants rolling while the top is still wet, so it is
 just set inside, and wants no colour at all; a diner omelette is set through
 and may be golden.
 
-The extras are real food too. Onion and green pepper want a minute in the pan
-before the eggs go over them; ham crisps; cheese slumps and melts. Each one
-goes on whatever dish you like, and is marked for how well it suits it — chives
-on a French omelette, yes; ham, an eyebrow.
+The extras are real food too, and come whole: they go on the board beside
+the potato and are cut the same way — slices, across them, turn, across
+again — and the knife goes through whatever is under it, so leave room
+between them. Scraped in whole, or only sliced, they are marked down: a bite
+is no side longer than a mouthful. Onion and green pepper want a minute in the
+pan before the eggs go over them; ham crisps; cheese slumps and melts. Each
+one goes on whatever dish you like, and is marked for how well it suits it —
+chives on a French omelette, yes; ham, an eyebrow — and for how much went in:
+one of each is a portion, four tomatoes is a lot of tomato.
+
+Freestyle has no ticket and starts with a bare board. Everything is on the
+counter — a potato to take or leave, the eggs for the bowl or straight into
+the pan, all six extras — and the plate is
+marked on what it turns out to be: potato on its dice and its fry, eggs as
+whatever they became — curds, fried, folded or set flat — the extras and the
+seasoning, each weighed by how much of the plate it is. One egg is as right
+as three, and there is no clock.
 
 Butter greases the pan like oil, and eggs scrambled in it come out richer for
 it. It melts in seconds on hot iron and foams while its water cooks off; then

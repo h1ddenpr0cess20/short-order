@@ -14,6 +14,13 @@ import { puff } from '../scene/textures.js';
 const SOFT = 70;
 const SPARKS = 30;
 
+/**
+ * At most this many puffs owed at once. Steam that finds nowhere to come from
+ * — an empty pan, egg with hardly a wet patch left — is owed, not saved up: a
+ * backlog let out in one frame would take every sprite there is at once.
+ */
+const OWED = 3;
+
 export function createParticles({ GFX, room }) {
   const texture = puff(GFX);
   const make = (additive) => {
@@ -35,6 +42,9 @@ export function createParticles({ GFX, room }) {
   };
   const soft = Array.from({ length: SOFT }, () => make(false));
   const sparks = Array.from({ length: SPARKS }, () => make(true));
+  const all = [...soft, ...sparks];
+  /** How many are showing: none, and there is nothing to move. */
+  let live = 0;
   let debt = { steam: 0, smoke: 0 };
 
   function free(pool) {
@@ -50,6 +60,7 @@ export function createParticles({ GFX, room }) {
     const p = free(kind === 'spark' ? sparks : soft);
     p.kind = kind;
     p.age = 0;
+    if (!p.sprite.visible) live += 1;
     p.sprite.visible = true;
     p.sprite.position.copy(at);
     const m = p.sprite.material;
@@ -85,29 +96,32 @@ export function createParticles({ GFX, room }) {
      */
     update(dt, { pan, frame, eggSteam = 0, sheetPoint = null }) {
       const pieces = pan.pieces;
-      debt.steam += dt * (pan.steam * 26 + eggSteam * 30);
-      debt.smoke += dt * pan.smoke * 18;
+      debt.steam = Math.min(OWED, debt.steam + dt * (pan.steam * 26 + eggSteam * 30));
+      debt.smoke = Math.min(OWED, debt.smoke + dt * pan.smoke * 18);
       while (debt.steam >= 1) {
         debt.steam -= 1;
         const source = (eggSteam > 0.2 && sheetPoint && Math.random() < 0.6) ? sheetPoint() : pieces[Math.floor(Math.random() * pieces.length)]?.pos;
-        if (!source) break;
+        if (!source) continue;
         frame.localToWorld(at.set(source[0] + (Math.random() - 0.5) * 0.6, source[1] + 0.3, source[2] + (Math.random() - 0.5) * 0.6));
         emit('steam', at);
       }
+      /** What is burning, looked for once a frame and only when there is smoke to put out. */
+      const burnt = debt.smoke >= 1 ? pieces.filter((p) => Math.max(...p.brown) > 1.5) : null;
       while (debt.smoke >= 1) {
         debt.smoke -= 1;
-        const burnt = pieces.filter((p) => Math.max(...p.brown) > 1.5);
         const source = burnt.length ? burnt[Math.floor(Math.random() * burnt.length)].pos : [(Math.random() - 0.5) * 6, 0, (Math.random() - 0.5) * 6];
         frame.localToWorld(at.set(source[0], source[1] + 0.4, source[2]));
         emit('smoke', at);
       }
 
-      for (const p of [...soft, ...sparks]) {
+      if (live === 0) return;
+      for (const p of all) {
         if (!p.sprite.visible) continue;
         p.age += dt;
         const k = p.age / p.life;
         if (k >= 1) {
           p.sprite.visible = false;
+          live -= 1;
           continue;
         }
         if (p.kind === 'spark') p.vel[1] -= 30 * dt;

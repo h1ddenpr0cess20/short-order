@@ -478,6 +478,8 @@ button {
   text-align: left;
 }
 #intro .menu button:hover { background: rgba(201, 164, 92, 0.12); }
+/** An odd one out at the end of the menu — freestyle — takes the whole row. */
+#intro .menu li:last-child:nth-child(odd) { grid-column: 1 / -1; }
 #intro .menu .no { grid-area: no; font: 500 11px/1.4 var(--condensed); color: var(--aside); letter-spacing: .06em; }
 #intro .menu b { grid-area: name; font: 500 14px/1.25 var(--condensed); letter-spacing: .06em; text-transform: uppercase; }
 #intro .menu i { grid-area: blurb; font: italic 400 12px/1.35 var(--display); color: var(--aside); }

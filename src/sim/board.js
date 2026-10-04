@@ -261,6 +261,18 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
     }
   }
 
+  /**
+   * Rolls one piece a quarter turn over onto its side, about the edge nearest
+   * the cook — its top comes to face the cook — so the knife, which only ever
+   * cuts straight down, can go through it the third way. `dir` −1 rolls it
+   * away instead. Not while it, or the pile, is moving.
+   */
+  function roll(piece, dir = 1) {
+    if (turning || moves.has(piece) || !pieces.includes(piece)) return false;
+    topple(piece, 'z', dir);
+    return true;
+  }
+
   /** Lifts everything off the board, for the scraper. */
   function takeAll() {
     const all = [...pieces];
@@ -268,6 +280,36 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
     moves.clear();
     turning = null;
     return all;
+  }
+
+  /** Lifts just these pieces off the board; whatever was lying on them drops down. */
+  function take(list) {
+    if (turning) return [];
+    const out = list.filter((p) => pieces.includes(p));
+    for (const p of out) remove(p);
+    return out;
+  }
+
+  /** The piece at (x, z) on the board, the one on top where several are: or the nearest, within `reach`; or null. */
+  function pieceAt(x, z, reach = 0.35) {
+    let best = null, top = -Infinity, near = reach;
+    for (const p of pieces) {
+      const b = box(p);
+      if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1) {
+        if (b.y1 > top) {
+          top = b.y1;
+          best = p;
+        }
+        continue;
+      }
+      if (top > -Infinity) continue;
+      const d = Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.z0 - z, 0, z - b.z1));
+      if (d < near) {
+        near = d;
+        best = p;
+      }
+    }
+    return best;
   }
 
   /** The box round everything on the board, or null if it is bare. */
@@ -295,7 +337,7 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
   }
 
   return {
-    pieces, add, remove, chop, turn, update, takeAll, bounds, still, box, clear,
+    pieces, add, remove, chop, turn, roll, update, takeAll, take, pieceAt, bounds, still, box, clear,
     get turning() { return Boolean(turning); },
     get chops() { return chops; },
     halfWidth, halfDepth,

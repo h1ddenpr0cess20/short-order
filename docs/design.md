@@ -155,14 +155,21 @@ outside, and from then on it is a piece like any other.
 
 ## The extras
 
-Grated cheese, diced tomato, ham, green pepper and onion, and snipped chives
-sit in ramekins along the counter, each heaped with bits of the same solids
-the pan gets. A handful goes in as small pieces
-([`food/fillings.js`](../src/food/fillings.js)), which slide, toss and cook
-like any others: they brown on the face that is down, and their middles cook
-through, which for onion and pepper is softening, for cheese melting — it
-slumps as it does. A fold takes every bit lying on the egg inside the
-omelette with it; a diner omelette shows flecks of them along its fold.
+A block of cheddar, a tomato, a thick slice of ham, a quarter of a green
+pepper, half an onion and a bunch of chives lie whole along the front of the
+counter ([`food/fillings.js`](../src/food/fillings.js)). Each is one or more
+closed solids — a box, a seamless sphere pushed into shape, a curved strip of
+pepper wall extruded front to back, six thin stalks — with a colour for its
+inside, so the knife cuts it exactly as it cuts the potato. Picked up, it goes
+onto the board whole, at the first place clear of whatever is there, the
+right-hand end first, out of the knife's way while a potato is diced.
+
+Its bits are pieces like any other: they slide, toss and cook in the pan,
+brown on the face that is down, and their middles cook through, which for
+onion and pepper is softening, for cheese melting — it slumps as it does. A
+fold takes every bit lying on the egg inside the omelette with it; a diner
+omelette shows flecks of them along its fold. One of each, as it comes off
+the counter, is a portion, and how much went in is weighed by volume.
 
 ## The menu
 
@@ -170,6 +177,13 @@ omelette with it; a diner omelette shows flecks of them along its fold.
 is on the counter (a potato or not), whether eggs go to the bowl or the pan,
 how it is folded, its par time, and its ticket — each step with a function
 from the game's measurements to a line, a bar and whether it is done.
+
+Freestyle is a dish too, with no par, a bare board — the potato waits on the
+counter with the extras, to be taken or left — and a ticket that only reads
+back what is happening: how well everything the knife has been at is cut, and what is
+in the pan and how far along it is. Its eggs go to the bowl, or to the pan if
+the cook drags one there; a toss turns a sheet that holds together and breaks
+one that does not; and it folds.
 
 ## The marking
 
@@ -201,7 +215,8 @@ both for the plate and for the ticket's running commentary:
 | time | from the first thing the cook did to the plate, against the dish's par |
 | fried eggs | per egg: the white set through, not glassy round the yolk, not brown and leathery; the yolk whole, runny, and turned or not as ordered |
 | omelette | French: just set inside, smooth, unbroken, and pale; diner: set through, golden at most, with its filling folded in |
-| extras | whether they suit the dish, whether onion and pepper were cooked and the cheese melted, how much, and — for a diner omelette — how much went inside |
+| extras | whether they suit the dish, how small they were cut, whether onion and pepper were cooked and the cheese melted, how much by volume, and — for a diner omelette — how much went inside |
+| freestyle | each part that is on the plate, marked as its own dish would mark it — potato, eggs as curds, fried, folded or flat, extras, seasoning — weighed by how much of the plate it is, with no clock |
 
 ## The picture
 

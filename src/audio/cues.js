@@ -12,6 +12,8 @@ export function wireSound({ game, sound }) {
     switch (e.type) {
       case 'chop': sound.play('chop', e.cut > 0); break;
       case 'turn': sound.play('scrape'); break;
+      case 'roll': sound.play('scrape'); break;
+      case 'trim': sound.play('scrape'); break;
       case 'pickup': sound.play('scrape'); break;
       case 'scrape': sound.play('scrape'); break;
       case 'add': sound.play('splash', heat(), e.count / 10); break;
@@ -24,6 +26,7 @@ export function wireSound({ game, sound }) {
       case 'yolk-flip': sound.play('flip'); break;
       case 'yolk-turn': sound.play('flip'); break;
       case 'fold': sound.play('flip'); break;
+      case 'extra': sound.play('land', 0); break;
       case 'whisk':
         whiskTick += e.speed;
         if (whiskTick > 0.35) {

@@ -193,49 +193,29 @@ export function buildSaltDish(GFX) {
 }
 
 /**
- * A little ramekin of one of the extras, cut and ready: cream china with a
- * gilt rim, heaped with bits of it. `bits(random)` makes one bit's solid, the
- * same kind the pan gets, so what is in the dish is what goes in the pan.
+ * One of the extras, whole, sitting on the counter waiting for the knife: the
+ * same solids that go onto the board when it is picked up, at the same size,
+ * so what is on the counter is what gets cut. Stood on the counter round its
+ * own middle; `size` is its footprint and height, for reaching for it.
  */
-export function buildRamekin(GFX, { name, bits, count = 26 }) {
-  const { gold, cream, green } = finishes(GFX);
-  const outside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
-    [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
-  ]), 32), cream);
-  outside.name = `ramekin-${name}`;
-  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
-    [0.88, 0.84], [0.8, 0.82], [0.76, 0.3], [0.6, 0.2], [0, 0.18],
-  ]), 32), cream);
-  inside.name = `ramekin-${name}-inside`;
-  const band = new GFX.Mesh(new GFX.CylinderGeometry(0.865, 0.85, 0.12, 32, 1, true), green);
-  band.name = `ramekin-${name}-band`;
-  band.position.y = 0.6;
-  const rim = new GFX.Mesh(new GFX.TorusGeometry(0.86, 0.035, 8, 40), gold);
-  rim.name = `ramekin-${name}-rim`;
-  rim.rotation.x = Math.PI / 2;
-  rim.position.y = 0.84;
-
-  /** The heap: bits dropped in one on another, merged into one mesh. */
-  let seed = name.length * 977;
-  const random = () => {
-    seed = (seed * 16807) % 2147483647;
-    return seed / 2147483647;
-  };
-  const pos = [], nrm = [], col = [];
-  for (let n = 0; n < count; n++) {
-    const solid = bits(random);
-    const a = random() * Math.PI * 2, r = Math.sqrt(random()) * 0.6;
-    const ox = Math.cos(a) * r, oz = Math.sin(a) * r, oy = 0.3 + (1 - r / 0.6) * 0.35 + random() * 0.18;
-    const yaw = random() * Math.PI, tip = (random() - 0.5) * 0.8;
-    const c = Math.cos(yaw), sn = Math.sin(yaw), ct = Math.cos(tip), st = Math.sin(tip);
-    const turn = (x, y, z) => {
-      const y1 = y * ct - z * st, z1 = y * st + z * ct;
-      return [x * c + z1 * sn, y1, -x * sn + z1 * c];
-    };
+export function buildWhole(GFX, { name, solids }) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const solid of solids) {
     for (let i = 0; i < solid.pos.length; i += 3) {
-      const p = turn(solid.pos[i], solid.pos[i + 1], solid.pos[i + 2]);
-      pos.push(p[0] + ox, p[1] + oy, p[2] + oz);
-      nrm.push(...turn(solid.nrm[i], solid.nrm[i + 1], solid.nrm[i + 2]));
+      x0 = Math.min(x0, solid.pos[i]);
+      x1 = Math.max(x1, solid.pos[i]);
+      y0 = Math.min(y0, solid.pos[i + 1]);
+      y1 = Math.max(y1, solid.pos[i + 1]);
+      z0 = Math.min(z0, solid.pos[i + 2]);
+      z1 = Math.max(z1, solid.pos[i + 2]);
+    }
+  }
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  const pos = [], nrm = [], col = [];
+  for (const solid of solids) {
+    for (let i = 0; i < solid.pos.length; i += 3) {
+      pos.push(solid.pos[i] - cx, solid.pos[i + 1] - y0, solid.pos[i + 2] - cz);
+      nrm.push(solid.nrm[i], solid.nrm[i + 1], solid.nrm[i + 2]);
       col.push(solid.col[i], solid.col[i + 1], solid.col[i + 2]);
     }
   }
@@ -244,13 +224,51 @@ export function buildRamekin(GFX, { name, bits, count = 26 }) {
   geometry.setAttribute('normal', new GFX.BufferAttribute(Float32Array.from(nrm), 3));
   geometry.setAttribute('color', new GFX.BufferAttribute(Float32Array.from(col), 3));
   geometry.computeBoundingSphere?.();
-  const heap = new GFX.Mesh(geometry, new GFX.MeshStandardMaterial({ name: `heap-${name}`, vertexColors: true, roughness: 0.6, metalness: 0 }));
-  heap.name = `heap-${name}`;
+  const mesh = new GFX.Mesh(geometry, new GFX.MeshPhysicalMaterial({
+    name: `whole-${name}`, vertexColors: true, roughness: 0.55, metalness: 0, clearcoat: 0.3, clearcoatRoughness: 0.4,
+  }));
+  mesh.name = `whole-${name}`;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  const group = new GFX.Group();
+  group.name = `extra-${name}`;
+  group.add(mesh);
+  return { group, size: [x1 - x0, y1 - y0, z1 - z0] };
+}
 
+/**
+ * An empty ramekin, for whatever the cook has cut and wants to keep apart
+ * until it goes in the pan: cream china with a green band and a gilt rim,
+ * `radius` across the rim. Its contents hang off `group`, in its own frame,
+ * standing on `floor`.
+ */
+export function buildRamekin(GFX, { name, radius = 1.5 }) {
+  const { gold, cream, green } = finishes(GFX);
+  const outside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
+    [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
+  ]), 40), cream);
+  outside.name = `ramekin-${name}`;
+  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
+    [0.88, 0.84], [0.8, 0.82], [0.76, 0.3], [0.6, 0.2], [0, 0.18],
+  ]), 40), cream);
+  inside.name = `ramekin-${name}-inside`;
+  const band = new GFX.Mesh(new GFX.CylinderGeometry(0.865, 0.85, 0.12, 40, 1, true), green);
+  band.name = `ramekin-${name}-band`;
+  band.position.y = 0.6;
+  const rim = new GFX.Mesh(new GFX.TorusGeometry(0.86, 0.035, 8, 48), gold);
+  rim.name = `ramekin-${name}-rim`;
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.84;
+  for (const m of [outside, inside, band, rim]) m.receiveShadow = true;
+  /** Drawn at the size of the little one, and grown: the china, not what goes in it. */
+  const k = radius / 0.88;
+  const china = new GFX.Group();
+  china.scale.set(k, k * 0.8, k);
+  china.add(outside, inside, band, rim);
   const group = new GFX.Group();
   group.name = `ramekin-${name}`;
-  group.add(outside, inside, band, rim, heap);
-  return { group, height: 1.0 };
+  group.add(china);
+  return { group, radius, floor: 0.18 * k * 0.8, inner: 0.76 * k };
 }
 
 /** How many pats there are in a stick of butter. */
