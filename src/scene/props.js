@@ -335,8 +335,7 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
   group.add(china);
   /**
    * What is poured in piles on its floor, which curves up into the side, and
-   * on over the rim if there is a lot of it; the middle of every piece is
-   * inside, but a heap can spill over the rim.
+   * on up over the rim and off onto the counter if there is a lot of it.
    */
   const wellAt = floorFrom(well.map(([r, y]) => [r * k, y * k * DEEP]));
   const dish = {
@@ -344,8 +343,6 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
     holds: (x, z) => Math.hypot(x, z) <= 0.7 * k,
     centre: [0, 0],
     spread: 0.3,
-    /** Heaped up over the rim, as much as it will take, and no more. */
-    brim: 0.84 * k * DEEP + 0.8,
   };
   return { group, radius, dish };
 }

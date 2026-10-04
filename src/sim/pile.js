@@ -101,6 +101,14 @@ export function profile(piece) {
     lo.push(e.min[1]);
     hi.push(e.max[1]);
   }
+  /**
+   * A soft strand — a shred of potato or cheese — gives under what lands on
+   * it: strands drape and tangle into one another rather than stacking like
+   * sticks, so what lies on one sinks most of the way into it. Its own
+   * underside is where it is.
+   */
+  if (piece.shred) for (let m = 0; m < hi.length; m++) hi[m] = lo[m] + (hi[m] - lo[m]) * 0.2;
+
   /** The columns again as a little table over the box round them, for finding one quickly. */
   let i0 = Infinity, i1 = -Infinity, j0 = Infinity, j1 = -Infinity;
   for (let m = 0; m < I.length; m++) {
@@ -176,10 +184,21 @@ export function restOn(piece, others, { base = FLAT, under = null, landing = fal
     }
   }
   /** Never with its very lowest point below the lowest of the floor under it: the columns can miss a corner between them. */
-  let y = -Infinity, low = Infinity;
+  let y = -Infinity, low = Infinity, floorY = -Infinity;
   for (let m = 0; m < n; m++) {
     y = Math.max(y, top[m] - a.lo[m]);
-    low = Math.min(low, base((ai[m] + 0.5) * CELL, (aj[m] + 0.5) * CELL));
+    const b = base((ai[m] + 0.5) * CELL, (aj[m] + 0.5) * CELL);
+    low = Math.min(low, b);
+    floorY = Math.max(floorY, b - a.lo[m]);
+  }
+  if (piece.shred && n > 4) {
+    /**
+     * A shred is limp: it drapes over what is under it, sagging between the
+     * high points rather than bridging them, so it lies at the height most of
+     * it is held up at — never into the floor.
+     */
+    const needs = Array.from({ length: n }, (_, m) => top[m] - a.lo[m]).sort((p, q) => p - q);
+    y = Math.max(floorY, needs[Math.floor(n * 0.6)]);
   }
   y = Math.max(y, low - ea.min[1]);
 
@@ -331,16 +350,17 @@ function gauss(random) {
  * up, runs down any slope steeper than a heap stands — off the top of a
  * column, down the side of a mound — and rattles down into any hollow close
  * by, the way poured dice pack; so long as its middle stays where `holds`
- * allows. Leaves it resting there, and gives what it is resting on.
+ * allows. Not `slump`, it only slides off what it hangs from. Leaves it
+ * resting there, and gives what it is resting on.
  */
-export function settleIn(piece, placed, { base = FLAT, holds = () => true } = {}) {
+export function settleIn(piece, placed, { base = FLAT, holds = () => true, slump = true } = {}) {
   /**
    * Long thin strips — grated cheese, shredded potato — catch on each other
    * and stand in a fluffy heap, steeper, and do not rattle down into gaps.
    */
   const [short, mid, long] = dimensions(piece).sort((a, b) => a - b);
   const strands = long > mid * 2.5 && long > short * 3;
-  const repose = strands ? 1.4 : REPOSE;
+  const repose = strands ? 0.95 : REPOSE;
   const index = placed instanceof Nearby ? placed : new Nearby(placed);
   const at = (x, z) => {
     piece.pos[0] = x;
@@ -369,9 +389,10 @@ export function settleIn(piece, placed, { base = FLAT, holds = () => true } = {}
     return { x, z, r };
   };
   let here = slide(piece.pos[0], piece.pos[2], at(piece.pos[0], piece.pos[2]));
-  for (let moves = 0; moves < 60; moves++) {
+  for (let moves = 0; slump && moves < 60; moves++) {
     let best = null, most = 0;
-    for (const reach of [step * 0.5, step, step * 2.5]) {
+    /** Close by, for hollows; and a couple of its own sizes off, for the lie of the heap as a whole, not just the lump it is on. */
+    for (const reach of strands ? [step, size * 1.2] : [step * 0.5, step, step * 2.5, size * 2]) {
       for (let k = 0; k < 8; k++) {
         const a = ((k + (reach === step ? 0.5 : 0)) / 8) * Math.PI * 2, nx = here.x + snap(Math.cos(a) * reach), nz = here.z + snap(Math.sin(a) * reach);
         if (nx === here.x && nz === here.z) continue;
@@ -415,45 +436,30 @@ export function lieDown(piece, placed, base = FLAT) {
  * Each piece tumbles as it lands, slides off whatever it is not held up by,
  * runs down any slope steeper than a heap stands, and lies along the slope of
  * what it ends up on: a pile, mounded in the middle. Sets each piece's `pos`
- * and `rot`.
- *
- * A dish with a `brim` holds only so much: a piece that would come to rest
- * higher than that does not go in, and nor does anything after it. Gives back
- * what did not fit, as it was. `under` may be a `Nearby` of what is there,
- * kept for the next pour; what is poured goes into it.
+ * and `rot`. However much there is, it all goes: a pile just gets bigger.
+ * `under` may be a `Nearby` of what is there, kept for the next pour; what
+ * is poured goes into it.
  */
 export function pour(list, dish, under = [], random = Math.random) {
-  const { base = FLAT, holds = () => true, centre = [0, 0], spread = 0.4, brim = Infinity } = dish;
+  const { base = FLAT, holds = () => true, centre = [0, 0], spread = 0.4 } = dish;
   const placed = under instanceof Nearby ? under : new Nearby(under);
-  for (const [n, piece] of list.entries()) {
-    const was = { pos: [...piece.pos], rot: [...piece.rot] };
-    /** Over the brim, it goes in again another way; a few times over the brim, and it is full. */
-    let fits = false;
-    for (let tries = 0; tries < (brim < Infinity ? 4 : 1) && !fits; tries++) {
-      tumble(piece, random);
-      let x = centre[0], z = centre[1];
-      for (let t = 0; t < 12; t++) {
-        const nx = centre[0] + gauss(random) * spread, nz = centre[1] + gauss(random) * spread;
-        if (holds(nx, nz)) {
-          x = nx;
-          z = nz;
-          break;
-        }
+  for (const piece of list) {
+    tumble(piece, random);
+    let x = centre[0], z = centre[1];
+    for (let t = 0; t < 12; t++) {
+      const nx = centre[0] + gauss(random) * spread, nz = centre[1] + gauss(random) * spread;
+      if (holds(nx, nz)) {
+        x = nx;
+        z = nz;
+        break;
       }
-      piece.pos = [x, 0, z];
-      settleIn(piece, placed, { base, holds });
-      lieDown(piece, placed, base);
-      fits = piece.pos[1] + extents(piece).max[1] <= brim;
     }
-    if (!fits) {
-      piece.pos = was.pos;
-      piece.rot = was.rot;
-      piece.version += 1;
-      return list.slice(n);
-    }
+    piece.pos = [x, 0, z];
+    settleIn(piece, placed, { base, holds });
+    lieDown(piece, placed, base);
     placed.add(piece);
   }
-  return [];
+  return list;
 }
 
 /**
@@ -473,6 +479,8 @@ export function floorFrom(profile) {
 
 /** Whether two pieces are in each other anywhere, by more than `by`: for checking. */
 export function inEachOther(a, b, by = 0.04) {
+  /** Strands tangle into each other; that is not one inside another. */
+  if (a.shred && b.shred) return false;
   const pa = profile(a), pb = profile(b);
   for (let m = 0; m < pa.I.length; m++) {
     const k = cell(pb, pa.I[m] + pa.di, pa.J[m] + pa.dj);

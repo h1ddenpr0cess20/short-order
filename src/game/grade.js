@@ -499,9 +499,16 @@ function gradeFree(data) {
   const curds = pieces.filter((p) => p.kind === 'egg' && !p.omelette && !p.fried);
 
   if (potato.length) {
-    const dice = diceReport(potato), fry = fryReport(potato);
-    add('dice', 'dice', dice.score, diceNote(dice, potato.length), 0.16);
-    add('fry', 'fry', fry.score, fryNote(fry, potato.length), 0.24);
+    const fry = fryReport(potato);
+    /** Mostly through the grater, it is hash browns: not dice at all, and marked on how it fried. */
+    const volume = (list) => list.reduce((a, p) => a + p.volume, 0);
+    if (volume(potato.filter((p) => p.shred)) > 0.5 * volume(potato)) {
+      add('fry', 'hash browns', fry.score, fryNote(fry, potato.length), 0.4);
+    } else {
+      const dice = diceReport(potato);
+      add('dice', 'dice', dice.score, diceNote(dice, potato.length), 0.16);
+      add('fry', 'fry', fry.score, fryNote(fry, potato.length), 0.24);
+    }
   }
   if (fried.length) {
     /** Turned or not, whichever most of them were: that is how they were meant. */

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import * as GFX from '../src/vendor/gfx/index.js';
 
-import { shredSolids, wholeSolids } from '../src/food/fillings.js';
+import { HASH, shredSolids, wholeSolids } from '../src/food/fillings.js';
 import { FLESH } from '../src/food/index.js';
 import { potatoSolid } from '../src/food/potato.js';
 import { plateDish } from '../src/scene/cookware.js';
@@ -62,58 +62,46 @@ function dicedPotato() {
 const shreds = (kind, volume) => shredSolids(kind, volume).map((solid) => makePiece({ solid, kind }));
 
 describe('a pile in a ramekin', () => {
-  const { dish } = buildRamekin(GFX, { name: 'test', radius: 1.5 });
+  const { dish, radius } = buildRamekin(GFX, { name: 'test', radius: 1.5 });
   const rim = dish.base(1.5, 0) - 0.01;
+  /** As the kitchen pours into one: heaping up over the rim and off onto the counter round it. */
+  const spill = { ...dish, holds: (x, z) => Math.hypot(x, z) <= radius * 1.8 };
 
-  it('heaps diced potato in a mound, nothing in anything else, and takes no more than it holds', () => {
+  it('takes a whole diced potato, all of it, in a heap spilling over the rim — not a tower', () => {
     const dice = dicedPotato();
-    const over = pour(dice, dish, [], seeded(1));
-    const kept = dice.filter((p) => !over.includes(p));
-    assert.ok(kept.length >= 30, `only ${kept.length} dice went in`);
-    assert.ok(over.length > 0, 'a whole potato, diced, should not all fit in one ramekin');
-    assert.equal(clash(kept), null, 'two dice are in each other');
-    assert.ok(highest(kept) <= dish.brim + 1e-6, 'heaped up past the brim');
-    for (const p of kept) assert.ok(dish.holds(p.pos[0], p.pos[2]), 'a piece is outside the dish');
-    /** Heaped up in the middle, over the rim, the wall holding up what is against it. */
-    const middle = kept.filter((p) => Math.hypot(p.pos[0], p.pos[2]) < 0.9), side = kept.filter((p) => Math.hypot(p.pos[0], p.pos[2]) >= 0.9);
-    assert.ok(middle.length && side.length && highest(side) < highest(middle) + 0.15, 'it is piled up against the wall, higher than in the middle');
-    assert.ok(highest(kept) > rim, 'it is not heaped over the rim');
-    /** And the bottom of the dish is covered before anything is heaped up over the rim. */
-    assert.ok(kept.filter((p) => bottom(p) < rim * 0.5).length >= 10, 'the floor of the dish is not covered');
-  });
-
-  it('gives back exactly what did not go in, as it was', () => {
-    const dice = dicedPotato();
-    const before = dice.map((p) => [...p.pos]);
-    const over = pour(dice, dish, [], seeded(2));
-    for (const p of over) assert.deepEqual(p.pos, before[dice.indexOf(p)]);
+    assert.equal(pour(dice, spill, [], seeded(1)).length, dice.length);
+    assert.equal(clash(dice), null, 'two dice are in each other');
+    for (const p of dice) assert.ok(spill.holds(p.pos[0], p.pos[2]), 'a piece went off somewhere else');
+    assert.ok(dice.some((p) => Math.hypot(p.pos[0], p.pos[2]) > radius), 'that much should spill over the rim');
+    assert.ok(highest(dice) < rim + 2.2, `a tower ${highest(dice).toFixed(2)} high`);
+    /** Heaped up in the middle, the wall holding up what is against it. */
+    const middle = dice.filter((p) => Math.hypot(p.pos[0], p.pos[2]) < 0.9), side = dice.filter((p) => Math.hypot(p.pos[0], p.pos[2]) >= 0.9);
+    assert.ok(highest(side) < highest(middle) + 0.15, 'it is piled up round the side, higher than in the middle');
+    assert.ok(dice.filter((p) => bottom(p) < rim * 0.5).length >= 10, 'the floor of the dish is not covered');
   });
 
   it('lets a slice lie in a ramekin as a slice does, flat or leaning, never on its edge', () => {
-    const slices = sliceUp(makePiece({ solid: potatoSolid(), kind: 'potato' }), 0.2, FLESH.potato);
-    const over = pour(slices, dish, [], seeded(3));
-    const kept = slices.filter((p) => !over.includes(p));
-    assert.ok(kept.length >= 3);
-    assert.equal(clash(kept), null);
-    for (const p of kept) {
+    const slices = sliceUp(makePiece({ solid: wholeSolids('cheese')[0], kind: 'cheese' }), 0.2, FLESH.cheese);
+    pour(slices, spill, [], seeded(3));
+    assert.equal(clash(slices), null);
+    for (const p of slices) {
       const e = extents(p);
       assert.ok(e.max[1] - e.min[1] < Math.max(...dimensions(p)) * 0.75, 'a slice is standing on its edge');
     }
   });
 
-  it('heaps grated cheese loosely, each shred on those under it', () => {
+  it('heaps grated cheese loosely in it', () => {
     const cheese = shreds('cheese', 2.1);
-    const over = pour(cheese, dish, [], seeded(4));
-    const kept = cheese.filter((p) => !over.includes(p));
-    assert.equal(clash(kept), null);
-    assert.ok(highest(kept) > dish.base(0, 0) + 0.4, 'the shreds all lie flat on the floor of the dish');
+    pour(cheese, spill, [], seeded(4));
+    assert.ok(highest(cheese) > dish.base(0, 0) + 0.3, 'the shreds all lie flat on the floor of the dish');
+    for (const p of cheese) assert.ok(bottom(p) > dish.base(Math.hypot(p.pos[0], p.pos[2]) < 1.0 ? 0 : 9, 0) - 0.02, 'a shred is through the dish');
   });
 });
 
 describe('a pile on a plate', () => {
   it('falls in a mound in the well, nothing in anything else or through the plate', () => {
     const dice = dicedPotato();
-    assert.deepEqual(pour(dice, plateDish, [], seeded(5)), [], 'a plate takes it all');
+    assert.equal(pour(dice, plateDish, [], seeded(5)).length, dice.length);
     assert.equal(clash(dice), null);
     for (const p of dice) assert.ok(bottom(p) >= plateDish.floor(0) - 0.02, 'a piece is through the plate');
     const h = highest(dice);
@@ -156,26 +144,39 @@ describe('a pile on the board', () => {
 
   it('sets a pile from a ramekin down as a heap, not a tower', () => {
     const { dish } = buildRamekin(GFX, { name: 'test', radius: 1.5 });
-    const dice = dicedPotato();
-    const over = pour(dice, dish, [], seeded(6));
-    const kept = dice.filter((p) => !over.includes(p));
+    const dice = dicedPotato().slice(0, 60);
+    pour(dice, dish, [], seeded(6));
     const board = createBoard();
-    board.lay(kept);
+    board.lay(dice);
     run(board, 3);
     assert.equal(clash(board.pieces), null);
     assert.ok(highest(board.pieces) < 1.8, `${highest(board.pieces).toFixed(2)} high`);
   });
 
-  it('pours grated cheese out in a heap: thicker than one shred, nowhere near a tower', () => {
+  it('grates a potato into a heap of hash-brown strands: a mound, not a tower, not a carpet', () => {
     const board = createBoard();
-    const cheese = shreds('cheese', 2.1);
-    pour(cheese, { centre: [0, 0], spread: 0.45, holds: (x, z) => Math.abs(x) < 6.8 && Math.abs(z) < 4.5 }, [], seeded(7));
-    for (const p of cheese) board.lay([p], { slump: false });
-    run(board, 2);
-    const thick = Math.max(...cheese.map((p) => Math.min(...dimensions(p))));
-    assert.ok(highest(board.pieces) > thick * 4, 'the shreds all lie flat');
-    assert.ok(highest(board.pieces) < 1.5, 'the shreds stand up in a tower');
-    assert.equal(clash(board.pieces), null);
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    const strands = shredSolids('potato', volume, seeded(7), { flesh: FLESH.potato, ...HASH }).map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
+    for (let i = 0; i < strands.length; i += 2) {
+      const some = strands.slice(i, i + 2);
+      pour(some, { centre: [0, 0], spread: 0.5, holds: (x, z) => Math.abs(x) < 6.9 && Math.abs(z) < 4.6 }, board.pieces, seeded(100 + i));
+      for (const p of some) board.lay([p], { slump: false, settled: true });
+    }
+    run(board, 1);
+    const h = highest(board.pieces);
+    assert.ok(h > 0.8 && h < 3, `a heap ${h.toFixed(2)} high`);
+    const middle = board.pieces.filter((p) => Math.hypot(p.pos[0], p.pos[2]) < 1.5).length;
+    assert.ok(middle > strands.length * 0.4, 'it is spread over the board, not heaped');
+    for (const p of board.pieces) assert.ok(bottom(p) > -0.02, 'a strand is in the board');
+  });
+
+  it('holds still once it has settled: nothing on the board moves', () => {
+    const board = createBoard();
+    for (const p of dicedPotato().slice(0, 50)) board.lay([p]);
+    run(board, 3);
+    const was = board.pieces.map((p) => [...p.pos]);
+    run(board, 3);
+    board.pieces.forEach((p, i) => assert.deepEqual(p.pos, was[i], 'a piece moved by itself'));
   });
 
   it('keeps a whole tomato off the dice it is put down on', () => {
@@ -200,11 +201,15 @@ describe('the slicing side of the grater', () => {
     for (const p of slices) assert.ok(Math.min(...dimensions(p)) < 0.3 && !p.whole);
   });
 
-  it('grates a potato into shreds of potato, all of it', () => {
+  it('grates a potato into long thin strands for hash browns, all of it', () => {
     const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
-    const strips = shredSolids('potato', volume, Math.random, { flesh: FLESH.potato, most: 220, long: 1.5 }).map((solid) => makePiece({ solid, kind: 'potato' }));
-    assert.ok(strips.length > 150);
-    assert.ok(Math.abs(strips.reduce((a, p) => a + p.volume, 0) - volume) / volume < 1e-3);
-    for (const p of strips) assert.ok(Math.min(...dimensions(p)) < 0.3, 'a shred is a chunk');
+    const strands = shredSolids('potato', volume, Math.random, { flesh: FLESH.potato, ...HASH }).map((solid) => makePiece({ solid, kind: 'potato' }));
+    assert.ok(strands.length >= 200);
+    assert.ok(Math.abs(strands.reduce((a, p) => a + p.volume, 0) - volume) / volume < 1e-3, 'some of the potato went missing');
+    for (const p of strands) {
+      const [thin, , long] = dimensions(p).sort((a, b) => a - b);
+      assert.ok(thin < 0.2, `a strand ${thin.toFixed(2)} thick is a chip, not a shred`);
+      assert.ok(long > 1.4, 'a strand is a stub');
+    }
   });
 });

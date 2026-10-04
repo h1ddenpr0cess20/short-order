@@ -116,6 +116,36 @@ function box([w, h, d], colour) {
 }
 
 /**
+ * A strand off a box grater: `l` long, `t` thick, `w` wide, lying on y = 0
+ * along x and curling round sideways as it goes, its ends `curl` out of line
+ * with its middle — the way a shred of potato comes off the grater.
+ */
+function strand([l, t, w], curl, colour, segments = 8) {
+  const m = faces();
+  const ring = (i) => {
+    const s = -l / 2 + (l * i) / segments;
+    const z = curl * ((2 * s) / l) ** 2, slope = (8 * curl * s) / (l * l);
+    const n = Math.hypot(1, slope), side = [-slope / n, 0, 1 / n];
+    const at = (k, y) => [s + side[0] * k * w / 2, y, z + side[2] * k * w / 2];
+    return { side, along: [1 / n, 0, slope / n], bl: at(-1, 0), br: at(1, 0), tl: at(-1, t), tr: at(1, t) };
+  };
+  const rings = Array.from({ length: segments + 1 }, (_, i) => ring(i));
+  const quad = (pts, n) => m.face(pts, n, pts.map((p) => colour(...p)));
+  for (let i = 0; i < segments; i++) {
+    const a = rings[i], b = rings[i + 1];
+    const side = [(a.side[0] + b.side[0]) / 2, 0, (a.side[2] + b.side[2]) / 2];
+    quad([a.tl, b.tl, b.tr, a.tr], [0, 1, 0]);
+    quad([a.bl, a.br, b.br, b.bl], [0, -1, 0]);
+    quad([a.br, a.tr, b.tr, b.br], side);
+    quad([a.bl, b.bl, b.tl, a.tl], [-side[0], 0, -side[2]]);
+  }
+  const first = rings[0], last = rings[segments];
+  quad([first.bl, first.tl, first.tr, first.br], first.along.map((v) => -v));
+  quad([last.bl, last.br, last.tr, last.tl], last.along);
+  return m.solid();
+}
+
+/**
  * A round thing: a sphere with no seam, each pole one vertex, every direction
  * pushed out to `point(dir)` and painted `colour(dir)`.
  */
@@ -281,18 +311,35 @@ export const SHRED = Object.freeze({ thick: 0.13, wide: 0.2, long: 0.9, most: 90
 /**
  * `volume` of `kind` through the grater: thin strips, as many as it makes —
  * up to `most` of them, thicker if there would be more — each lying flat at
- * the origin, its length along x, about `long` long. `random` gives each its
- * own length, and `flesh` their colour, for a kind that is not one of the
- * extras.
+ * the origin, its length along x, about `long` long, about `thick` by `wide`
+ * across, and curling round sideways by up to `curl` of its length. `random`
+ * gives each its own length and curl, and `flesh` their colour, for a kind
+ * that is not one of the extras.
  */
-export function shredSolids(kind, volume, random = Math.random, { flesh = FILLING_FLESH[kind] ?? (() => FILLINGS[kind].colour), most = SHRED.most, long = SHRED.long } = {}) {
-  const one = SHRED.thick * SHRED.wide * long;
+export function shredSolids(kind, volume, random = Math.random, {
+  flesh = FILLING_FLESH[kind] ?? (() => FILLINGS[kind].colour), most = SHRED.most, long = SHRED.long, thick = SHRED.thick, wide = SHRED.wide, curl = 0,
+} = {}) {
+  const one = thick * wide * long;
   const n = Math.max(3, Math.min(most, Math.round(volume / one)));
   const lengths = Array.from({ length: n }, () => long * (0.6 + 0.62 * random()));
   /** Thickened or thinned all alike so that, between them, the strips are all there was. */
-  const k = Math.sqrt(volume / (SHRED.thick * SHRED.wide * lengths.reduce((a, b) => a + b, 0)));
-  return lengths.map((l) => box([l, SHRED.thick * k, SHRED.wide * k], (x, y, z) => flesh(x, y, z)));
+  const k = Math.sqrt(volume / (thick * wide * lengths.reduce((a, b) => a + b, 0)));
+  const colour = (x, y, z) => flesh(x, y, z);
+  const strips = lengths.map((l) => (curl
+    ? strand([l, thick * k, wide * k], (random() - 0.5) * 2 * curl * l, colour)
+    : box([l, thick * k, wide * k], colour)));
+  if (!curl) return strips;
+  /** Curled, they are a touch more or less than straight ones would be: made exactly all there was, by their thickness. */
+  const made = strips.reduce((a, s) => a + measure(s).volume, 0), r = volume / made;
+  for (const s of strips) for (let i = 1; i < s.pos.length; i += 3) s.pos[i] *= r;
+  return strips;
 }
+
+/**
+ * A potato through a box grater: long, curling strands a few millimetres
+ * across, a couple of hundred of them — what hash browns are made of.
+ */
+export const HASH = Object.freeze({ thick: 0.1, wide: 0.13, long: 2.6, curl: 0.22, most: 220 });
 
 /**
  * How much one of each is, by volume: a portion. Twice that on a plate is

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { measure } from '../src/geometry/slice.js';
 import { curdSolid, friedSolid, omeletteSolid } from '../src/food/curd.js';
-import { FILLINGS, FILLING_KINDS, PORTION, wholeSolids } from '../src/food/fillings.js';
+import { FILLINGS, FILLING_KINDS, HASH, PORTION, shredSolids, wholeSolids } from '../src/food/fillings.js';
 import { FLESH } from '../src/food/index.js';
 import { potatoSolid } from '../src/food/potato.js';
 import { DISHES, MENU, ticket } from '../src/game/dishes.js';
@@ -404,6 +404,19 @@ describe('freestyle', () => {
     const r = gradeDish(DISHES.free, { pieces: extras, seconds: 60 });
     assert.deepEqual(r.parts.map((p) => p.key), ['extras', 'season']);
     assert.ok(r.parts[0].score > 70, `${r.parts[0].score}: ${r.parts[0].note}`);
+  });
+
+  it('marks a grated potato, fried, as hash browns: on how it fried, not as badly diced', () => {
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    const strands = shredSolids('potato', volume, seeded(9), { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true, core: 1, moisture: 0 }));
+    for (const p of strands) p.brown.fill(1);
+    const r = gradeDish(DISHES.free, { pieces: strands, seconds: 300 });
+    const keys = r.parts.map((p) => p.key);
+    assert.ok(!keys.includes('dice'), 'hash browns are not marked as dice');
+    const fry = r.parts.find((p) => p.key === 'fry');
+    assert.equal(fry.label, 'hash browns');
+    assert.ok(fry.score > 70, `${fry.score}: ${fry.note}`);
   });
 });
 
