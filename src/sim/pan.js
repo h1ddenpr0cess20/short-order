@@ -14,6 +14,7 @@
  * side and raw on five.
  */
 
+import { FILLINGS } from '../food/fillings.js';
 import { COOK_RADIUS, FLAT, LIP_RADIUS, floorHeight, floorSlope } from '../scene/pan.js';
 import { browning, cooking, createHeat, spread } from './heat.js';
 import { SIDES, extents, sideWeights } from './piece.js';
@@ -61,6 +62,18 @@ const SETTLE_TIME = 0.09;
  * over the floor keeps them from the iron and they brown far slower.
  */
 export const BUTTER = Object.freeze({ fat: 0.4, melt: 600, brownFrom: 140, brownTime: 14, burnt: 1.6 });
+
+/**
+ * Cheese does not cook, it melts: it starts to give well below anything
+ * frying, and a bit of it on a hot pan runs in a few seconds. In liquid egg,
+ * or folded inside an omelette, it only gets as hot as the egg does.
+ */
+export const MELT = Object.freeze({ from: 50, span: 60, time: 20, egg: 78 });
+const melting = (t) => Math.max(0, (t - MELT.from) / MELT.span);
+const melts = (piece) => Boolean(FILLINGS[piece.kind]?.melts);
+
+/** Melted far enough that it slumps and sticks rather than tumbling over like a block. */
+export const runny = (piece) => melts(piece) && piece.core > 0.5;
 
 /** Pieces further out than this are over the edge of the pan. */
 const OUT = COOK_RADIUS + 0.4;
@@ -272,7 +285,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
       s.vel[0] += (ux * speed - s.vel[0]) * 0.55;
       s.vel[2] += (uz * speed - s.vel[2]) * 0.55;
       moved += 1;
-      if (!s.settle && random() < Math.min(0.9, len * 0.5)) {
+      if (!s.settle && !runny(piece) && random() < Math.min(0.9, len * 0.5)) {
         /** Rolled forward onto the side it was being pushed toward. */
         const roll = axisAngle([uz, 0, -ux], Math.PI / 2);
         s.settle = { from: [...piece.rot], to: normalize(multiply(roll, piece.rot)), t: 0 };
@@ -474,7 +487,14 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
 
       const thick = Math.min(e.max[0] - e.min[0], e.max[1] - e.min[1], e.max[2] - e.min[2]);
       const pace = Math.min(2.5, (DICE / Math.max(0.15, thick)) ** 1.6);
-      piece.core = Math.min(1.5, piece.core + (cooking(t) / CORE_TIME) * pace * dt);
+      if (melts(piece)) {
+        const warm = t + (Math.min(t, MELT.egg) - t) * bathed;
+        piece.core = Math.min(1.5, piece.core + (melting(warm) / MELT.time) * Math.sqrt(pace) * dt);
+      } else piece.core = Math.min(1.5, piece.core + (cooking(t) / CORE_TIME) * pace * dt);
+      /** Whatever is folded inside an omelette keeps warming with it. */
+      for (const bit of piece.inside ?? []) {
+        if (melts(bit)) bit.core = Math.min(1.5, bit.core + (melting(Math.min(t, MELT.egg)) / MELT.time) * 0.6 * dt);
+      }
       piece.moisture = Math.max(0, piece.moisture - (cooking(t) / DRY_TIME) * pace * dt);
 
       if (oil <= 0.12 && Math.hypot(s.vel[0], s.vel[2]) < 0.05) s.stuck += dt * browning(t);
