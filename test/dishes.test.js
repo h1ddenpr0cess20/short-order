@@ -369,6 +369,7 @@ describe('freestyle', () => {
   it('marks whatever is on the plate, the way its own dish would, with no clock and no shortfall', () => {
     const r = gradeDish(DISHES.free, { pieces: [omelette(1.1, 0.5)], seconds: 3600, eggs: 2, beaten: 1 });
     assert.deepEqual(r.parts.map((p) => p.key), ['omelette', 'season']);
+    assert.equal(r.time.seconds, 3600, 'the ticket\'s clock stops at the plate, even with no par');
     assert.ok(r.parts[0].score > 80, `two eggs is a fine omelette freestyle: ${r.parts[0].score}`);
     assert.ok(Math.abs(r.parts.reduce((a, p) => a + p.weight, 0) - 1) < 1e-9);
   });

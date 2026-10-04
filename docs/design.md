@@ -156,7 +156,7 @@ outside, and from then on it is a piece like any other.
 ## The extras
 
 A block of cheddar, a tomato, a thick slice of ham, a quarter of a green
-pepper, half an onion and a bunch of chives sit whole in ramekins along the
+pepper, half an onion and a bunch of chives lie whole along the front of the
 counter ([`food/fillings.js`](../src/food/fillings.js)). Each is one or more
 closed solids — a box, a seamless sphere pushed into shape, a curved strip of
 pepper wall extruded front to back, six thin stalks — with a colour for its

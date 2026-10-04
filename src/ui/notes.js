@@ -24,7 +24,7 @@ export function createNotes({ game, root = document.body }) {
     toldFor = seconds;
     check = 0;
   };
-  /** The extras by name, said as they go on the board, since on a small screen one ramekin looks much like the next. */
+  /** The extras by name, said as they go on the board, since on a small screen they are small. */
   const extra = (kind) => {
     const what = FILLINGS[kind]?.whole ?? 'That';
     return `${what.charAt(0).toUpperCase()}${what.slice(1)} on the board — cut it small.`;
@@ -35,6 +35,7 @@ export function createNotes({ game, root = document.body }) {
     else if (e.type === 'yolk-soft') tell(e.yolk ? 'Not yet — the white has to set before it will turn.' : 'Not yet — let it set before it will turn over.');
     else if (e.type === 'yolk-turn') tell('Over it goes.', 1.2);
     else if (e.type === 'extra') tell(extra(e.kind), 1.8);
+    else if (e.type === 'trim') tell('The top, into the bin.', 1.6);
     else if (e.type === 'board-full') tell('No room on the board — clear it into the pan first.');
     else if (e.type === 'scrape' && game.pan.pieces.some((p) => p.whole)) tell('In whole — it wanted cutting first.');
     else if (e.type === 'fold') tell(e.liquid > 0.45 ? 'Folded with a lot still running — it will want a moment.' : e.shape === 'roll' ? 'Rolled.' : 'Folded.', 1.8);

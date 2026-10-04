@@ -14,7 +14,7 @@ import { buildBowl, buildPlate, buildSpatula, buildWhisk } from './cookware.js';
 import { IRON, buildPan } from './pan.js';
 import { buildBottle, buildCarton } from './pantry.js';
 import { FILLING_KINDS, wholeSolids } from '../food/fillings.js';
-import { buildButter, buildMill, buildRamekin, buildSaltDish, buildTowel } from './props.js';
+import { buildButter, buildMill, buildSaltDish, buildTowel, buildWhole } from './props.js';
 import { GRATE_TOP, buildStove } from './stove.js';
 import { brushed, greenTile, marble, studio } from './textures.js';
 
@@ -35,8 +35,11 @@ export const LAYOUTS = Object.freeze({
     spatula: { x: -0.1, z: 6.6, yaw: Math.PI },
     towel: { x: -21.5, z: 4.5, yaw: 1.4 },
     mill: { x: 15.4, z: -10.6 },
-    /** The extras in a row along the front of the counter, under the board: the first, and the step to the next. */
-    extras: { x: -15.2, z: 9.5, dx: 2.5, dz: 0 },
+    /** The extras, whole, in a row along the front of the counter under the board, each lying front to back. */
+    extras: {
+      cheese: { x: -15.25, z: 9.6, yaw: 0 }, tomato: { x: -12.85, z: 9.6, yaw: 0 }, ham: { x: -10.25, z: 9.6, yaw: 0 },
+      pepper: { x: -7.65, z: 9.6, yaw: 0 }, onion: { x: -5.1, z: 9.6, yaw: 0 }, chives: { x: -3.15, z: 9.6, yaw: 0 },
+    },
     salt: { x: 11.6, z: -10.4 },
     butter: { x: 5.4, z: -10.3 },
     wall: -13.6,
@@ -54,8 +57,14 @@ export const LAYOUTS = Object.freeze({
     mill: { x: 9.2, z: -1.4 },
     salt: { x: 9.1, z: -6.6 },
     butter: { x: -9.1, z: -6.6, yaw: Math.PI / 2 },
-    /** Between the board and the range, in a row, where a hand going from one to the other passes them. */
-    extras: { x: -6.25, z: 1.85, dx: 2.5, dz: 0 },
+    /**
+     * Between the board and the range, in a row, where a hand going from one
+     * to the other passes them — turned side to side, to fit the gap.
+     */
+    extras: {
+      cheese: { x: -6.6, z: 2.3, yaw: Math.PI / 2 }, tomato: { x: -4.55, z: 2.3, yaw: Math.PI / 2 }, ham: { x: -2.2, z: 2.3, yaw: Math.PI / 2 },
+      pepper: { x: 0.2, z: 2.3, yaw: Math.PI / 2 }, onion: { x: 2.65, z: 2.3, yaw: Math.PI / 2 }, chives: { x: 5.7, z: 2.3, yaw: Math.PI / 2 },
+    },
     wall: -19.6,
   },
 });
@@ -188,14 +197,11 @@ export function buildKitchen({ stage, GFX }) {
 
   const props = { towel: buildTowel(GFX), mill: buildMill(GFX), salt: buildSaltDish(GFX), butter: buildButter(GFX) };
   for (const p of Object.values(props)) room.add(p.group);
-  /** The extras, each in its ramekin. */
-  const extras = Object.fromEntries(FILLING_KINDS.map((kind) => [kind, buildRamekin(GFX, { name: kind, solids: wholeSolids(kind) })]));
+  /** The extras, whole on the counter. */
+  const extras = Object.fromEntries(FILLING_KINDS.map((kind) => [kind, buildWhole(GFX, { name: kind, solids: wholeSolids(kind) })]));
   for (const e of Object.values(extras)) room.add(e.group);
-  /** Where the extra of `kind` sits now. */
-  const extraAt = (kind) => {
-    const i = FILLING_KINDS.indexOf(kind), e = LAYOUT.extras;
-    return { x: e.x + e.dx * i, z: e.z + e.dz * i };
-  };
+  /** Where the extra of `kind` sits now, and which way it is turned. */
+  const extraAt = (kind) => LAYOUT.extras[kind];
 
   /** Told whenever the stations move, so anything that remembers where they were can catch up. */
   const arranged = new Set();
@@ -232,6 +238,7 @@ export function buildKitchen({ stage, GFX }) {
     for (const kind of FILLING_KINDS) {
       const at = extraAt(kind);
       extras[kind].group.position.set(at.x, 0, at.z);
+      extras[kind].group.rotation.y = at.yaw;
     }
     for (const fn of arranged) fn(name);
     return true;
@@ -279,8 +286,9 @@ export function buildKitchen({ stage, GFX }) {
       corners(LAYOUT[key].x - half, LAYOUT[key].x + half, 0, height, LAYOUT[key].z - half, LAYOUT[key].z + half);
     }
     for (const kind of FILLING_KINDS) {
-      const at = extraAt(kind);
-      corners(at.x - 0.9, at.x + 0.9, 0, 1.7, at.z - 0.9, at.z + 0.9);
+      const at = extraAt(kind), [w, h, d] = extras[kind].size;
+      const half = Math.max(w, d) / 2;
+      corners(at.x - half, at.x + half, 0, h, at.z - half, at.z + half);
     }
   }
 

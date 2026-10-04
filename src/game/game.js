@@ -19,7 +19,7 @@
  */
 
 import { curdSolid, friedSolid, omeletteSolid } from '../food/curd.js';
-import { FILLINGS, FILLING_KINDS, isFilling, wholeSolids } from '../food/fillings.js';
+import { FILLINGS, FILLING_KINDS, isFilling, isTrimming, wholeSolids } from '../food/fillings.js';
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { PLATE } from '../scene/cookware.js';
@@ -31,7 +31,7 @@ import { createBoard } from '../sim/board.js';
 import { createSheet } from '../sim/eggs.js';
 import { SETTINGS } from '../sim/heat.js';
 import { createPan } from '../sim/pan.js';
-import { dimensions, makePiece } from '../sim/piece.js';
+import { dimensions, extents, makePiece } from '../sim/piece.js';
 import { axisAngle, multiply, slerp } from '../sim/quat.js';
 import { sprinkle } from '../sim/season.js';
 import { createButterView } from '../view/butter.js';
@@ -199,11 +199,14 @@ export function createGame({ stage, GFX, kitchen }) {
       if (Math.abs(x) < BOARD.w / 2 && Math.abs(z) < BOARD.d / 2) return { zone: 'board', point: [x, z] };
     }
 
-    /** The extras, each a ramekin's worth of floor. */
+    /** The extras on the counter, each its own footprint, turned the way it lies — and not there while it is on the board. */
     for (const kind of FILLING_KINDS) {
-      const q = pointer.at(0.9);
+      const { group, size: [w, h, d] } = kitchen.extras[kind];
+      const q = group.visible && pointer.at(h * 0.6);
+      if (!q) continue;
       const at = kitchen.extraAt(kind);
-      if (q && Math.hypot(q.x - at.x, q.z - at.z) < 1.15) return { zone: 'extra', kind };
+      const dx = q.x - at.x, dz = q.z - at.z, c = Math.cos(at.yaw), s = Math.sin(at.yaw);
+      if (Math.abs(dx * c - dz * s) < w / 2 + 0.3 && Math.abs(dx * s + dz * c) < d / 2 + 0.3) return { zone: 'extra', kind };
     }
 
     /** The salt, the pepper mill and the butter, each a round patch at its own height. */
@@ -257,10 +260,29 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
-  /** Everything on the board, lifted onto the flat of the knife. */
-  function pickUp() {
+  /**
+   * A tip of the knife under something on the board rolls it over onto its
+   * side, so it can be cut the third way: whatever is at `point` on the board,
+   * or else the biggest thing there — usually the one not yet cut.
+   */
+  function roll(point = null) {
+    if (carried.length || round.plated) return false;
+    const at = point ? board.pieceAt(point[0], point[1]) : null;
+    const piece = at ?? board.pieces.reduce((a, p) => (!a || p.volume > a.volume ? p : a), null);
+    if (!piece || !board.roll(piece)) return false;
+    begin();
+    emit('roll');
+    return true;
+  }
+
+  /**
+   * Lifted onto the flat of the knife: everything on the board, or just
+   * every bit of one `only` kind — the onion, leaving the potato where it is.
+   */
+  function pickUp(only = null) {
     if (carried.length || board.pieces.length === 0 || board.turning) return false;
-    const list = board.takeAll();
+    const list = only ? board.take(board.pieces.filter((p) => p.kind === only)) : board.takeAll();
+    if (!list.length) return false;
     const centre = new GFX.Vector3();
     for (const p of list) centre.add(new GFX.Vector3(p.pos[0], 0, p.pos[2]));
     centre.multiplyScalar(1 / list.length);
@@ -413,6 +435,9 @@ export function createGame({ stage, GFX, kitchen }) {
     return null;
   }
 
+  /** Whether one of `kind` is lying whole on the board, or in the hand: then it is not on the counter. */
+  const onBoard = (kind) => [...board.pieces, ...carried].some((p) => p.kind === kind && p.whole);
+
   /**
    * One of the extras off the counter, whole, onto the board to be cut — a
    * tomato, half an onion, a block of cheese — wherever there is room for it.
@@ -420,9 +445,11 @@ export function createGame({ stage, GFX, kitchen }) {
    * egg, to be folded in, or over the food as a topping.
    */
   function addExtra(kind) {
-    if (round.plated || !FILLINGS[kind] || carried.length || board.turning) return false;
+    if (round.plated || !FILLINGS[kind] || carried.length || board.turning || onBoard(kind)) return false;
+    /** A tomato goes down on its side, its top toward the cook: one slice off the near end takes it off. */
+    const rot = kind === 'tomato' ? axisAngle([1, 0, 0], Math.PI / 2) : [0, 0, 0, 1];
     const list = wholeSolids(kind).map((solid) => {
-      const piece = makePiece({ solid, kind });
+      const piece = makePiece({ solid, kind, rot });
       /** Out of the fridge's chill, not yet cooked at all, and not yet cut. */
       piece.moisture = FILLINGS[kind].moisture;
       piece.whole = true;
@@ -430,10 +457,11 @@ export function createGame({ stage, GFX, kitchen }) {
     });
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of list) {
-      x0 = Math.min(x0, p.pos[0] + p.min[0]);
-      x1 = Math.max(x1, p.pos[0] + p.max[0]);
-      z0 = Math.min(z0, p.pos[2] + p.min[2]);
-      z1 = Math.max(z1, p.pos[2] + p.max[2]);
+      const e = extents(p);
+      x0 = Math.min(x0, p.pos[0] + e.min[0]);
+      x1 = Math.max(x1, p.pos[0] + e.max[0]);
+      z0 = Math.min(z0, p.pos[2] + e.min[2]);
+      z1 = Math.max(z1, p.pos[2] + e.max[2]);
     }
     const spot = boardSpot(x1 - x0, z1 - z0);
     if (!spot) {
@@ -997,7 +1025,8 @@ export function createGame({ stage, GFX, kitchen }) {
     if (zone.zone === 'board') knife.manual = false;
     const moved = press.down ? Math.hypot(event.clientX - press.x, event.clientY - press.y) : 0;
     if (press.down && !press.drag && moved > (press.zone.zone === 'board' ? LIFT : press.touch ? DRAG_TOUCH : DRAG)) {
-      if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp()) {
+      /** Pressed on one thing, that is what comes up — every bit of it; between things, the whole pile. */
+      if (press.zone.zone === 'board' && onPile(press.zone.point) && pickUp(board.pieceAt(...press.zone.point)?.kind ?? null)) {
         press.drag = 'scrape';
         /** The pile stays where it is under the pointer, rather than jumping to it. */
         const p = pointer.at(CARRY);
@@ -1169,7 +1198,10 @@ export function createGame({ stage, GFX, kitchen }) {
     if (!live || round.plated) return;
     pointer.aim(event);
     const at = locate();
-    if (at.zone === 'board') turn();
+    if (at.zone === 'board') {
+      if (event.shiftKey) roll(at.point);
+      else turn();
+    }
     else if (at.zone === 'knob') heat(-1);
   }
 
@@ -1206,6 +1238,7 @@ export function createGame({ stage, GFX, kitchen }) {
       event.preventDefault();
       startToss();
     } else if (key === 'r') turn();
+    else if (key === 't') roll(zone.zone === 'board' ? zone.point : null);
     else if (key === 'c') {
       /** C chops where the keys have the knife — or, if they have not aimed it, a slice off the end. */
       if (zone.zone !== 'board' && !knife.manual) aimFromKeys();
@@ -1267,6 +1300,9 @@ export function createGame({ stage, GFX, kitchen }) {
           const n = board.chop({ z: c.z, x0: c.x0, x1: c.x1, flesh: FLESH });
           stats.chops += 1;
           emit('chop', { cut: n });
+          /** The top off a tomato is swept off the board into the bin. */
+          const trimmed = board.take(board.pieces.filter(isTrimming));
+          if (trimmed.length) emit('trim', { count: trimmed.length });
         }
         if (c.t >= CHOP.down + 0.03 + CHOP.up) {
           knife.chop = null;
@@ -1505,6 +1541,8 @@ export function createGame({ stage, GFX, kitchen }) {
     butterView.update(pan.butter, pan.oil, dt, time);
     grains.update(dt);
     updateHops(dt);
+    /** Each extra is on the counter until it is taken to the board, and another is there once that one has been cut. */
+    for (const kind of FILLING_KINDS) kitchen.extras[kind].group.visible = !onBoard(kind);
     /** Burnt butter in the pan with the food is in the food. */
     if (pan.butter.burnt && (pan.pieces.length > 0 || !sheet.empty)) round.burntButter = true;
 
@@ -1518,7 +1556,7 @@ export function createGame({ stage, GFX, kitchen }) {
   newPotato();
 
   return {
-    update, chop, turn, scrapeIntoPan, startToss, heat, oil, butter, season, newPotato, plateIt, reset, order, fold, addExtra, crackEgg, folds,
+    update, chop, turn, roll, scrapeIntoPan, startToss, heat, oil, butter, season, newPotato, plateIt, reset, order, fold, addExtra, crackEgg, folds,
     pourEggs: () => eggs.startPour(),
     board, pan, sheet, eggs, stats, views,
     get zone() { return zone; },
@@ -1547,7 +1585,7 @@ export function createGame({ stage, GFX, kitchen }) {
     get progress() { return progress ?? measureProgress(); },
     get report() { return report; },
     get plated() { return round.plated; },
-    get clock() { return round.started === null ? 0 : (round.plated && report ? report.time.seconds : elapsed - round.started); },
+    get clock() { return round.started === null ? 0 : (round.plated && report?.time ? report.time.seconds : elapsed - round.started); },
     on(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);

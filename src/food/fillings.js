@@ -244,6 +244,23 @@ function chives() {
 const MAKE = { cheese, tomato, ham, pepper, onion, chives };
 
 /**
+ * Whether a bit of tomato is its top — the green of the calyx still on its
+ * skin, and not much tomato with it: a trimming, for the bin, not the pan.
+ */
+export function isTrimming(piece) {
+  if (piece.kind !== 'tomato' || piece.whole || piece.volume > PORTION.tomato * 0.3) return false;
+  const { col, cap } = piece.solid;
+  for (let t = 0; t < cap.length; t++) {
+    if (cap[t]) continue;
+    for (let k = 0; k < 3; k++) {
+      const i = (t * 3 + k) * 3;
+      if (col[i + 1] > col[i] * 1.5) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * What comes off the counter for `kind`: one solid, or several for a bunch of
  * chives, in the frame of where it is put down — lying on y = 0 round the
  * origin, its length front to back, so the knife cuts across it.

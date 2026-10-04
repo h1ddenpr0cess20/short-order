@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { isTrimming, wholeSolids } from '../src/food/fillings.js';
 import { FLESH } from '../src/food/index.js';
 import { potatoSolid } from '../src/food/potato.js';
 import { createBoard } from '../src/sim/board.js';
@@ -132,5 +133,56 @@ describe('the board', () => {
       assert.ok(b.y0 > -1e-3, 'a piece is in the board');
       assert.ok(b.x0 >= -board.halfWidth - 1e-3 && b.x1 <= board.halfWidth + 1e-3, 'a piece fell off the side');
     }
+  });
+});
+
+describe('the board, with more than a potato on it', () => {
+  const tomatoOnItsSide = (board) => {
+    const [solid] = wholeSolids('tomato');
+    const piece = makePiece({ solid, kind: 'tomato', rot: axisAngle([1, 0, 0], Math.PI / 2) });
+    piece.whole = true;
+    board.add(piece);
+    return piece;
+  };
+
+  it('rolls one thing over onto its side, so the knife can go through it the third way', () => {
+    const board = createBoard();
+    const block = makePiece({ solid: wholeSolids('cheese')[0], kind: 'cheese' });
+    board.add(block);
+    const before = board.box(block);
+    assert.ok(board.roll(block));
+    run(board);
+    const after = board.box(block);
+    assert.ok(Math.abs((after.y1 - after.y0) - (before.z1 - before.z0)) < 1e-3, 'what was its depth is now its height');
+    assert.ok(Math.abs(after.y0) < 1e-3, 'and it lies on the board');
+  });
+
+  it('takes off a tomato top with one slice off the near end, and knows it for a trimming', () => {
+    const board = createBoard();
+    const tomato = tomatoOnItsSide(board);
+    assert.equal(isTrimming(tomato), false, 'a whole tomato is not a trimming');
+    const b = board.box(tomato);
+    board.chop({ z: b.z1 - 0.3, flesh: FLESH });
+    run(board);
+    const tops = board.pieces.filter(isTrimming);
+    assert.equal(tops.length, 1);
+    assert.ok(board.box(tops[0]).z0 > b.z1 - 0.4, 'the top is the slice off the near end');
+    board.chop({ z: b.z0 + 0.4, flesh: FLESH });
+    run(board);
+    assert.equal(board.pieces.filter(isTrimming).length, 1, 'the far end is just tomato');
+  });
+
+  it('lifts off one thing and leaves the rest, and finds what is under a point', () => {
+    const board = createBoard();
+    potatoOnBoard(board);
+    const tomato = tomatoOnItsSide(board);
+    tomato.pos[0] = 4.5;
+    run(board);
+    const at = board.box(tomato);
+    assert.equal(board.pieceAt((at.x0 + at.x1) / 2, (at.z0 + at.z1) / 2), tomato);
+    assert.equal(board.pieceAt(-6.5, -4), null);
+    const taken = board.take(board.pieces.filter((p) => p.kind === 'tomato'));
+    assert.deepEqual(taken, [tomato]);
+    assert.deepEqual(board.pieces.map((p) => p.kind), ['potato']);
   });
 });

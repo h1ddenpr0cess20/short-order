@@ -488,7 +488,7 @@ export function gradeDish(dish, data) {
  * Nothing is short: one egg is as right as three. No clock, either.
  */
 function gradeFree(data) {
-  const { pieces = [], fried = [], burntButter = false, beaten = 0, eggs = 0, buttered = false } = data;
+  const { pieces = [], fried = [], burntButter = false, beaten = 0, eggs = 0, buttered = false, seconds = 0 } = data;
   const sheet = data.sheet ?? null;
   const parts = [];
   const add = (key, label, score, note, weight) => parts.push({ ...part(key, label, score, note), weight });
@@ -543,7 +543,8 @@ function gradeFree(data) {
     const hint = { dice: 'Work on the knife.', fry: 'Watch the pan.', extras: 'Mind the extras.', season: 'Season it.' }[worst] ?? 'Mind the eggs.';
     line = `Breakfast, technically. ${hint}`;
   }
-  return { dish: 'free', parts, season, total, stars: stars(total), verdict: line };
+  /** Timed, for the ticket's clock to stop at, but not marked. */
+  return { dish: 'free', parts, season, time: { seconds, par: null, score: null }, total, stars: stars(total), verdict: line };
 }
 
 function whitesNote(r) {

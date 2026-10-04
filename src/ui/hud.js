@@ -25,6 +25,7 @@ export function createHud({ game, root = document.body }) {
     </div>
     <div class="group moves">
       <button class="chip" data-act="turn" title="Turn the pile a quarter turn (R)"><span class="glyph" aria-hidden="true">↻</span> turn</button>
+      <button class="chip" data-act="roll" title="Roll the biggest thing on the board onto its side (T)"><span class="glyph" aria-hidden="true">⤵</span> roll</button>
       <button class="chip" data-act="scrape" title="Scrape the board into the pan (S)">into pan</button>
       <button class="chip" data-act="oil" title="Oil the pan (O)">oil</button>
       <button class="chip" data-act="butter" title="A pat of butter into the pan (B)">butter</button>
@@ -62,6 +63,7 @@ export function createHud({ game, root = document.body }) {
     else if (name === 'salt') game.season('salt');
     else if (name === 'pepper') game.season('pepper');
     else if (name === 'turn') game.turn();
+    else if (name === 'roll') game.roll();
     else if (name === 'scrape') game.scrapeIntoPan();
     else if (name === 'toss') game.startToss();
     else if (name === 'egg') game.crackEgg();
@@ -73,7 +75,7 @@ export function createHud({ game, root = document.body }) {
   for (const type of ['pointerdown', 'pointerup', 'pointermove']) bar.addEventListener(type, (e) => e.stopPropagation());
 
   const HINTS = {
-    board: 'click to chop · drag the pile to carry it · right-click to turn it',
+    board: 'click to chop · drag a thing to carry it, between them for all · right-click turns the pile · T rolls one over',
     pan: 'drag to stir · click to flip what is under the spatula · space to toss',
     knob: 'click to turn the burner up · right-click to turn it down',
     oil: 'click to oil the pan',
@@ -119,6 +121,7 @@ export function createHud({ game, root = document.body }) {
       }
       act('fold').disabled = game.sheet.empty || game.pan.pieces.some((p) => p.omelette) || game.eggs.pouring;
       act('turn').disabled = game.board.pieces.length === 0;
+      act('roll').disabled = game.board.pieces.length === 0;
       /** When the knife is running along the strips rather than across them, the button says so. */
       act('turn').classList.toggle('nudge', /^turn the pile/.test(game.progress?.dice?.next ?? ''));
       act('scrape').disabled = game.board.pieces.length === 0;
