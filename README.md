@@ -23,7 +23,8 @@ Season it and plate it. The plate is marked on what is actually on it.
 
 <p>
   <img src="docs/screenshots/plate.png" alt="A five-star plate: golden dice and soft curds folded together, flecked with pepper, on a gilt-rimmed plate, marked 92 out of 100" height="360">
-  <img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan and the ticket across the top" height="360">
+  <img src="docs/screenshots/mobile.png" alt="The same kitchen on a phone, the board above the pan, the ticket across the top and the bar along the bottom" height="360">
+  <img src="docs/screenshots/mobile-board.png" alt="On a phone, closed in on the board: the potato cut into rounds and turned, the knife over it" height="360">
 </p>
 
 ## Run
