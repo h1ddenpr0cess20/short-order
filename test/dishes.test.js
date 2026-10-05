@@ -3,14 +3,14 @@ import { describe, it } from 'node:test';
 
 import { measure } from '../src/geometry/slice.js';
 import { curdSolid, friedSolid, omeletteSolid } from '../src/food/curd.js';
-import { FILLINGS, FILLING_KINDS, PORTION, wholeSolids } from '../src/food/fillings.js';
+import { FILLINGS, FILLING_KINDS, HASH, PORTION, shredSolids, wholeSolids } from '../src/food/fillings.js';
 import { FLESH } from '../src/food/index.js';
 import { potatoSolid } from '../src/food/potato.js';
 import { DISHES, MENU, ticket } from '../src/game/dishes.js';
 import { extrasReport, friedReport, gradeDish, omeletteReport, timeReport } from '../src/game/grade.js';
 import { createBoard } from '../src/sim/board.js';
 import { EGG_VOLUME, YOLK_SHARE, createSheet } from '../src/sim/eggs.js';
-import { dimensions, makePiece } from '../src/sim/piece.js';
+import { dimensions, makePiece, sliceUp } from '../src/sim/piece.js';
 import { axisAngle } from '../src/sim/quat.js';
 
 function seeded(seed = 4) {
@@ -247,6 +247,13 @@ describe('the extras', () => {
     assert.equal(extrasReport([], { dish: 'fried' }).score, null, 'no extras, nothing to mark');
   });
 
+  it('name only the extras that were raw', () => {
+    const r = gradeDish(DISHES.hash, { pieces: bits('onion', { core: 0 }) });
+    const note = r.parts.find((p) => p.key === 'extras').note;
+    assert.match(note, /The onion wanted cooking first/);
+    assert.doesNotMatch(note, /pepper/);
+  });
+
   it('want cutting: a whole tomato thrown in, or one only sliced, is marked down', () => {
     const whole = onBoard('tomato').pieces.map((p) => Object.assign(p, { core: 0.8 }));
     const sliced = onBoard('tomato');
@@ -274,6 +281,13 @@ describe('marking the other dishes', () => {
   const egg = ({ set = 1, runny = 0, brown = 0.2, yolk = 0.2, whole = true, flips = 0 } = {}) => ({
     white: { volume: 2.3, set, runny, brown, crisp: 0, radius: 2 },
     yolk: { whole, set: yolk, flipped: flips % 2 === 1, flips, down: 0, volume: 1.3 },
+  });
+
+  it('counts broken yolks out of however many eggs there were', () => {
+    const note = (fried) => gradeDish(DISHES.free, { fried }).parts.find((p) => p.key === 'yolks').note;
+    assert.equal(note([egg({ whole: false })]), 'The yolk broke.');
+    assert.equal(note([egg({ whole: false }), egg({ whole: false })]), 'Both yolks broken.');
+    assert.equal(note([egg({ whole: false }), egg({ whole: false }), egg()]), '2 yolks broken.');
   });
 
   it('wants sunny eggs set, whole and runny, and never turned', () => {
@@ -390,6 +404,33 @@ describe('freestyle', () => {
     const r = gradeDish(DISHES.free, { pieces: extras, seconds: 60 });
     assert.deepEqual(r.parts.map((p) => p.key), ['extras', 'season']);
     assert.ok(r.parts[0].score > 70, `${r.parts[0].score}: ${r.parts[0].note}`);
+  });
+
+  it('does not tell the cook to cut slices of cheese smaller, nor call shredded potato uncut', () => {
+    const slices = sliceUp(makePiece({ solid: wholeSolids('cheese')[0], kind: 'cheese' }), 0.2, FLESH.cheese)
+      .map((p) => Object.assign(p, { sliced: true, core: 0.8 }));
+    const extras = extrasReport(slices, { dish: 'free' });
+    assert.equal(extras.chunky, 0, 'slices off the slicer counted as big pieces');
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    const strands = shredSolids('potato', volume, seeded(3), { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
+    const r = gradeDish(DISHES.hash, { pieces: strands, seconds: 100 });
+    const dice = r.parts.find((p) => p.key === 'dice');
+    assert.doesNotMatch(dice.note, /uncut/);
+    assert.match(dice.note, /hash browns/);
+  });
+
+  it('marks a grated potato, fried, as hash browns: on how it fried, not as badly diced', () => {
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    const strands = shredSolids('potato', volume, seeded(9), { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true, core: 1, moisture: 0 }));
+    for (const p of strands) p.brown.fill(1);
+    const r = gradeDish(DISHES.free, { pieces: strands, seconds: 300 });
+    const keys = r.parts.map((p) => p.key);
+    assert.ok(!keys.includes('dice'), 'hash browns are not marked as dice');
+    const fry = r.parts.find((p) => p.key === 'fry');
+    assert.equal(fry.label, 'hash browns');
+    assert.ok(fry.score > 70, `${fry.score}: ${fry.note}`);
   });
 });
 

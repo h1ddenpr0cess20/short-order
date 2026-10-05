@@ -4,7 +4,7 @@
  * food is cooked from; one note at a time, held long enough to be read.
  */
 
-import { FILLINGS } from '../food/fillings.js';
+import { FILLINGS, listed } from '../food/fillings.js';
 import { fryReport } from '../game/grade.js';
 
 const HOLD = 2.5;
@@ -37,6 +37,13 @@ export function createNotes({ game, root = document.body }) {
     else if (e.type === 'extra') tell(extra(e.kind), 1.8);
     else if (e.type === 'trim') tell('The top, into the bin.', 1.6);
     else if (e.type === 'board-full') tell('No room on the board — clear it into the pan first.');
+    else if (e.type === 'grate') tell('Grated onto the board.', 1.6);
+    else if (e.type === 'slice') tell('Sliced onto the board.', 1.6);
+    else if (e.type === 'bin') tell(e.whole ? 'Back on the counter.' : 'Into the bin.', 1.6);
+    else if (e.type === 'putback' && e.grater) tell('Only cheese and potato go through the grater.');
+    else if (e.type === 'putback' && e.ramekin !== undefined) {
+      tell(e.holds ? `That ramekin has the ${FILLINGS[e.holds]?.name ?? e.holds} in it — one thing to a ramekin.` : 'One thing to a ramekin — take them over one at a time.');
+    }
     else if (e.type === 'scrape' && game.pan.pieces.some((p) => p.whole)) tell('In whole — it wanted cutting first.');
     else if (e.type === 'fold') tell(e.liquid > 0.45 ? 'Folded with a lot still running — it will want a moment.' : e.shape === 'roll' ? 'Rolled.' : 'Folded.', 1.8);
   });
@@ -61,7 +68,7 @@ export function createNotes({ game, root = document.body }) {
     const raw = pan.pieces.filter((p) => (p.kind === 'onion' || p.kind === 'pepper') && p.core < 0.3);
     /** Eggs beaten and waiting, over onion and pepper still raw: they want a minute first. */
     const eggsReady = game.eggs.bowl.eggs > 0 && game.eggs.bowl.mix > 0.6;
-    if (raw.length > 4 && game.folds() && game.sheet.empty && !pan.pieces.some((p) => p.omelette) && pan.heat.level > 0 && eggsReady) return 'Give the onion and pepper a minute to soften before the eggs go in.';
+    if (raw.length > 4 && game.folds() && game.sheet.empty && !pan.pieces.some((p) => p.omelette) && pan.heat.level > 0 && eggsReady) return `Give the ${listed(raw.map((p) => p.kind))} a minute to soften before the eggs go in.`;
     if (food && pan.heat.level === 0 && t < 120) return 'The burner is off. Nothing is cooking.';
     if (potato.length && pan.oil < 0.12 && t > 130) return 'Dry pan — it is sticking. Oil it, or butter it.';
     if (potato.length && t < 140 && pan.heat.level > 0 && potato.some((p) => p.moisture > 0.8)) return 'The pan is not hot yet — the potato is steaming, not frying.';

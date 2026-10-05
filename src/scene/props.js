@@ -7,7 +7,8 @@
 
 import { cast } from './cast.js';
 import { extrude, planarUV, roundRect } from './sdf.js';
-import { flakes, towel, walnut } from './textures.js';
+import { flakes, graterFace, slicerFace, towel, walnut } from './textures.js';
+import { floorFrom } from '../sim/pile.js';
 
 const v2 = (GFX, points) => points.map(([x, y]) => new GFX.Vector2(x, y));
 
@@ -158,6 +159,68 @@ export function buildMill(GFX) {
 }
 
 /**
+ * A box grater: four steel faces punched with grating holes, tapering up to a
+ * rolled rim, and a black handle over the top. Cheese let go over it comes
+ * out the bottom, shredded.
+ */
+export function buildGrater(GFX) {
+  const face = graterFace(GFX);
+  if (face) face.repeat.set(4, 1);
+  const steel = new GFX.MeshPhysicalMaterial({
+    name: 'grater-steel', color: face ? 0xffffff : 0xb9bdc2, map: face, bumpMap: face, bumpScale: 0.6,
+    roughness: 0.32, metalness: 0.85, side: GFX.DoubleSide,
+  });
+  const rimSteel = new GFX.MeshStandardMaterial({ name: 'grater-rim', color: 0xc9ccd0, roughness: 0.25, metalness: 0.9 });
+  const black = new GFX.MeshPhysicalMaterial({ name: 'grater-handle', color: 0x1b1c1e, roughness: 0.45, metalness: 0, clearcoat: 0.3 });
+  /** Square in section, turned a quarter so its faces are front, back and sides, and drawn out wider than deep. */
+  const H = 3.4;
+  const body = new GFX.Mesh(new GFX.CylinderGeometry(0.95, 1.45, H, 4, 1, true), steel);
+  body.name = 'grater-body';
+  body.rotation.y = Math.PI / 4;
+  body.position.y = H / 2;
+  const rim = new GFX.Mesh(new GFX.TorusGeometry(0.95, 0.07, 6, 4), rimSteel);
+  rim.name = 'grater-rim';
+  rim.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+  rim.position.y = H;
+  const foot = new GFX.Mesh(new GFX.TorusGeometry(1.45, 0.06, 6, 4), rimSteel);
+  foot.name = 'grater-foot';
+  foot.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+  foot.position.y = 0.06;
+  const handle = new GFX.Mesh(new GFX.TorusGeometry(0.62, 0.13, 10, 24, Math.PI), black);
+  handle.name = 'grater-handle';
+  handle.position.y = H + 0.02;
+  /**
+   * The slicing side, on +x: a plain panel with one wide slot, laid over the
+   * side it is on, which leans in toward the top like the rest.
+   */
+  const slicer = slicerFace(GFX);
+  const sliceSteel = new GFX.MeshPhysicalMaterial({
+    name: 'grater-slicer', color: slicer ? 0xffffff : 0xc3c6ca, map: slicer, roughness: 0.28, metalness: 0.85, side: GFX.DoubleSide,
+  });
+  const out = (y) => (1.45 + ((0.95 - 1.45) * y) / H) * Math.SQRT1_2;
+  const y0 = 0.12, y1 = H - 0.06;
+  const corners = [[out(y0) + 0.012, y0, -out(y0) + 0.03], [out(y0) + 0.012, y0, out(y0) - 0.03], [out(y1) + 0.012, y1, out(y1) - 0.03], [out(y1) + 0.012, y1, -out(y1) + 0.03]];
+  const lean = Math.hypot(H, 0.5 * Math.SQRT1_2);
+  const n = [H / lean, (0.5 * Math.SQRT1_2) / lean, 0];
+  const panel = new GFX.BufferGeometry();
+  panel.setAttribute('position', new GFX.BufferAttribute(Float32Array.from([0, 2, 1, 0, 3, 2].flatMap((i) => corners[i])), 3));
+  panel.setAttribute('normal', new GFX.BufferAttribute(Float32Array.from(Array.from({ length: 6 }, () => n).flat()), 3));
+  panel.setAttribute('uv', new GFX.BufferAttribute(Float32Array.from([0, 2, 1, 0, 3, 2].flatMap((i) => [[0, 0], [1, 0], [1, 1], [0, 1]][i])), 2));
+  panel.computeBoundingSphere?.();
+  const slicing = new GFX.Mesh(panel, sliceSteel);
+  slicing.name = 'grater-slicer';
+  const shape = new GFX.Group();
+  shape.scale.set(1, 1, 0.72);
+  shape.add(body, rim, foot, handle, slicing);
+  const group = new GFX.Group();
+  group.name = 'grater';
+  group.add(shape);
+  for (const m of [body, rim, foot, handle]) m.castShadow = m.receiveShadow = true;
+  slicing.receiveShadow = true;
+  return { group, height: H + 0.75 };
+}
+
+/**
  * A pinch pot of flaky salt: green glaze outside, cream inside, a gilt line
  * round the rim, and a heap of flakes in it.
  */
@@ -240,17 +303,19 @@ export function buildWhole(GFX, { name, solids }) {
  * An empty ramekin, for whatever the cook has cut and wants to keep apart
  * until it goes in the pan: cream china with a green band and a gilt rim,
  * `radius` across the rim. Its contents hang off `group`, in its own frame,
- * standing on `floor`.
+ * poured into `dish`.
  */
 export function buildRamekin(GFX, { name, radius = 1.5 }) {
+  /** How deep it is drawn, for how wide: deep enough to hold half a potato, diced. */
+  const DEEP = 1.15;
   const { gold, cream, green } = finishes(GFX);
   const outside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
     [0, 0], [0.72, 0], [0.78, 0.05], [0.82, 0.12], [0.86, 0.7], [0.88, 0.84],
   ]), 40), cream);
   outside.name = `ramekin-${name}`;
-  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [
-    [0.88, 0.84], [0.8, 0.82], [0.76, 0.3], [0.6, 0.2], [0, 0.18],
-  ]), 40), cream);
+  /** The inside, from the middle of the floor out and up to the rim. */
+  const well = [[0, 0.18], [0.6, 0.2], [0.76, 0.3], [0.8, 0.82], [0.88, 0.84]];
+  const inside = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [...well].reverse()), 40), cream);
   inside.name = `ramekin-${name}-inside`;
   const band = new GFX.Mesh(new GFX.CylinderGeometry(0.865, 0.85, 0.12, 40, 1, true), green);
   band.name = `ramekin-${name}-band`;
@@ -263,12 +328,24 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
   /** Drawn at the size of the little one, and grown: the china, not what goes in it. */
   const k = radius / 0.88;
   const china = new GFX.Group();
-  china.scale.set(k, k * 0.8, k);
+  china.scale.set(k, k * DEEP, k);
   china.add(outside, inside, band, rim);
   const group = new GFX.Group();
   group.name = `ramekin-${name}`;
   group.add(china);
-  return { group, radius, floor: 0.18 * k * 0.8, inner: 0.76 * k };
+  /**
+   * What is in it is shown as a pile on its floor, which curves up into the
+   * side: inside it, heaped up a little over the rim at most.
+   */
+  const wellAt = floorFrom(well.map(([r, y]) => [r * k, y * k * DEEP]));
+  const dish = {
+    base: (x, z) => (Math.hypot(x, z) <= 0.9 * k ? wellAt(Math.hypot(x, z)) : 0),
+    holds: (x, z) => Math.hypot(x, z) <= 0.7 * k,
+    centre: [0, 0],
+    spread: 0.3,
+    brim: 0.84 * k * DEEP + 0.6,
+  };
+  return { group, radius, dish };
 }
 
 /** How many pats there are in a stick of butter. */

@@ -17,8 +17,9 @@
 import { hex, mix, ramp } from '../food/colour.js';
 import { FILLINGS } from '../food/fillings.js';
 import { sideWeights } from '../sim/piece.js';
-import { multiply } from '../sim/quat.js';
+import { conjugate, multiply, rotate } from '../sim/quat.js';
 import { eggColour } from './eggs.js';
+import { melt, meltable } from './melt.js';
 
 /**
  * Flesh as it fries: buttery yellow, gold, golden brown, a deep fried brown,
@@ -66,6 +67,12 @@ export function createPieceViews(GFX) {
     sheenColor: new GFX.Color(0xfff2c4),
     sheenRoughness: 0.6,
   });
+
+  /** Cheese: a waxy satin cut, and glossy with its own fat once it has melted. */
+  const cheeseMaterial = {
+    firm: new GFX.MeshPhysicalMaterial({ name: 'cheese', vertexColors: true, roughness: 0.6, metalness: 0, sheen: 0.3, sheenColor: new GFX.Color(0xffe2a0), sheenRoughness: 0.5 }),
+    melted: new GFX.MeshPhysicalMaterial({ name: 'cheese-melted', vertexColors: true, roughness: 0.3, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18 }),
+  };
 
   /** Ground pepper: dark flecks stuck to the surface. */
   const pepper = new GFX.MeshStandardMaterial({ name: 'pepper', color: 0x1f1813, roughness: 0.85, metalness: 0 });
@@ -161,11 +168,13 @@ export function createPieceViews(GFX) {
   }
 
   function build(piece) {
-    const { solid } = piece;
+    /** Cheese is drawn finer than it is cut, and on its own copy of the surface, so that it can melt. */
+    const melts = Boolean(FILLINGS[piece.kind]?.melts);
+    const solid = melts ? meltable(piece.solid, { fine: !piece.shred }) : piece.solid;
     const n = solid.pos.length / 3;
     const geometry = new GFX.BufferGeometry();
-    geometry.setAttribute('position', new GFX.BufferAttribute(solid.pos, 3));
-    geometry.setAttribute('normal', new GFX.BufferAttribute(solid.nrm, 3));
+    geometry.setAttribute('position', new GFX.BufferAttribute(melts ? solid.pos.slice() : solid.pos, 3));
+    geometry.setAttribute('normal', new GFX.BufferAttribute(melts ? solid.nrm.slice() : solid.nrm, 3));
     const colour = new Float32Array(n * 3);
     geometry.setAttribute('color', new GFX.BufferAttribute(colour, 3));
     geometry.computeBoundingSphere();
@@ -182,11 +191,11 @@ export function createPieceViews(GFX) {
       wobble[i] = 0.9 + 0.2 * jitter(solid.pos[i * 3] * 0.6, solid.pos[i * 3 + 1] * 0.6, solid.pos[i * 3 + 2] * 0.6);
     }
 
-    const mesh = new GFX.Mesh(geometry, piece.kind === 'egg' ? eggMaterial : material);
+    const mesh = new GFX.Mesh(geometry, piece.kind === 'egg' ? eggMaterial : melts ? cheeseMaterial.firm : material);
     mesh.name = `piece-${piece.id}`;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    const view = { mesh, geometry, colour, weights, skin, wobble, piece, painted: null };
+    const view = { mesh, geometry, colour, weights, skin, wobble, piece, painted: null, solid, melted: melts ? { m: 0, up: [0, 1, 0] } : null };
     views.set(piece.id, view);
     paint(view);
     return view;
@@ -204,7 +213,7 @@ export function createPieceViews(GFX) {
   function paintFried(view) {
     const { piece, colour, weights, wobble } = view;
     const b = piece.brown;
-    const base = piece.solid.col;
+    const base = view.solid.col;
     const n = colour.length / 3;
     eggColour(piece.yolkSet ?? 0, 1, 0, yolkColour);
     if (piece.filmed) mix(yolkColour, eggColour(1, 0.05, 0, film), 0.45, yolkColour);
@@ -237,7 +246,7 @@ export function createPieceViews(GFX) {
   function paintBit(view) {
     const { piece, colour, weights, wobble } = view;
     const b = piece.brown;
-    const base = piece.solid.col;
+    const base = view.solid.col;
     const n = colour.length / 3;
     const cooked = smooth(0.1, 0.9, piece.core);
     for (let i = 0; i < n; i++) {
@@ -262,7 +271,7 @@ export function createPieceViews(GFX) {
     }
     const { piece, colour, weights, wobble } = view;
     const b = piece.brown;
-    const base = piece.solid.col;
+    const base = view.solid.col;
     const n = colour.length / 3;
     let rawG = 0;
     for (let i = 0; i < n; i++) rawG += base[i * 3 + 1] / n;
@@ -308,7 +317,7 @@ export function createPieceViews(GFX) {
       return;
     }
     const { piece, colour, weights, skin, wobble } = view;
-    const base = piece.solid.col;
+    const base = view.solid.col;
     const b = piece.brown;
     const core = Math.min(1, piece.core);
     const n = colour.length / 3;
@@ -343,6 +352,39 @@ export function createPieceViews(GFX) {
     view.geometry.attributes.color.needsUpdate = true;
   }
 
+  /**
+   * Cheese slumps as it melts, the way down is in the room. It is reshaped
+   * only once it has melted a step further or been turned over, and only a
+   * few bits a frame, the ones waiting longest first, however much is in the pan.
+   */
+  const reshaping = new Set();
+  const RESHAPES = 4;
+  function slump(view, q) {
+    const m = smooth(0.15, 0.95, view.piece.core);
+    const up = rotate(conjugate(q), [0, 1, 0]);
+    const was = view.melted;
+    const turned = up[0] * was.up[0] + up[1] * was.up[1] + up[2] * was.up[2] < 0.985;
+    if (Math.abs(m - was.m) < 0.04 && !(turned && m > 0.01) && !(m === 1 && was.m < 1)) return;
+    view.want = { m, up };
+    reshaping.add(view);
+  }
+  function reshape() {
+    let done = 0;
+    for (const view of reshaping) {
+      if (done >= RESHAPES) break;
+      reshaping.delete(view);
+      const { m, up } = view.want;
+      view.melted = view.want;
+      const g = view.geometry;
+      melt(view.solid, g.attributes.position.array, g.attributes.normal.array, up, m);
+      g.attributes.position.needsUpdate = true;
+      g.attributes.normal.needsUpdate = true;
+      g.computeBoundingSphere();
+      view.mesh.material = m > 0.35 ? cheeseMaterial.melted : cheeseMaterial.firm;
+      done += 1;
+    }
+  }
+
   return {
     material,
 
@@ -357,11 +399,7 @@ export function createPieceViews(GFX) {
       view.mesh.position.set(piece.pos[0], piece.pos[1], piece.pos[2]);
       const q = lean ? multiply(lean, piece.rot) : piece.rot;
       view.mesh.quaternion.set(q[0], q[1], q[2], q[3]);
-      /** Cheese slumps as it melts. */
-      if (FILLINGS[piece.kind]?.melts) {
-        const m = smooth(0.2, 0.9, piece.core);
-        view.mesh.scale.set(1 + 0.5 * m, 1 - 0.55 * m, 1 + 0.5 * m);
-      }
+      if (view.melted) slump(view, q);
       fleck(view);
       view.seen = true;
       return view.mesh;
@@ -388,8 +426,10 @@ export function createPieceViews(GFX) {
 
     /** Drops the meshes of any piece that was not shown since the last sweep. */
     sweep() {
+      reshape();
       for (const [id, view] of views) {
         if (!view.seen) {
+          reshaping.delete(view);
           view.mesh.removeFromParent();
           view.geometry.dispose();
           view.flecks?.mesh.geometry.dispose();

@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { measure, split } from '../src/geometry/slice.js';
+import { HASH, shredSolids, wholeSolids } from '../src/food/fillings.js';
+import { FLESH } from '../src/food/index.js';
 import { fleshAt, potatoSolid } from '../src/food/potato.js';
 import { COOK_RADIUS, LIP_RADIUS, floorHeight } from '../src/scene/pan.js';
 import { createHeat, SETTINGS } from '../src/sim/heat.js';
 import { createPan } from '../src/sim/pan.js';
 import { dimensions, extents, makePiece, sideDown } from '../src/sim/piece.js';
+import { multiply, rotate } from '../src/sim/quat.js';
 
 /** A potato cut into dice the quick way: a grid of planes straight through it. */
 function dice(size = 0.6) {
@@ -102,14 +105,21 @@ describe('the pan', () => {
         const e = extents(p);
         const rho = ((e.max[0] - e.min[0]) + (e.max[2] - e.min[2])) * 0.25;
         const r = Math.hypot(p.pos[0], p.pos[2]);
-        if (!pan.state(p).air) worstFloor = Math.max(worstFloor, r + rho - COOK_RADIUS);
-        else if (r + rho > COOK_RADIUS && r - rho < LIP_RADIUS) {
+        if (!pan.state(p).air) {
+          /** On the floor: how far any corner of it, as it is shown leaning, is into the iron. */
+          const lean = pan.state(p).lean, q = lean ? multiply(lean, p.rot) : p.rot, pts = p.solid.pos;
+          for (let k = 0; k < pts.length; k += 9) {
+            const v = rotate(q, [pts[k], pts[k + 1], pts[k + 2]]);
+            const out = Math.hypot(p.pos[0] + v[0], p.pos[2] + v[2]), y = p.pos[1] + v[1];
+            worstFloor = Math.max(worstFloor, out <= COOK_RADIUS ? floorHeight(out) - y : out - COOK_RADIUS);
+          }
+        } else if (r + rho > COOK_RADIUS && r - rho < LIP_RADIUS) {
           /** In the air out by the wall: its bottom has to be above the iron there. */
           worstAir = Math.max(worstAir, floorHeight(Math.min(r + rho, LIP_RADIUS)) - (p.pos[1] + e.min[1]));
         }
       }
     }
-    assert.ok(worstFloor < 0.02, `a piece on the floor reached ${worstFloor.toFixed(2)} into the wall`);
+    assert.ok(worstFloor < 0.3, `a piece on the floor reached ${worstFloor.toFixed(2)} into the iron`);
     assert.ok(worstAir < 0.1, `a piece in the air was ${worstAir.toFixed(2)} into the wall`);
   });
 
@@ -204,6 +214,24 @@ describe('the pan', () => {
     assert.ok(oiled > dry, `oiled ${oiled} against dry ${dry}`);
   });
 
+  it('lets food pushed across the oil come to a stop, rather than skate on', () => {
+    const random = seeded(17);
+    const pan = createPan({ random });
+    pan.pour();
+    pan.add(scatter(dice(), random));
+    run(pan, 2);
+    for (let k = 0; k < 60; k++) {
+      const x = -4 + (k / 60) * 8;
+      pan.stir([x, 0], [x + 8 / 60, 0], 1 / 60);
+      pan.update(1 / 60);
+    }
+    run(pan, 0.5);
+    const before = new Map(pan.pieces.map((p) => [p, [...p.pos]]));
+    run(pan, 0.5);
+    const moved = Math.max(...pan.pieces.map((p) => Math.hypot(p.pos[0] - before.get(p)[0], p.pos[2] - before.get(p)[2])));
+    assert.ok(moved < 0.2, `a piece slid ${moved.toFixed(2)} in the half second after the spatula had been gone half a second`);
+  });
+
   it('turns things over when the spatula goes through them', () => {
     const random = seeded(11);
     const pan = createPan({ random });
@@ -219,5 +247,99 @@ describe('the pan', () => {
     run(pan, 1);
     const turned = pan.pieces.filter((p) => before.get(p.id) !== sideDown(p)).length;
     assert.ok(turned > 3, `only ${turned} pieces turned over`);
+  });
+});
+
+describe('hash browns, and long strips, in the pan', () => {
+  const shreds = () => {
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    return shredSolids('potato', volume, Math.random, { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
+  };
+  const into = (pan, list) => {
+    for (const p of list) {
+      p.pos = [(Math.random() - 0.5) * 4, 2 + Math.random(), (Math.random() - 0.5) * 4];
+      pan.state(p);
+    }
+    pan.add(list, { area: 10 });
+  };
+  /** Standing up off the floor: taller than a piece that lies on a face it could lie on ever is. */
+  const onEnd = (p) => {
+    const e = extents(p);
+    return e.max[1] - e.min[1] > Math.min(...dimensions(p)) * 1.7 + 0.05;
+  };
+
+  it('lets a whole grated potato lie in a tangled layer, still, rather than shoving itself round the pan', () => {
+    const pan = createPan();
+    const list = shreds();
+    into(pan, list);
+    run(pan, 3);
+    const was = list.map((p) => [...p.pos]);
+    run(pan, 2);
+    const drift = Math.max(...list.map((p, i) => Math.hypot(p.pos[0] - was[i][0], p.pos[2] - was[i][2])));
+    assert.ok(drift < 1e-3, `strands left alone moved ${drift.toFixed(3)}`);
+    assert.equal(pan.pieces.length, list.length, 'strands went over the side');
+  });
+
+  it('never stands a strand, or a strip of pepper, on its end: not stirred, not tossed', () => {
+    const pan = createPan();
+    const strips = wholeSolids('pepper').flatMap((solid) => {
+      let parts = [solid];
+      for (let z = -0.7; z < 1; z += 0.35) parts = parts.flatMap((s) => { const { front, back } = split(s, { normal: [0, 0, 1], offset: z }); return [...front, ...back]; });
+      return parts;
+    }).map((solid) => makePiece({ solid, kind: 'pepper' }));
+    const list = [...shreds(), ...strips];
+    into(pan, list);
+    run(pan, 3);
+    for (let k = 0; k < 6; k++) {
+      pan.stir([-3 + k, -2], [3 - k, 2], 1 / 30);
+      run(pan, 0.3);
+    }
+    pan.toss(0.6);
+    run(pan, 3);
+    const standing = list.filter(onEnd);
+    assert.equal(standing.length, 0, `${standing.length} stood on end: ${standing.map((p) => p.kind).join(', ')}`);
+  });
+
+  it('browns hash browns on the hot iron', () => {
+    const pan = createPan();
+    pan.heat.set(4);
+    run(pan, 90);
+    pan.pour(0.8);
+    const list = shreds();
+    into(pan, list);
+    run(pan, 60);
+    const brown = list.reduce((a, p) => a + Math.max(...p.brown), 0) / list.length;
+    assert.ok(brown > 0.6, `browned only ${brown.toFixed(2)}`);
+  });
+});
+
+describe('long pieces by the wall', () => {
+  it('keeps every strand of hash browns out of the iron, ends and all, however it points', () => {
+    const pan = createPan();
+    const volume = makePiece({ solid: potatoSolid(), kind: 'potato' }).volume;
+    const list = shredSolids('potato', volume, Math.random, { flesh: FLESH.potato, ...HASH })
+      .map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
+    for (const p of list) {
+      p.pos = [(Math.random() - 0.5) * 9, 2 + Math.random(), (Math.random() - 0.5) * 9];
+      pan.state(p);
+    }
+    pan.add(list, { area: 10 });
+    run(pan, 4);
+    for (let k = 0; k < 8; k++) {
+      pan.stir([-4, -4 + k], [4, 4 - k], 1 / 30);
+      run(pan, 0.3);
+    }
+    run(pan, 3);
+    let worst = 0;
+    for (const p of pan.pieces) {
+      const lean = pan.state(p).lean, q = lean ? multiply(lean, p.rot) : p.rot, pts = p.solid.pos;
+      for (let i = 0; i < pts.length; i += 3) {
+        const v = rotate(q, [pts[i], pts[i + 1], pts[i + 2]]);
+        const r = Math.hypot(p.pos[0] + v[0], p.pos[2] + v[2]), y = p.pos[1] + v[1];
+        worst = Math.max(worst, r <= COOK_RADIUS ? floorHeight(r) - y : r - COOK_RADIUS);
+      }
+    }
+    assert.ok(worst < 0.3, `a strand is ${worst.toFixed(2)} into the iron`);
   });
 });

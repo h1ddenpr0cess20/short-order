@@ -8,6 +8,7 @@
 import { cast } from './cast.js';
 import { extrude } from './sdf.js';
 import { walnut } from './textures.js';
+import { floorFrom } from '../sim/pile.js';
 
 /** The bowl's inside, as (radius, height) from the bottom of the well up to the rim. */
 export const BOWL = Object.freeze({ rim: 3.6, depth: 2.7, floor: 1.55, wall: 0.16, foot: 0.22 });
@@ -195,13 +196,26 @@ export function buildSpatula(GFX) {
 /** A cream plate with a wide rim, a green band and gilt edge. Its well is at y = 0.18. */
 export const PLATE = Object.freeze({ radius: 5.2, well: 3.3, floor: 0.18 });
 
+/** The plate's top: the well, the rise out of it, and the rim out to the edge. */
+const PLATE_TOP = [[0, PLATE.floor], [PLATE.well, PLATE.floor], [PLATE.well + 0.5, 0.32], [PLATE.radius - 0.4, 0.55], [PLATE.radius, 0.62]];
+
+const plateTop = floorFrom(PLATE_TOP);
+
+/** What is served falls in a pile in the middle of the well, and spreads as far as it slumps. */
+export const plateDish = Object.freeze({
+  floor: plateTop,
+  base: (x, z) => (Math.hypot(x, z) <= PLATE.radius ? plateTop(Math.hypot(x, z)) : 0),
+  holds: (x, z) => Math.hypot(x, z) <= PLATE.well + 0.4,
+  centre: [0, 0],
+  spread: 0.9,
+});
+
 export function buildPlate(GFX) {
   const porcelain = new GFX.MeshPhysicalMaterial({
     name: 'plate', color: 0xf1ead9, roughness: 0.28, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.14,
   });
   const R = PLATE.radius, W = PLATE.well;
-  /** The top: the well, the rise out of it, and the rim out to the edge. */
-  const top = [[0, PLATE.floor], [W, PLATE.floor], [W + 0.5, 0.32], [R - 0.4, 0.55], [R, 0.62]];
+  const top = PLATE_TOP;
   const profile = [...top, [R + 0.05, 0.57], [R - 0.06, 0.47], [R - 0.4, 0.38], [W + 0.4, 0.12], [W * 0.75, 0], [0, 0]];
   /** Top surface listed outward then round under the rim and back in along the bottom. */
   const mesh = new GFX.Mesh(new GFX.LatheGeometry(v2(GFX, [...profile].reverse()), 72), porcelain);
@@ -211,13 +225,7 @@ export function buildPlate(GFX) {
   group.add(mesh);
 
   /** Where the top of the rim is, `r` out: for laying the band on it. */
-  const rimY = (r) => {
-    for (let i = 1; i < top.length; i++) {
-      const [r0, y0] = top[i - 1], [r1, y1] = top[i];
-      if (r <= r1) return y0 + ((y1 - y0) * (r - r0)) / (r1 - r0);
-    }
-    return top[top.length - 1][1];
-  };
+  const rimY = plateDish.floor;
   const band = (from, to, material, name) => {
     const points = [];
     for (let k = 0; k <= 4; k++) {

@@ -7,7 +7,7 @@
  * and keep the recipe card's running commentary while the cooking goes on.
  */
 
-import { FILLINGS, PORTION, isFilling } from '../food/fillings.js';
+import { FILLINGS, PORTION, isFilling, listed } from '../food/fillings.js';
 import { dimensions } from '../sim/piece.js';
 import { ratio, taste } from '../sim/season.js';
 
@@ -43,12 +43,14 @@ const share = (list, test) => {
 
 /** How well it was cut: what share of the potato is a good bite, and how alike the bites are. */
 export function diceReport(potato) {
-  if (potato.length === 0) return { pieces: 0, bite: 0, even: 0, whole: 0, score: 0 };
+  if (potato.length === 0) return { pieces: 0, bite: 0, even: 0, whole: 0, shredded: 0, score: 0 };
   const bite = share(potato, (p) => {
     const d = dimensions(p);
     return Math.max(...d) <= BITE.max && Math.min(...d) >= BITE.min;
   });
-  const whole = share(potato, (p) => Math.max(...dimensions(p)) > 2.2);
+  /** Long, but a shred off the grater is not a potato left uncut. */
+  const whole = share(potato, (p) => !p.shred && Math.max(...dimensions(p)) > 2.2);
+  const shredded = share(potato, (p) => p.shred);
   /** Evenness: how little the bite-size pieces vary in size. */
   const sizes = potato.map((p) => Math.max(...dimensions(p))).filter((s) => s <= BITE.max);
   let even = 0;
@@ -58,7 +60,7 @@ export function diceReport(potato) {
     even = Math.max(0, 1 - (sd / mean) * 1.6);
   }
   const score = Math.round(100 * Math.max(0, Math.min(1, 0.78 * bite + 0.22 * even)));
-  return { pieces: potato.length, bite, even, whole, score };
+  return { pieces: potato.length, bite, even, whole, shredded, score };
 }
 
 /** How it fried: golden all over and cooked through, against pale, burnt and raw. */
@@ -125,9 +127,15 @@ export function seasonReport({ pieces, sheet = null, burntButter = false }) {
     const pepper = list.reduce((s, p) => s + (p.pepper ?? 0), 0) + (extra?.pepper ?? 0);
     return { volume, salt: ratio('salt', salt, volume), pepper: ratio('pepper', pepper, volume) };
   };
-  const potato = part(pieces.filter((p) => p.kind === 'potato'));
-  /** The egg, and anything cooked in with it — salt on the onion before the eggs went over it is still in the dish. */
-  const egg = part(pieces.filter((p) => p.kind !== 'potato'), sheet);
+  /**
+   * The egg, and anything cooked in with it — salt on the onion before the
+   * eggs went over it is still in the dish. Until there is egg, the extras are
+   * cooking with the potato, and tasted with it: an onion is not the eggs.
+   */
+  const hasEgg = pieces.some((p) => p.kind === 'egg') || (sheet?.volume ?? 0) > 0;
+  const withEgg = (p) => p.kind !== 'potato' && (hasEgg || !pieces.some((q) => q.kind === 'potato'));
+  const potato = part(pieces.filter((p) => !withEgg(p)));
+  const egg = part(pieces.filter(withEgg), hasEgg ? sheet : null);
   const volume = potato.volume + egg.volume;
   if (volume <= 0) return { salt: 0, pepper: 0, potato, egg, burntButter, score: 0 };
   /** Each part tasted on its own, then weighed by how much of the plate it is. */
@@ -192,6 +200,7 @@ export function grade({ pieces, sheet = null, beaten = 0, eggs = 0, seconds = 0,
 function diceNote(d, n) {
   if (n === 0) return 'No potato on the plate.';
   if (d.whole > 0.4) return 'That is most of a potato, uncut.';
+  if (d.shredded > 0.5) return 'Shredded, not diced — that is hash browns.';
   if (d.bite >= 0.85 && d.even >= 0.6) return 'Neat, even dice.';
   if (d.bite >= 0.7) return 'Good dice, a few odd sizes.';
   if (d.bite >= 0.45) return 'Some big chunks in there.';
@@ -354,11 +363,12 @@ export function extrasReport(bits, { dish = 'hash', inside = [], wants = false }
   /** How much went in, in portions: one is what comes off the counter — a tomato, half an onion, a block of cheese. */
   const handfuls = kinds.reduce((a, k) => a + volume[k] / PORTION[k], 0);
   const raw = share(all.filter((b) => FILLINGS[b.kind].cooks), (b) => b.core < 0.45);
+  const rawKinds = [...new Set(all.filter((b) => FILLINGS[b.kind].cooks && b.core < 0.45).map((b) => b.kind))];
   const cheese = all.filter((b) => b.kind === 'cheese');
   const melted = share(cheese, (b) => b.core >= 0.5);
   const burnt = share(all, (b) => Math.max(...b.brown) >= 1.6);
-  /** Cut too big to eat in a mouthful — or not cut at all. */
-  const chunky = share(all, (b) => Math.max(...dimensions(b)) > FILLINGS[b.kind].bite);
+  /** Cut too big to eat in a mouthful — or not cut at all. Shreds and slices off the grater are as they are meant to be. */
+  const chunky = share(all, (b) => !b.shred && !b.sliced && Math.max(...dimensions(b)) > FILLINGS[b.kind].bite);
   const whole = share(all, (b) => b.whole === true);
   const heavy = clamp01((handfuls - 3) / 2);
   const suits = SUITS[dish] ?? SUITS.hash;
@@ -371,13 +381,7 @@ export function extrasReport(bits, { dish = 'hash', inside = [], wants = false }
   } else {
     raw01 = 0.55 + 0.15 * (1 - raw) + 0.15 * (1 - heavy) + 0.15 * (cheese.length ? melted : 1) - 0.4 * odd - 0.4 * burnt - 0.35 * chunky;
   }
-  return { kinds, count, handfuls, wants, inside: folded, melted, raw, burnt, heavy, odd, chunky, whole, score: pct(raw01) };
-}
-
-/** The extras named, in the order they sit on the counter: 'ham, cheese and pepper'. */
-function listed(kinds) {
-  const names = Object.keys(FILLINGS).filter((k) => kinds.includes(k)).map((k) => FILLINGS[k].name);
-  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return { kinds, count, handfuls, wants, inside: folded, melted, raw, rawKinds, burnt, heavy, odd, chunky, whole, score: pct(raw01) };
 }
 
 function extrasNote(r) {
@@ -388,7 +392,7 @@ function extrasNote(r) {
   if (r.whole > 0.5) return `${cap}, in whole. It wanted cutting first.`;
   if (r.wants && r.inside < 0.4) return `${cap} — mostly on the outside, not folded in.`;
   if (r.chunky > 0.4) return `${cap}, in big pieces. Cut it smaller.`;
-  if (r.raw > 0.5) return `${cap}. The onion and pepper wanted cooking first.`;
+  if (r.raw > 0.5) return `${cap}. The ${listed(r.rawKinds)} wanted cooking first.`;
   if (r.heavy > 0.3) return `${cap}, and a lot of it.`;
   if (r.odd > 0.4) return `${cap} — an odd thing to put on it.`;
   if (r.kinds.includes('cheese') && r.melted < 0.5) return `${cap}. The cheese never melted.`;
@@ -498,9 +502,16 @@ function gradeFree(data) {
   const curds = pieces.filter((p) => p.kind === 'egg' && !p.omelette && !p.fried);
 
   if (potato.length) {
-    const dice = diceReport(potato), fry = fryReport(potato);
-    add('dice', 'dice', dice.score, diceNote(dice, potato.length), 0.16);
-    add('fry', 'fry', fry.score, fryNote(fry, potato.length), 0.24);
+    const fry = fryReport(potato);
+    /** Mostly through the grater, it is hash browns: not dice at all, and marked on how it fried. */
+    const volume = (list) => list.reduce((a, p) => a + p.volume, 0);
+    if (volume(potato.filter((p) => p.shred)) > 0.5 * volume(potato)) {
+      add('fry', 'hash browns', fry.score, fryNote(fry, potato.length), 0.4);
+    } else {
+      const dice = diceReport(potato);
+      add('dice', 'dice', dice.score, diceNote(dice, potato.length), 0.16);
+      add('fry', 'fry', fry.score, fryNote(fry, potato.length), 0.24);
+    }
   }
   if (fried.length) {
     /** Turned or not, whichever most of them were: that is how they were meant. */
@@ -558,7 +569,12 @@ function whitesNote(r) {
 
 function yolksNote(r, style) {
   if (r.eggs === 0) return 'No yolks.';
-  if (r.whole < 1) return r.whole === 0 ? 'Both yolks broken.' : 'One yolk broken.';
+  if (r.whole < 1) {
+    const broken = Math.round((1 - r.whole) * r.eggs);
+    if (r.eggs === 1) return 'The yolk broke.';
+    if (broken === r.eggs) return r.eggs === 2 ? 'Both yolks broken.' : 'Every yolk broken.';
+    return broken === 1 ? 'One yolk broken.' : `${broken} yolks broken.`;
+  }
   if (style === 'easy' && r.turned < 1) return 'Never turned — that is sunny side up.';
   if (style === 'sunny' && r.turned < 1) return 'Turned over — that is over easy.';
   if (r.runny < 0.5) return 'The yolks set hard.';

@@ -75,7 +75,7 @@ export function createHud({ game, root = document.body }) {
   for (const type of ['pointerdown', 'pointerup', 'pointermove']) bar.addEventListener(type, (e) => e.stopPropagation());
 
   const HINTS = {
-    board: 'click to chop · drag a thing to carry it, between them for all · right-click turns the pile · T rolls one over',
+    board: 'click to chop · drag a thing to move it, between them for all — about the board, into the pan or a ramekin, or back to the counter to be rid of it · right-click turns the pile · T rolls one over',
     pan: 'drag to stir · click to flip what is under the spatula · space to toss',
     knob: 'click to turn the burner up · right-click to turn it down',
     oil: 'click to oil the pan',
@@ -85,9 +85,10 @@ export function createHud({ game, root = document.body }) {
     salt: 'click for a pinch of salt over the pan · drag it to the bowl to salt the eggs',
     pepper: 'click for a twist of pepper over the pan · drag it to the bowl to pepper the eggs',
     butter: 'click to drop a pat of butter in the pan',
-    potato: 'click to put the potato on the board',
-    prep: 'drag something cut from the board here to keep it · click to tip it into the pan',
-    extra: 'click to put it on the board — cut it small, then into the pan, onto the egg to fold it in or over the food',
+    potato: 'click to put the potato on the board · or drag it where you want it',
+    prep: 'drag anything here to keep it · click to tip it into the pan · drag it out to the board or the pan',
+    extra: 'click to put it on the board, or drag it to the board, a ramekin or the pan — cut it small, then onto the egg to fold it in or over the food',
+    grater: 'drag cheese or a potato here — off the counter, the board or a ramekin — to shred it onto the board · cheese onto the side with the slot to slice it',
   };
   /** Over fried eggs, the spatula turns them; under an omelette not yet folded, it turns the whole thing. */
   const FRIED_PAN = 'click an egg to turn it over · space tosses them all · a drag through a yolk breaks it';

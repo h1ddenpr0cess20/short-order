@@ -14,10 +14,11 @@
  * side and raw on five.
  */
 
+import { FILLINGS } from '../food/fillings.js';
 import { COOK_RADIUS, FLAT, LIP_RADIUS, floorHeight, floorSlope } from '../scene/pan.js';
 import { browning, cooking, createHeat, spread } from './heat.js';
-import { SIDES, extents, sideWeights } from './piece.js';
-import { axisAngle, conjugate, dot3, multiply, normalize, rotate, slerp } from './quat.js';
+import { SIDES, dimensions, extents, sideDown, sideWeights } from './piece.js';
+import { axisAngle, conjugate, multiply, normalize, rotate, slerp } from './quat.js';
 
 export const GRAVITY = 60;
 
@@ -43,6 +44,13 @@ const DRY_TIME = 40;
 /** Sliding on dry iron stops quickly; on oil it carries. Per second. */
 const FRICTION = { dry: 9, oiled: 3.6 };
 
+/**
+ * And the drag that does not fade with speed, the way friction does not: a
+ * piece let go of slows by this much a second, so it comes to a stop rather
+ * than creeping on across the oil. Diced potato in a film of oil does not skate.
+ */
+const GRIP = { dry: 14, oiled: 6 };
+
 /** How quickly a piece that has landed rocks onto its nearest face. */
 const SETTLE_TIME = 0.09;
 
@@ -54,6 +62,18 @@ const SETTLE_TIME = 0.09;
  * over the floor keeps them from the iron and they brown far slower.
  */
 export const BUTTER = Object.freeze({ fat: 0.4, melt: 600, brownFrom: 140, brownTime: 14, burnt: 1.6 });
+
+/**
+ * Cheese does not cook, it melts: it starts to give well below anything
+ * frying, and a bit of it on a hot pan runs in a few seconds. In liquid egg,
+ * or folded inside an omelette, it only gets as hot as the egg does.
+ */
+export const MELT = Object.freeze({ from: 50, span: 60, time: 20, egg: 78 });
+const melting = (t) => Math.max(0, (t - MELT.from) / MELT.span);
+const melts = (piece) => Boolean(FILLINGS[piece.kind]?.melts);
+
+/** Melted far enough that it slumps and sticks rather than tumbling over like a block. */
+export const runny = (piece) => melts(piece) && piece.core > 0.5;
 
 /** Pieces further out than this are over the edge of the pan. */
 const OUT = COOK_RADIUS + 0.4;
@@ -77,15 +97,45 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
 
   const state = (piece) => {
     if (!piece.pan) {
-      piece.pan = { vel: [0, 0, 0], air: false, spin: null, settle: null, stuck: 0, landed: 0 };
+      piece.pan = {
+        vel: [0, 0, 0], air: false, spin: null, settle: null, stuck: 0, landed: 0,
+        /** A shred lies a little over or under the ones it crosses: they tangle into a layer, not one sheet. */
+        layer: piece.shred ? random() * Math.min(...dimensions(piece)) * 1.5 : 0,
+      };
     }
     return piece.pan;
   };
 
-  /** Half the piece's width across the floor, as it now lies: what it bumps others with. */
+  /** Half the piece's width across the floor, as it now lies: how far out it comes, for keeping it off the wall. */
   function reach(piece) {
     const e = extents(piece);
     return ((e.max[0] - e.min[0]) + (e.max[2] - e.min[2])) * 0.25;
+  }
+
+  /**
+   * What it bumps others with. A shred is limp and thin: it only bumps with
+   * its width, and shreds do not bump each other at all — they tangle
+   * together into a layer, the way hash browns do, rather than shoving one
+   * another round the pan. All of it is still kept off the wall.
+   */
+  function bump(piece) {
+    return piece.shred ? dimensions(piece).sort((a, b) => a - b)[1] / 2 : reach(piece);
+  }
+
+  /**
+   * How far a piece comes out toward the wall from its middle, where it lies
+   * now. For a dice, about half its width whichever way it is turned; for
+   * something long — a shred, a strip of ham — it depends which way it points:
+   * half its width lying along the wall, half its length pointing at it.
+   */
+  function out(piece) {
+    const d = dimensions(piece), long = Math.max(...d), [, mid] = [...d].sort((a, b) => a - b);
+    const r = Math.hypot(piece.pos[0], piece.pos[2]);
+    if (long < mid * 1.8 || r < 1e-6) return reach(piece);
+    const axis = [0, 0, 0];
+    axis[d.indexOf(long)] = 1;
+    const a = rotate(piece.rot, axis);
+    return Math.abs((a[0] * piece.pos[0] + a[2] * piece.pos[2]) / r) * (long / 2) + mid / 2;
   }
 
   /**
@@ -97,7 +147,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   function lie(piece) {
     const e = extents(piece);
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
-    const rho = reach(piece);
+    const rho = out(piece);
     const inner = floorHeight(Math.max(0, r - rho));
     const outer = floorHeight(Math.min(r + rho, COOK_RADIUS));
     const angle = Math.atan2(outer - inner, 2 * rho);
@@ -105,7 +155,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   }
 
   function rest(piece) {
-    return lie(piece).height;
+    return lie(piece).height + state(piece).layer;
   }
 
   /**
@@ -116,7 +166,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   function offWall(piece, s) {
     const e = extents(piece);
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
-    const rho = reach(piece);
+    const rho = out(piece);
     if (r < 1e-6 || r + rho <= COOK_RADIUS || r - rho >= LIP_RADIUS) return 0;
     const bottom = piece.pos[1] + e.min[1];
     const clear = (x) => floorHeight(Math.min(x + rho, LIP_RADIUS)) <= bottom;
@@ -152,7 +202,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
    * its middle — and sits it on the floor, leaning where the floor curves up.
    */
   function contain(piece, s) {
-    const rho = reach(piece);
+    const rho = out(piece);
     const limit = COOK_RADIUS - rho;
     const r = Math.hypot(piece.pos[0], piece.pos[2]);
     if (r > limit && r > 1e-6) {
@@ -171,19 +221,12 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
   }
 
   /**
-   * Turns a piece so that its side most nearly facing down faces straight
-   * down, keeping which way round it is otherwise. Animated.
+   * Turns a piece so that its side most nearly facing down — of those it can
+   * lie on: a shred lands on its face, never stands on its end — faces
+   * straight down, keeping which way round it is otherwise. Animated.
    */
   function settleOnto(piece, s) {
-    const down = rotate(conjugate(piece.rot), [0, -1, 0]);
-    let best = 0, score = -Infinity;
-    SIDES.forEach((side, k) => {
-      const d = dot3(side, down);
-      if (d > score) {
-        score = d;
-        best = k;
-      }
-    });
+    const best = sideDown(piece);
     /** Where that side points now, in the pan, and the turn that takes it to straight down. */
     const now = rotate(piece.rot, SIDES[best]);
     const axis = [now[2], 0, -now[0]];
@@ -214,8 +257,8 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
     s.air = false;
     s.spin = null;
     s.vel[1] = 0;
-    s.vel[0] *= 0.45;
-    s.vel[2] *= 0.45;
+    s.vel[0] *= 0.3;
+    s.vel[2] *= 0.3;
     s.landed = 0.25;
     settleOnto(piece, s);
   }
@@ -265,10 +308,12 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
       s.vel[0] += (ux * speed - s.vel[0]) * 0.55;
       s.vel[2] += (uz * speed - s.vel[2]) * 0.55;
       moved += 1;
-      if (!s.settle && random() < Math.min(0.9, len * 0.5)) {
-        /** Rolled forward onto the side it was being pushed toward. */
-        const roll = axisAngle([uz, 0, -ux], Math.PI / 2);
-        s.settle = { from: [...piece.rot], to: normalize(multiply(roll, piece.rot)), t: 0 };
+      if (!s.settle && !runny(piece) && random() < Math.min(0.9, len * 0.5)) {
+        /** Rolled forward onto the side it was being pushed toward — if it is a side it can lie on; a long strip is pushed along, not stood on its end. */
+        const roll = normalize(multiply(axisAngle([uz, 0, -ux], Math.PI / 2), piece.rot));
+        if (sideDown({ ...piece, rot: roll }, true) === sideDown({ ...piece, rot: roll })) {
+          s.settle = { from: [...piece.rot], to: roll, t: 0 };
+        }
       }
     }
     if (moved) events.push({ type: 'stir', count: moved, speed });
@@ -301,6 +346,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
    */
   function physics(dt, shove = null) {
     const friction = oil > 0.12 ? FRICTION.oiled : FRICTION.dry;
+    const grip = oil > 0.12 ? GRIP.oiled : GRIP.dry;
     const slip = oil > 0.12 ? 0.85 : 0.45;
     for (const piece of [...pieces]) {
       const s = state(piece);
@@ -331,7 +377,10 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
           }
           continue;
         }
-        if (s.vel[1] < 0 && piece.pos[1] <= rest(piece)) {
+        /** Coming down by the wall, it lands as soon as its outer edge meets the curve of the iron, not once its middle is down. */
+        const rho = reach(piece);
+        const edge = r + rho > FLAT && piece.pos[1] + extents(piece).min[1] <= floorHeight(Math.min(r + rho, COOK_RADIUS));
+        if (s.vel[1] < 0 && (piece.pos[1] <= rest(piece) || edge)) {
           if (r > OUT) continue;
           piece.pos[1] = rest(piece);
           land(piece, s);
@@ -349,10 +398,11 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
         }
       }
 
-      /** Sliding: friction slows it, and the curve of the wall pushes it back in. */
-      const k = Math.exp(-friction * dt);
-      s.vel[0] *= k;
-      s.vel[2] *= k;
+      /**
+       * Sliding: the curve of the wall pushes it back in, and friction slows
+       * it — after the push, so a piece the slope is too gentle to move stays
+       * where it is, rather than creeping down it forever.
+       */
       const r = Math.hypot(piece.pos[0], piece.pos[2]);
       const rho = reach(piece);
       if (r > FLAT - rho * 0.5 && r > 1e-6) {
@@ -361,6 +411,10 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
         s.vel[0] -= (piece.pos[0] / r) * push * dt;
         s.vel[2] -= (piece.pos[2] / r) * push * dt;
       }
+      const speed = Math.hypot(s.vel[0], s.vel[2]);
+      const k = speed > 0 ? Math.max(0, speed * Math.exp(-friction * dt) - grip * dt) / speed : 0;
+      s.vel[0] *= k;
+      s.vel[2] *= k;
       piece.pos[0] += s.vel[0] * dt;
       piece.pos[2] += s.vel[2] * dt;
       contain(piece, s);
@@ -385,7 +439,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
     for (const p of pieces) {
       if (state(p).air) continue;
       floor.push(p);
-      radii.set(p, reach(p));
+      radii.set(p, bump(p));
       const k = cellKey(Math.floor(p.pos[0] / CELL), Math.floor(p.pos[2] / CELL));
       const list = grid.get(k);
       if (list) list.push(p);
@@ -400,7 +454,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
           if (!list) continue;
           for (let n = 0; n < list.length; n++) {
             const q = list[n];
-            if (q.id <= p.id) continue;
+            if (q.id <= p.id || (p.shred && q.shred)) continue;
             const dx = q.pos[0] - p.pos[0], dz = q.pos[2] - p.pos[2];
             const min = (rp + radii.get(q)) * 0.92;
             const d2 = dx * dx + dz * dz;
@@ -441,7 +495,8 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
       const r = Math.hypot(piece.pos[0], piece.pos[2]);
       const t = spread(heat.temp, r, FLAT);
       const e = extents(piece);
-      const footprint = (e.max[0] - e.min[0]) * (e.max[2] - e.min[2]);
+      /** What of it is on the iron: its box across, or, for something thin and curled — a shred, a strip — its own area. */
+      const footprint = Math.min((e.max[0] - e.min[0]) * (e.max[2] - e.min[2]), piece.volume / Math.max(0.05, Math.min(...dimensions(piece))));
       const down = rotate(conjugate(piece.rot), [0, -1, 0]);
       sideWeights(down[0], down[1], down[2], weights);
 
@@ -458,7 +513,14 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
 
       const thick = Math.min(e.max[0] - e.min[0], e.max[1] - e.min[1], e.max[2] - e.min[2]);
       const pace = Math.min(2.5, (DICE / Math.max(0.15, thick)) ** 1.6);
-      piece.core = Math.min(1.5, piece.core + (cooking(t) / CORE_TIME) * pace * dt);
+      if (melts(piece)) {
+        const warm = t + (Math.min(t, MELT.egg) - t) * bathed;
+        piece.core = Math.min(1.5, piece.core + (melting(warm) / MELT.time) * Math.sqrt(pace) * dt);
+      } else piece.core = Math.min(1.5, piece.core + (cooking(t) / CORE_TIME) * pace * dt);
+      /** Whatever is folded inside an omelette keeps warming with it. */
+      for (const bit of piece.inside ?? []) {
+        if (melts(bit)) bit.core = Math.min(1.5, bit.core + (melting(Math.min(t, MELT.egg)) / MELT.time) * 0.6 * dt);
+      }
       piece.moisture = Math.max(0, piece.moisture - (cooking(t) / DRY_TIME) * pace * dt);
 
       if (oil <= 0.12 && Math.hypot(s.vel[0], s.vel[2]) < 0.05) s.stuck += dt * browning(t);

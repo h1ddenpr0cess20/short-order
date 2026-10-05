@@ -158,7 +158,7 @@ export const DISHES = Object.freeze({
         id: 'set', what: 'Set the whites', short: 'whites',
         read: (p) => ({
           how: p.fried.eggs === 0 ? 'leave them be — no spatula through the yolks'
-            : `${pct(1 - p.fried.runnyWhite)} of the white set${p.fried.broken ? ` · ${p.fried.broken} yolk broken` : ''}`,
+            : `${pct(1 - p.fried.runnyWhite)} of the white set${p.fried.broken ? ` · ${p.fried.broken} yolk${p.fried.broken > 1 ? 's' : ''} broken` : ''}`,
           fill: p.fried.eggs ? 1 - p.fried.runnyWhite : 0,
           done: p.fried.eggs >= 2 && p.fried.runnyWhite < 0.1,
         }),

@@ -15,7 +15,7 @@
 
 import { measure, split, translate } from '../geometry/slice.js';
 import { simplify } from '../geometry/simplify.js';
-import { conjugate, dot3, rotate } from './quat.js';
+import { axisAngle, conjugate, dot3, multiply, rotate } from './quat.js';
 
 /** The six sides, in the piece's own frame: +x, −x, +y, −y, +z, −z. */
 export const SIDES = Object.freeze([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]);
@@ -152,16 +152,87 @@ export function cutPiece(piece, normal, offset, flesh) {
   return { front: front.map(child), back: back.map(child) };
 }
 
-/** Which of its six sides is facing most nearly down, in the frame it is in. */
-export function sideDown(piece) {
+/**
+ * A piece through the slicer, a slice at a time: cut across its length into
+ * slices about `thick` thick, all alike, each laid down flat on its face where
+ * it was cut, in the frame the piece is in. `next()` gives the pieces of the
+ * next slice — several, for a piece already in bits — or null once it is all
+ * sliced. One cut at a time, since through a whole potato each is a while.
+ */
+export function slicer(piece, thick, flesh) {
+  let e = extents(piece);
+  /** Its length front to back, so the cuts go across it. */
+  if (e.max[0] - e.min[0] > e.max[2] - e.min[2]) {
+    piece.rot = multiply(axisAngle([0, 1, 0], Math.PI / 2), piece.rot);
+    piece.version += 1;
+    e = extents(piece);
+  }
+  const z0 = piece.pos[2] + e.min[2], z1 = piece.pos[2] + e.max[2];
+  const n = Math.max(1, Math.round((z1 - z0) / thick)), step = (z1 - z0) / n;
+  const flat = axisAngle([1, 0, 0], Math.PI / 2);
+  let rest = [piece], k = 1;
+  return {
+    /** What is still to be sliced. */
+    get left() {
+      return rest;
+    },
+    next() {
+      if (!rest.length) return null;
+      let out = [];
+      if (k >= n) {
+        out = rest;
+        rest = [];
+      } else {
+        const z = z0 + k * step, left = [];
+        k += 1;
+        for (const p of rest) {
+          const halves = cutPiece(p, [0, 0, 1], z, flesh);
+          for (const h of halves ? [...halves.front, ...halves.back] : [p]) (h.pos[2] < z ? out : left).push(h);
+        }
+        rest = left;
+        if (!out.length) return this.next();
+      }
+      for (const s of out) {
+        s.rot = multiply(flat, s.rot);
+        s.version += 1;
+      }
+      return out;
+    },
+  };
+}
+
+/** A piece through the slicer all at once. */
+export function sliceUp(piece, thick, flesh) {
+  const cut = slicer(piece, thick, flesh), out = [];
+  for (let slice = cut.next(); slice; slice = cut.next()) out.push(...slice);
+  return out;
+}
+
+/**
+ * Which of its six sides it could lie on: any side of a dice, either face of
+ * a slice or a strip, never the end of a long shred or of a strip of pepper —
+ * whatever would leave it standing no more than half again as tall as it is
+ * thin. A piece put down, or tipped, comes to rest on one of these.
+ */
+export function restingSides(piece) {
+  const d = dimensions(piece), least = Math.min(...d);
+  return [0, 1, 2, 3, 4, 5].filter((k) => d[k >> 1] <= least * 1.6);
+}
+
+/**
+ * Which of its six sides is facing most nearly down, in the frame it is in —
+ * of those it could lie on, unless `any`.
+ */
+export function sideDown(piece, any = false) {
   const down = rotate(conjugate(piece.rot), [0, -1, 0]);
-  let best = 0, score = -Infinity;
-  SIDES.forEach((s, k) => {
-    const d = dot3(s, down);
+  const sides = any ? [0, 1, 2, 3, 4, 5] : restingSides(piece);
+  let best = sides[0], score = -Infinity;
+  for (const k of sides) {
+    const d = dot3(SIDES[k], down);
     if (d > score) {
       score = d;
       best = k;
     }
-  });
+  }
   return best;
 }
