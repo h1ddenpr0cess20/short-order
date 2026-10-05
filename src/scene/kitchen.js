@@ -16,7 +16,7 @@ import { buildBottle, buildCarton } from './pantry.js';
 import { FILLING_KINDS, wholeSolids } from '../food/fillings.js';
 import { buildButter, buildGrater, buildMill, buildRamekin, buildSaltDish, buildTowel, buildWhole } from './props.js';
 import { potatoSolid } from '../food/potato.js';
-import { GRATE_TOP, buildStove } from './stove.js';
+import { GRATE_TOP, KNOB, buildStove } from './stove.js';
 import { brushed, greenTile, marble, studio } from './textures.js';
 
 /**
@@ -60,11 +60,12 @@ export const LAYOUTS = Object.freeze({
   },
   tall: {
     board: { x: 0, z: -4.4 },
-    stove: { x: 0.2, z: 10.4 },
+    /** Far enough down that the extras between it and the board are clear of the pan's rim, looked at from above. */
+    stove: { x: 0.2, z: 12.2 },
     bowl: { x: 5.5, z: -15.2 },
     carton: { x: -5.1, z: -15.6 },
     oil: { x: 0.5, z: -16.6 },
-    plate: { x: 0, z: 24 },
+    plate: { x: 0, z: 27 },
     /** Beside the board, the blade up by it and the handle down past the range, clear of both. */
     spatula: { x: -9.2, z: -3.6, yaw: 0 },
     towel: { x: -15, z: 2, yaw: -0.1 },
@@ -72,13 +73,13 @@ export const LAYOUTS = Object.freeze({
     salt: { x: 9.1, z: -6.6 },
     butter: { x: -9.1, z: -6.6, yaw: Math.PI / 2 },
     potato: { x: 10.3, z: -11.5, yaw: Math.PI / 2 },
-    /** Down the left of the range, past the spatula's handle. */
+    /** Down the left of the range, past the spatula's handle, as close in to it as they go. */
     prep: [
-      { x: -12, z: 5.6 }, { x: -12, z: 8.7 }, { x: -12, z: 11.8 },
-      { x: -12, z: 14.9 }, { x: -12, z: 18.0 }, { x: -12, z: 21.1 },
+      { x: -11, z: 7.4 }, { x: -11, z: 10.5 }, { x: -11, z: 13.6 },
+      { x: -11, z: 16.7 }, { x: -11, z: 19.8 }, { x: -11, z: 22.9 },
     ],
     /** Right of the range, below the mill, clear of the pan's handle: turned round, its slicing side to the range. */
-    grater: { x: 11.4, z: 5.4, yaw: Math.PI },
+    grater: { x: 10.6, z: 7.2, yaw: Math.PI },
     /**
      * Between the board and the range, in a row, where a hand going from one
      * to the other passes them — turned side to side, to fit the gap.
@@ -90,6 +91,9 @@ export const LAYOUTS = Object.freeze({
     wall: -19.6,
   },
 });
+
+/** What the camera can be looking at: the whole counter, or the board or the pan close up. */
+export const VIEWS = Object.freeze(['all', 'board', 'pan']);
 
 /**
  * The layout in use. Everything reads its place from here, live; `arrange`
@@ -103,18 +107,50 @@ export const HANDLE_TURN = Math.PI + Math.PI / 6.5;
 /** The wall: how tall it is. Where it stands is the layout's. */
 const WALL = { height: 26 };
 
+/** How far the counter runs out from the wall. */
+const COUNTER_DEPTH = 96;
+
 /** The pan's cooking surface, above the counter. */
 export const PAN_Y = GRATE_TOP + IRON;
+
+/**
+ * How much of each edge of the screen the page's panels take, as a share of
+ * the frame — the shot is framed inside what is left. Each panel is cut off
+ * along whichever edge loses the least more to it than is lost already, the
+ * biggest first: a ticket down the left is a strip down the left, one across
+ * the top a strip across the top, a bar along the bottom a strip along the
+ * bottom — and the little switch riding on the bar goes with the bar, not
+ * down the side of the screen. `panels` are screen rectangles, in pixels.
+ */
+export function panelMargins(width, height, panels, gap = 12) {
+  const m = { left: gap, right: gap, top: gap, bottom: gap };
+  const list = panels.filter((r) => r && r.width > 0 && r.height > 0).sort((a, b) => b.width * b.height - a.width * a.height);
+  for (const r of list) {
+    const cuts = [
+      ['left', r.right + gap, height],
+      ['right', width - r.left + gap, height],
+      ['top', r.bottom + gap, width],
+      ['bottom', height - r.top + gap, width],
+    ].map(([edge, depth, along]) => [edge, depth, Math.max(0, depth - m[edge]) * along]);
+    const [edge, depth] = cuts.reduce((a, b) => (b[2] < a[2] ? b : a));
+    m[edge] = Math.max(m[edge], depth);
+  }
+  return { left: (m.left / width) * 2, right: (m.right / width) * 2, top: (m.top / height) * 2, bottom: (m.bottom / height) * 2 };
+}
 
 export function buildKitchen({ stage, GFX }) {
   const room = new GFX.Group();
   room.name = 'kitchen';
 
-  /** The counter: one slab of marble, wide enough that its ends are never in shot. */
+  /**
+   * The counter: one slab of marble, wide enough that its ends are never in
+   * shot, and deep enough that its front edge is not either — not even with
+   * the camera down at the plate on a tall window.
+   */
   const counterMap = marble(GFX);
-  if (counterMap) counterMap.repeat.set(110 / 22, 64 / 22);
+  if (counterMap) counterMap.repeat.set(110 / 22, COUNTER_DEPTH / 22);
   const counter = new GFX.Mesh(
-    new GFX.BoxGeometry(110, 2, 64),
+    new GFX.BoxGeometry(110, 2, COUNTER_DEPTH),
     new GFX.MeshPhysicalMaterial({
       name: 'counter', color: counterMap ? 0xffffff : 0xe8e2d8, map: counterMap, roughness: 0.34, metalness: 0,
       clearcoat: 0.25, clearcoatRoughness: 0.4,
@@ -243,7 +279,7 @@ export function buildKitchen({ stage, GFX }) {
     Object.assign(LAYOUT, structuredClone(LAYOUTS[name]));
     wall.position.set(0, WALL.height / 2, LAYOUT.wall);
     trim.position.set(0, 0, LAYOUT.wall);
-    counter.position.set(0, -1, LAYOUT.wall + 32);
+    counter.position.set(0, -1, LAYOUT.wall + COUNTER_DEPTH / 2);
     stove.group.position.set(LAYOUT.stove.x, 0, LAYOUT.stove.z);
     panHome.set(LAYOUT.stove.x, PAN_Y, LAYOUT.stove.z);
     panRig.position.copy(panHome);
@@ -296,20 +332,31 @@ export function buildKitchen({ stage, GFX }) {
   controls.update = () => false;
 
   /**
-   * What has to be in shot: the board, the pan to its rim and its handle out
-   * to the hole in the end — the steel round it can be cropped — and the row
-   * along the back.
+   * What has to be in shot. For the whole counter: the board, the pan to its
+   * rim and its handle out to the hole in the end — the steel round it can be
+   * cropped — the row along the back, and everything there is to reach for.
+   * Closer in, just the one station: the board with room over it for the
+   * knife, or the pan with the knob and enough of the handle to take hold of.
    */
-  const keep = [];
-  function gather() {
-    keep.length = 0;
+  function gather(name) {
+    const keep = [];
     const corners = (x0, x1, y0, y1, z0, z1) => {
       for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) keep.push(new GFX.Vector3(x, y, z));
     };
+    const handle = (reach) => new GFX.Vector3(LAYOUT.stove.x - Math.sin(HANDLE_TURN) * reach, PAN_Y + 1.6, LAYOUT.stove.z - Math.cos(HANDLE_TURN) * reach);
+    if (name === 'board') {
+      corners(LAYOUT.board.x - BOARD.w / 2 - 0.3, LAYOUT.board.x + BOARD.w / 2 + 0.3, 0, BOARD.h + 2.5, LAYOUT.board.z - BOARD.d / 2 - 0.3, LAYOUT.board.z + BOARD.d / 2 + 0.3);
+      return keep;
+    }
+    if (name === 'pan') {
+      corners(LAYOUT.stove.x - 6.6, LAYOUT.stove.x + 6.6, 0, PAN_Y + 2, LAYOUT.stove.z - 6.6, LAYOUT.stove.z + 6.6);
+      corners(LAYOUT.stove.x + KNOB.x - 1.1, LAYOUT.stove.x + KNOB.x + 1.1, 0, 1.2, LAYOUT.stove.z + KNOB.z - 1.1, LAYOUT.stove.z + KNOB.z + 1.1);
+      keep.push(handle(6.35 + 3.4));
+      return keep;
+    }
     corners(LAYOUT.board.x - BOARD.w / 2, LAYOUT.board.x + BOARD.w / 2, 0, BOARD.h + 2.5, LAYOUT.board.z - BOARD.d / 2, LAYOUT.board.z + BOARD.d / 2);
     corners(LAYOUT.stove.x - 6.6, LAYOUT.stove.x + 6.6, 0, PAN_Y + 2, LAYOUT.stove.z - 6.6, LAYOUT.stove.z + 6.6);
-    const reach = 6.35 + 6.6;
-    keep.push(new GFX.Vector3(LAYOUT.stove.x - Math.sin(HANDLE_TURN) * reach, PAN_Y + 1.6, LAYOUT.stove.z - Math.cos(HANDLE_TURN) * reach));
+    keep.push(handle(6.35 + 6.6));
     const row = [LAYOUT.carton, LAYOUT.oil, LAYOUT.bowl];
     corners(Math.min(...row.map((r) => r.x)) - 3.8, Math.max(...row.map((r) => r.x)) + 3.8, 0, 3.5,
       Math.min(...row.map((r) => r.z)) - 3, Math.max(...row.map((r) => r.z)) + 2.6);
@@ -328,21 +375,25 @@ export function buildKitchen({ stage, GFX }) {
       corners(LAYOUT.potato.x - hx, LAYOUT.potato.x + hx, 0, h, LAYOUT.potato.z - hz, LAYOUT.potato.z + hz);
     }
     for (const at of LAYOUT.prep) corners(at.x - 1.5, at.x + 1.5, 0, 1.9, at.z - 1.5, at.z + 1.5);
+    return keep;
   }
 
   /** A wide window too low for the full ticket and bar: a phone turned on its side. */
   const isShort = (width, height) => width / height >= 0.85 && height < 520;
 
-  const view = { pitch: 0.88, yaw: 0, fov: 34 };
+  /**
+   * How steeply each shot looks down. Closer in it is more nearly overhead,
+   * so a cut lands where it was aimed and the floor of the pan shows; on a
+   * tall window the whole counter is looked down on more steeply too, which
+   * fills the height that the width leaves over.
+   */
+  const pitchOf = (name) => (name === 'all' ? (shape === 'tall' ? 0.98 : 0.88) : 1.04);
+  const FOV = 34;
   const scratch = new GFX.Vector3();
   const target = new GFX.Vector3();
 
-  function place(dist) {
-    camera.position.set(
-      target.x + Math.sin(view.yaw) * Math.cos(view.pitch) * dist,
-      target.y + Math.sin(view.pitch) * dist,
-      target.z + Math.cos(view.yaw) * Math.cos(view.pitch) * dist,
-    );
+  function place(dist, pitch) {
+    camera.position.set(target.x, target.y + Math.sin(pitch) * dist, target.z + Math.cos(pitch) * dist);
     camera.near = Math.max(0.5, dist / 60);
     camera.far = dist * 6;
     camera.updateProjectionMatrix();
@@ -350,88 +401,120 @@ export function buildKitchen({ stage, GFX }) {
     camera.updateMatrixWorld(true);
   }
 
-  /** Inside the frame, clear of the strip the recipe card has and the bar at the bottom. */
-  function fits(margin) {
-    return keep.every((p) => {
+  /**
+   * Inside the frame, clear of the margins the page's own panels take — and,
+   * closed in on a station, no bigger on the screen than `most`, in pixels:
+   * on a phone the board wants every pixel there is, but on a big screen,
+   * filled edge to edge, it is more than anyone needs to cut on.
+   */
+  function fits(keep, margin, most = null) {
+    let left = Infinity, right = -Infinity, lo = Infinity, hi = -Infinity;
+    for (const p of keep) {
       const ndc = scratch.copy(p).project(camera);
-      return ndc.x >= -1 + margin.left && ndc.x <= 1 - margin.right && ndc.y >= -1 + margin.bottom && ndc.y <= 1 - margin.top;
-    });
+      if (ndc.x < -1 + margin.left || ndc.x > 1 - margin.right || ndc.y < -1 + margin.bottom || ndc.y > 1 - margin.top) return false;
+      left = Math.min(left, ndc.x);
+      right = Math.max(right, ndc.x);
+      lo = Math.min(lo, ndc.y);
+      hi = Math.max(hi, ndc.y);
+    }
+    if (!most) return true;
+    return ((right - left) / 2) * most.width <= most.w && ((hi - lo) / 2) * most.height <= most.h;
   }
 
+  /** The most a station closed in on takes of the screen, in pixels. */
+  const CLOSE = { w: 760, h: 620 };
+
   /**
-   * Framed by asking: walk back until every corner that matters is on screen.
-   * The middle of the shot is the middle of what has to be in it, so a tall
-   * window and a wide one both come out filled.
+   * The page's panels over the kitchen — the ticket, the bar — as rectangles
+   * on the screen. Whoever puts them there says where they are. While the
+   * camera is away at the plate, different ones: the verdict, not the bar.
    */
-  function frame() {
-    gather();
-    camera.fov = view.fov;
-    const box = new GFX.Box3().setFromPoints(keep);
-    box.getCenter(target);
-    target.y = 0;
-    const width = stage.clientWidth || 1, height = stage.clientHeight || 1;
-    const tall = shape === 'tall';
-    const narrow = width < 720;
-    /**
-     * On a wide window the ticket stands down the left, so the shot keeps out
-     * of that strip; on a tall one it sits across the top instead, and the bar
-     * along the bottom wraps onto two rows on a narrow one. A short one — a
-     * phone on its side — has the ticket folded small in the corner and the
-     * bar slim along the bottom.
-     */
-    const short = isShort(width, height);
-    const ticket = tall ? 0 : short ? Math.min(0.85, ((10 + 264 + 10) / width) * 2) : Math.min(0.5, ((16 + 290 + 18) / width) * 2);
-    const margin = {
-      left: tall ? 0.03 : ticket,
-      right: 0.03,
-      top: tall ? (128 / height) * 2 : short ? 0.03 : 0.06,
-      bottom: ((short ? 58 : narrow ? 128 : 96) / height) * 2,
-    };
+  let covers = () => [];
+  let awayCovers = () => [];
+
+  const margins = (width, height, panels = covers()) => panelMargins(width, height, panels);
+
+  /**
+   * Framed by asking: the nearest the camera can stand with every corner that
+   * matters on screen, then slid along the counter until the slack is shared
+   * on both sides of the shot — the corners nearest the camera and those
+   * furthest from it do not sit symmetrically round wherever the middle of
+   * what is in shot happens to be — and asked again from there.
+   */
+  function frame(name, margin, into, width, height) {
+    fit(gather(name), pitchOf(name), margin, name === 'all' ? null : { ...CLOSE, width, height }, into);
+  }
+
+  /** The shot of `keep` from `pitch`, as near as `margin` and `most` let it come, into `into`. */
+  function fit(keep, pitch, margin, most, into) {
+    camera.fov = FOV;
+    const middle = new GFX.Box3().setFromPoints(keep).getCenter(new GFX.Vector3());
     const want = (margin.bottom - margin.top) / 2;
     const side = (margin.left - margin.right) / 2;
+    const reach = Math.tan((FOV / 2) * (Math.PI / 180));
+    /**
+     * How far the camera's aim is off the middle of what is in shot, per unit
+     * of distance: at first, whatever puts that middle in the middle of the
+     * room the panels leave — which need not be the middle of the screen —
+     * and then whatever shares the slack round it evenly.
+     */
+    const shift = { x: -side * reach * camera.aspect, z: (want * reach) / Math.sin(pitch) };
+    const at = (dist) => {
+      target.set(middle.x + shift.x * dist, 0, middle.z + shift.z * dist);
+      place(dist, pitch);
+    };
     let dist = 20;
-    for (let pass = 0; pass < 4; pass++) {
-      dist = 20;
-      place(dist);
-      for (let i = 0; i < 120 && !fits(margin); i++) {
-        dist *= 1.03;
-        place(dist);
+    for (let pass = 0; pass < 6; pass++) {
+      /** In and out by halves until the nearest that fits is pinned down. */
+      let near = 2, far = 2000;
+      for (let i = 0; i < 26; i++) {
+        dist = Math.sqrt(near * far);
+        at(dist);
+        if (fits(keep, margin, most)) far = dist;
+        else near = dist;
       }
-      /**
-       * Then slid along the counter until the slack is shared top and bottom:
-       * the corners nearest the camera and those furthest from it do not sit
-       * symmetrically round wherever the box's middle happens to be.
-       */
-      let lo = Infinity, hi = -Infinity;
+      dist = far;
+      at(dist);
+      let lo = Infinity, hi = -Infinity, left = Infinity, right = -Infinity;
       for (const p of keep) {
-        const y = scratch.copy(p).project(camera).y;
-        lo = Math.min(lo, y);
-        hi = Math.max(hi, y);
-      }
-      let left = Infinity, right = -Infinity;
-      for (const p of keep) {
-        const x = scratch.copy(p).project(camera).x;
-        left = Math.min(left, x);
-        right = Math.max(right, x);
+        const ndc = scratch.copy(p).project(camera);
+        lo = Math.min(lo, ndc.y);
+        hi = Math.max(hi, ndc.y);
+        left = Math.min(left, ndc.x);
+        right = Math.max(right, ndc.x);
       }
       const off = (lo + hi) / 2 - want;
       const offX = (left + right) / 2 - side;
       if (Math.abs(off) < 0.004 && Math.abs(offX) < 0.004) break;
-      target.z -= off * dist * 0.45;
-      target.x += offX * dist * 0.3;
+      /** A step along the counter moves the shot by about this much of the frame. */
+      shift.z -= (off * reach) / Math.sin(pitch);
+      shift.x += offX * reach * camera.aspect;
     }
-    place(dist);
+    at(dist);
+    into.position.copy(camera.position);
+    into.target.copy(target);
   }
 
+  /** The shots the camera can take: the whole counter, or one station close up. */
+  const shots = Object.fromEntries(VIEWS.map((name) => [name, { position: new GFX.Vector3(), target: new GFX.Vector3() }]));
+  /** The one the cook has picked. */
+  let view = 'all';
+  /** Stood back to the whole counter for a while, whatever the view: something is being carried. */
+  let backed = false;
+  const shotNow = () => shots[backed ? 'all' : view];
+
   /**
-   * Where the framed shot puts the camera, kept so the camera can go and look
-   * at something else for a while — the plate — and come back.
+   * Where the camera is, kept apart from the shot it is heading for, so it
+   * can swing over to another — or go and look at something else for a
+   * while, the plate — and come back.
    */
-  const home = { position: new GFX.Vector3(), target: new GFX.Vector3() };
   const look = { position: new GFX.Vector3(), target: new GFX.Vector3() };
   let away = null;
+  let moving = false;
+  /** What the shots were last framed for, so nothing that changes nothing re-frames them. */
+  let framed = '';
 
-  function frameHome() {
+  function frameHome({ glide = false } = {}) {
     const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
     arrange(w / h < 0.85 ? 'tall' : 'wide');
     if (typeof document !== 'undefined') {
@@ -439,47 +522,113 @@ export function buildKitchen({ stage, GFX }) {
       if (isShort(w, h)) document.body.dataset.short = 'true';
       else delete document.body.dataset.short;
     }
-    frame();
-    home.position.copy(camera.position);
-    home.target.copy(target);
-    if (!away) {
-      look.position.copy(home.position);
-      look.target.copy(home.target);
+    if (away) aim();
+    const margin = margins(w, h);
+    const key = JSON.stringify([w, h, shape, margin].map((v) => (typeof v === 'object' ? Object.values(v).map((n) => n.toFixed(3)) : v)));
+    if (key !== framed) {
+      framed = key;
+      for (const name of VIEWS) frame(name, margin, shots[name], w, h);
+      if (!away && !glide) {
+        look.position.copy(shotNow().position);
+        look.target.copy(shotNow().target);
+      }
     }
+    moving = true;
+    updateCamera(0);
   }
 
-  /** Swings the camera round to look at `point` from `distance` away. */
-  function focus(point, { distance = 24, pitch = 0.9 } = {}) {
-    away = {
-      target: point.clone(),
-      position: point.clone().add(new GFX.Vector3(0, Math.sin(pitch) * distance, Math.cos(pitch) * distance)),
-    };
+  /** Over to another view: the whole counter, the board or the pan. */
+  function show(name) {
+    if (!VIEWS.includes(name) || name === view) return false;
+    view = name;
+    moving = true;
+    for (const fn of viewed) fn(name);
+    return true;
+  }
+
+  /** Stands back to see the whole counter while `on`, and goes back to the view after. */
+  function standBack(on) {
+    if (backed === Boolean(on)) return;
+    backed = Boolean(on);
+    moving = true;
+  }
+
+  /**
+   * Swings the camera round to look at what is `radius` round `point` — the
+   * plate — framed into whatever room the panels over it leave.
+   */
+  function focus(point, { radius = 6, pitch = 0.98 } = {}) {
+    away = { point: point.clone(), radius, pitch, position: new GFX.Vector3(), target: new GFX.Vector3() };
+    aim();
+  }
+
+  /** Frames what the camera has gone to look at again: the panels round it have come or gone, or the window has changed. */
+  function aim() {
+    if (!away) return;
+    const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+    const { point: p, radius: r } = away;
+    const keep = [];
+    for (const x of [p.x - r, p.x + r]) for (const y of [0, p.y + 2]) for (const z of [p.z - r, p.z + r]) keep.push(new GFX.Vector3(x, y, z));
+    fit(keep, away.pitch, margins(w, h, awayCovers()), { ...CLOSE, width: w, height: h }, away);
+    moving = true;
+    updateCamera(0);
   }
 
   function release() {
     away = null;
+    moving = true;
   }
 
+  /** Eased toward the shot it wants: a slow swing over to the plate, a quicker one between views. */
   function updateCamera(dt) {
-    const want = away ?? home;
-    const k = 1 - Math.exp(-dt * 3.2);
+    if (!moving && !away) return;
+    const want = away ?? shotNow();
+    const k = dt > 0 ? 1 - Math.exp(-dt * (away ? 3.2 : 5.5)) : 0;
     look.position.lerp(want.position, k);
     look.target.lerp(want.target, k);
+    const dist = look.position.distanceTo(look.target);
+    camera.near = Math.max(0.5, dist / 60);
+    camera.far = dist * 6;
+    camera.updateProjectionMatrix();
     camera.position.copy(look.position);
     camera.lookAt(look.target);
     camera.updateMatrixWorld(true);
+    if (look.position.distanceToSquared(want.position) < 1e-6 && look.target.distanceToSquared(want.target) < 1e-6) moving = false;
   }
+
+  /** Told whenever the view changes. */
+  const viewed = new Set();
 
   frameHome();
   const observer = new ResizeObserver(() => frameHome());
   observer.observe(stage);
 
   return {
-    room, camera, frame: frameHome, focus, release, updateCamera, panHome,
+    room, camera, focus, release, updateCamera, panHome, show, standBack,
+    /** Frames every shot again — when the window, or the panels over it, change shape. */
+    frame: frameHome,
+    /** Where the page's panels are, as screen rectangles: the shots keep clear of them. */
+    set covers(fn) {
+      covers = fn;
+      framed = '';
+      frameHome();
+    },
+    /** The same, for while the camera is away at the plate. */
+    set awayCovers(fn) {
+      awayCovers = fn;
+      aim();
+    },
     get shape() { return shape; },
+    get view() { return view; },
+    /** Whether the camera is still on its way somewhere: the kitchen is not still while it is. */
+    get moving() { return moving; },
     onArrange(fn) {
       arranged.add(fn);
       return () => arranged.delete(fn);
+    },
+    onView(fn) {
+      viewed.add(fn);
+      return () => viewed.delete(fn);
     },
     stove, pan, panRig, board, knife, guide, bowl, whisk, carton, oil, spatula, plate, props, extras, extraAt, spud, prep,
   };

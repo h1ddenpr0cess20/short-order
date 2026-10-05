@@ -78,14 +78,22 @@ button {
 
 /* ── the bar ─────────────────────────────────────────────────────────────── */
 
+/*
+ * Centred along the bottom, as wide as it needs and no wider than the
+ * window: past that it wraps onto another row rather than off the edge.
+ */
 #bar {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
   bottom: calc(14px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
   z-index: 5;
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 10px;
   align-items: stretch;
   padding: 9px;
   border-radius: 6px;
@@ -105,6 +113,33 @@ button {
 #bar .heat, #bar .moves, #bar .eggs {
   padding-right: 10px;
   border-right: 1px solid var(--gold-faint);
+}
+
+/** Which way the camera looks: a small switch riding on the bar's right end. */
+#bar .views {
+  position: absolute;
+  right: 10px;
+  bottom: calc(100% + 6px);
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--green-700), var(--green-800));
+  border: 1px solid var(--gold-dim);
+  box-shadow: 0 8px 20px rgba(5, 12, 8, 0.35);
+}
+#bar .views button {
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  color: rgba(244, 236, 218, 0.72);
+}
+#bar .views button[aria-checked="true"] {
+  background: var(--gold-faint);
+  color: var(--gold-bright);
+  box-shadow: inset 0 0 0 1px var(--gold-dim);
 }
 
 #bar button {
@@ -150,7 +185,7 @@ button {
 #hint {
   position: fixed;
   left: 50%;
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-top, 66px) + 10px);
   transform: translateX(-50%);
   z-index: 4;
   margin: 0;
@@ -223,10 +258,9 @@ button {
   text-transform: inherit;
   text-align: left;
 }
+/** Joined to the last word by a space that does not break, so it never wraps onto a line of its own. */
 #ticket .dish::after {
-  content: "▾";
-  display: inline-block;
-  margin-left: 6px;
+  content: "\00a0\00a0▾";
   font: 400 0.6em/1 var(--sans);
   color: var(--aside);
   vertical-align: 0.2em;
@@ -554,16 +588,18 @@ button {
 body:not([data-playing]) #bar, body:not([data-playing]) #ticket, body:not([data-playing]) #hint { visibility: hidden; }
 
 body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: none; transition: opacity .4s; }
+/** Upright, the verdict says all the ticket did and more: the ticket makes way, so the plate has the room between. */
+body[data-plated][data-shape="tall"] #ticket { opacity: 0; pointer-events: none; transition: opacity .4s; }
 
 #ticket .short, #ticket .now { display: none; }
 
-/* ── tall windows: the ticket across the top, the bar on two rows ────────── */
-/* (and short ones — a phone on its side — have the same folded ticket, in the corner) */
+/* ── tall windows: the ticket across the top, the bar along the bottom ───── */
+/* (and short ones — a phone on its side — fold the ticket the same way, into a rail down the left) */
 
 :is(body[data-shape="tall"], body[data-short]) #ticket {
-  left: calc(10px + env(safe-area-inset-left));
-  right: calc(10px + env(safe-area-inset-right));
-  top: calc(12px + env(safe-area-inset-top));
+  left: calc(8px + env(safe-area-inset-left));
+  right: calc(8px + env(safe-area-inset-right));
+  top: calc(8px + env(safe-area-inset-top));
   width: auto;
   padding: 9px 11px 8px;
   border-width: 5px;
@@ -573,7 +609,7 @@ body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: no
   column-gap: 8px;
 }
 :is(body[data-shape="tall"], body[data-short]) #ticket header, :is(body[data-shape="tall"], body[data-short]) #ticket .tag { display: none; }
-:is(body[data-shape="tall"], body[data-short]) #ticket h1 { grid-area: title; margin: 0; font-size: 17px; align-self: center; }
+:is(body[data-shape="tall"], body[data-short]) #ticket h1 { grid-area: title; margin: 0; font-size: 17px; align-self: center; text-wrap: balance; }
 :is(body[data-shape="tall"], body[data-short]) #ticket footer { grid-area: foot; border: 0; padding: 0; gap: 8px; }
 :is(body[data-shape="tall"], body[data-short]) #ticket .clock { font-size: 15px; }
 :is(body[data-shape="tall"], body[data-short]) #ticket .plate { height: 28px; padding: 0 10px; }
@@ -583,8 +619,8 @@ body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: no
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 4px 3px;
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 7px;
+  padding-top: 7px;
 }
 /* Six steps across a phone: small circles, tight type, and a second row rather than off the edge. */
 :is(body[data-shape="tall"], body[data-short]) #ticket li { padding: 0 0 0 18px; min-height: 15px; }
@@ -592,28 +628,59 @@ body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: no
 :is(body[data-shape="tall"], body[data-short]) #ticket li .what, :is(body[data-shape="tall"], body[data-short]) #ticket li .how, :is(body[data-shape="tall"], body[data-short]) #ticket li .bar { display: none; }
 :is(body[data-shape="tall"], body[data-short]) #ticket li .short { display: block; font: 500 11px/17px var(--condensed); letter-spacing: .06em; text-transform: uppercase; }
 :is(body[data-shape="tall"], body[data-short]) #ticket li[data-done="true"] .short { color: var(--done); }
+/** The step in hand, spelled out: two lines at most, and always room for two, so the ticket does not grow and shrink under the camera. */
 :is(body[data-shape="tall"], body[data-short]) #ticket .now {
   grid-area: now;
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-height: 2.7em;
   margin: 6px 0 0;
   font: italic 400 12px/1.35 var(--display);
   color: var(--aside);
 }
 
+/* The bar on a tall window: as wide as the window, wrapping into rows, with which way to look along the top. */
+body[data-shape="tall"] #bar {
+  width: auto;
+  left: calc(8px + env(safe-area-inset-left));
+  right: calc(8px + env(safe-area-inset-right));
+}
+body[data-shape="tall"] #bar .heat { flex: 1 1 100%; justify-content: center; border-right: 0; padding-right: 0; padding-bottom: 6px; border-bottom: 1px solid var(--gold-faint); }
+:is(body[data-shape="tall"], body[data-short]) #bar .views {
+  position: static;
+  flex: 1 1 100%;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 0 6px;
+  border: 0;
+  border-bottom: 1px solid var(--gold-faint);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+:is(body[data-shape="tall"], body[data-short]) #bar .views button { flex: 1 1 0; max-width: 132px; height: 30px; border: 1px solid var(--gold-dim); border-radius: 4px; }
+
+/*
+ * A phone held upright is as often short of height as of width, and every row
+ * the bar takes is kitchen it does not show: tight rows, tight buttons.
+ */
 @media (max-width: 719px) {
   #bar {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-    width: calc(100vw - 20px);
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    padding: 7px;
+    gap: 5px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    padding: 6px;
   }
-  #bar .heat { width: 100%; justify-content: center; border-right: 0; padding-right: 0; padding-bottom: 6px; border-bottom: 1px solid var(--gold-faint); }
+  #bar .heat { width: 100%; justify-content: center; border-right: 0; padding-right: 0; padding-bottom: 5px; border-bottom: 1px solid var(--gold-faint); }
   #bar .moves, #bar .eggs { border-right: 0; padding-right: 0; }
-  #bar button { height: 32px; padding: 0 8px; font-size: 11px; letter-spacing: .1em; }
+  #bar button { height: 30px; padding: 0 7px; font-size: 10.5px; letter-spacing: .07em; }
+  #bar button.round { width: 30px; }
   #bar .moves, #bar .eggs, #bar .season { gap: 4px; }
-  #bar .dial, #bar .thermo { min-width: 70px; }
+  #bar .dial, #bar .thermo { min-width: 64px; gap: 2px; }
+  :is(body[data-shape="tall"], body[data-short]) #bar .views { padding-bottom: 5px; }
+  :is(body[data-shape="tall"], body[data-short]) #bar .views button { height: 28px; }
   #hint { display: none; }
   #result {
     top: auto;
@@ -634,6 +701,15 @@ body[data-plated] #bar, body[data-plated] #hint { opacity: 0; pointer-events: no
   #intro .menu { grid-template-columns: 1fr; gap: 4px; }
   #intro .menu button { padding: 6px 8px; }
   #intro .scrawl { display: none; }
+}
+
+/** A narrow phone: the dish's name a size smaller, so it fits beside the clock more often than not, and the buttons closer. */
+@media (max-width: 380px) {
+  body[data-shape="tall"] #ticket h1 { font-size: 15px; }
+  body[data-shape="tall"] #ticket footer { gap: 6px; }
+  body[data-shape="tall"] #ticket .clock { font-size: 14px; }
+  body[data-shape="tall"] #ticket li .short { font-size: 10px; letter-spacing: .04em; }
+  #bar button { padding: 0 6px; letter-spacing: .05em; }
 }
 
 /* ── the corner menu ─────────────────────────────────────────────────────── */
@@ -686,11 +762,12 @@ body[data-shape="tall"] #menu { position: absolute; top: calc(50% - 3px); right:
 #note {
   position: fixed;
   left: 50%;
-  bottom: calc(102px + env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-top, 66px) + 36px);
   transform: translateX(-50%);
   z-index: 6;
   margin: 0;
   padding: 9px 18px;
+  width: max-content;
   max-width: min(520px, calc(100vw - 32px));
   box-sizing: border-box;
   border-radius: 4px;
@@ -706,52 +783,94 @@ body[data-shape="tall"] #menu { position: absolute; top: calc(50% - 3px); right:
 #note.in { animation: nudge .35s cubic-bezier(.2, 1.4, .4, 1); }
 @keyframes nudge { from { opacity: 0; transform: translate(-50%, 8px); } }
 body[data-plated] #note, body:not([data-playing]) #note { display: none; }
-body[data-playing] #hint { bottom: calc(76px + env(safe-area-inset-bottom)); }
 @media (max-width: 719px) {
-  #note { bottom: calc(118px + env(safe-area-inset-bottom)); font-size: 13px; }
+  #note { bottom: calc(var(--bar-top, 150px) + 10px); font-size: 13px; }
 }
 
-/** Nothing hovers under a finger, so there is nothing for the hover hint to say. */
+/** Nothing hovers under a finger, so there is nothing for the hover hint to say — and the notes sit right on the bar. */
 @media (hover: none) and (pointer: coarse) {
   #hint { display: none; }
+  #note { bottom: calc(var(--bar-top, 66px) + 10px); }
 }
 
 /* ── short windows: a phone on its side ──────────────────────────────────── */
 
+/*
+ * The height is what a phone on its side is short of, so nothing goes along
+ * the top or the bottom: the ticket and the bar stand one over the other in
+ * a rail down the left, and the kitchen has all the rest, top to bottom.
+ */
+body[data-short] { --rail: 236px; }
+
 body[data-short] #ticket {
-  left: calc(10px + env(safe-area-inset-left));
+  left: calc(8px + env(safe-area-inset-left));
   right: auto;
   top: calc(8px + env(safe-area-inset-top));
-  width: 264px;
+  width: var(--rail);
+  max-height: calc(100dvh - var(--bar-top, 230px) - 16px - env(safe-area-inset-top));
+  overflow: hidden;
+  padding: 7px 9px 6px;
+  grid-template-areas: "title clock" "steps plate" "now now";
 }
-body[data-short] #ticket h1 { font-size: 15px; }
-body[data-short] #ticket ol { justify-content: flex-start; gap: 4px 8px; }
+body[data-short] #ticket h1 { font-size: 14px; }
+body[data-short] #ticket footer { display: contents; }
+body[data-short] #ticket .clock { grid-area: clock; align-self: center; font-size: 14px; }
+body[data-short] #ticket .plate { grid-area: plate; align-self: center; height: 26px; padding: 0 9px; font-size: 11px; }
+/* The steps as their circles alone: the one in hand is spelled out under them. */
+body[data-short] #ticket ol { justify-content: flex-start; align-self: center; gap: 3px; margin-top: 6px; padding-top: 0; border-top: 0; }
+body[data-short] #ticket li { padding: 0; width: 15px; min-height: 15px; }
+body[data-short] #ticket li::before { position: static; display: block; width: 13px; height: 13px; line-height: 13px; }
+body[data-short] #ticket li .short { display: none; }
+body[data-short] #ticket .now { margin-top: 5px; font-size: 11.5px; }
 
 body[data-short] #bar {
-  flex-wrap: nowrap;
-  gap: 5px;
-  width: auto;
-  max-width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
-  bottom: calc(6px + env(safe-area-inset-bottom));
+  left: calc(8px + env(safe-area-inset-left));
+  right: auto;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  margin: 0;
+  width: var(--rail);
+  max-width: none;
+  box-sizing: border-box;
+  justify-content: stretch;
+  gap: 4px;
   padding: 5px;
 }
-body[data-short] #bar .heat, body[data-short] #bar .moves, body[data-short] #bar .eggs {
-  width: auto;
-  padding: 0 5px 0 0;
+body[data-short] #bar .views { padding-bottom: 4px; }
+body[data-short] #bar .views button { max-width: none; height: 28px; }
+body[data-short] #bar .heat {
+  flex: 1 1 100%;
+  justify-content: space-between;
+  padding: 0 0 4px;
   border: 0;
-  border-right: 1px solid var(--gold-faint);
+  border-bottom: 1px solid var(--gold-faint);
+}
+/* The rest of the buttons a group to a row — the moves two rows of three — each row filling the rail. */
+body[data-short] #bar .moves, body[data-short] #bar .eggs, body[data-short] #bar .season {
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  padding: 0;
+  border: 0;
 }
 body[data-short] #bar .group { gap: 4px; }
-body[data-short] #bar button { height: 32px; padding: 0 7px; font-size: 10.5px; letter-spacing: .08em; }
-body[data-short] #bar button.round { width: 32px; padding: 0; }
-body[data-short] #bar .dial, body[data-short] #bar .thermo { min-width: 50px; gap: 2px; }
+body[data-short] #bar button { flex: 1 1 auto; height: 30px; padding: 0 6px; font-size: 10.5px; letter-spacing: .08em; }
+body[data-short] #bar .moves button { flex-basis: 28%; }
+body[data-short] #bar .heat button { flex: none; }
+body[data-short] #bar button.round { width: 30px; padding: 0; }
+body[data-short] #bar .dial, body[data-short] #bar .thermo { min-width: 48px; gap: 2px; }
 body[data-short] #bar .level { font-size: 13px; }
 body[data-short] #bar .temp { font-size: 15px; }
 body[data-short] #menu { position: relative; top: auto; right: auto; z-index: auto; align-self: center; }
-body[data-short] #menu .more { width: 32px; height: 32px; padding: 0; }
+body[data-short] #menu .more { width: 30px; height: 30px; padding: 0; }
 body[data-short] #menu .items { right: -5px; bottom: calc(100% + 10px); }
 body[data-short] #hint { display: none; }
-body[data-short] #note { bottom: calc(58px + env(safe-area-inset-bottom)); font-size: 13px; padding: 6px 14px; }
+/* The notes over the middle of the kitchen, not the middle of the window. */
+body[data-short] #note {
+  left: calc(var(--rail) + 16px + (100vw - var(--rail) - 16px) / 2);
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  max-width: min(460px, calc(100vw - var(--rail) - 40px));
+  font-size: 13px;
+  padding: 6px 14px;
+}
 body[data-short] #result { top: calc(8px + env(safe-area-inset-top)); bottom: calc(8px + env(safe-area-inset-bottom)); transform: none; padding: 12px 16px; }
 body[data-short] #result .total b { font-size: 36px; }
 body[data-short] #result .stars { font-size: 22px; }

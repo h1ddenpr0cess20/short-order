@@ -5,7 +5,7 @@ import * as GFX from '../src/vendor/gfx/index.js';
 import { crackedHalves, eggGeometry } from '../src/food/egg.js';
 import { BOARD, buildBoard, buildKnife } from '../src/scene/board.js';
 import { BOWL, bowlRadius, buildBowl, buildPlate, buildSpatula, buildWhisk } from '../src/scene/cookware.js';
-import { HANDLE_TURN, LAYOUTS } from '../src/scene/kitchen.js';
+import { HANDLE_TURN, LAYOUTS, panelMargins } from '../src/scene/kitchen.js';
 import { COOK_RADIUS, FLAT, RIM_HEIGHT, RIM_RADIUS, buildPan, floorHeight } from '../src/scene/pan.js';
 import { CARTON, buildBottle, buildCarton } from '../src/scene/pantry.js';
 import { buildButter, buildMill, buildSaltDish, buildTowel } from '../src/scene/props.js';
@@ -98,6 +98,44 @@ describe('the kitchen', () => {
       assert.ok(tip.z > layout.stove.z, 'the handle should come toward the cook');
     });
   }
+});
+
+describe('the shot round the panels', () => {
+  const rect = (left, top, right, bottom) => ({ left, top, right, bottom, width: right - left, height: bottom - top });
+  const px = (share, size) => Math.round((share / 2) * size);
+
+  it('keeps out of a ticket down the left and a bar along the bottom', () => {
+    const m = panelMargins(1440, 900, [rect(16, 16, 306, 531), rect(176, 832, 1264, 886)]);
+    assert.equal(px(m.left, 1440), 318);
+    assert.equal(px(m.bottom, 900), 80);
+    assert.equal(px(m.top, 900), 12);
+    assert.equal(px(m.right, 1440), 12);
+  });
+
+  it('takes the switch riding on the bar with the bar, not down the side', () => {
+    const m = panelMargins(1024, 700, [rect(16, 16, 306, 531), rect(12, 590, 1012, 686), rect(833, 551, 1001, 584)]);
+    assert.equal(px(m.right, 1024), 12);
+    assert.equal(px(m.bottom, 700), 161);
+  });
+
+  it('keeps under a ticket across the top of a tall window', () => {
+    const m = panelMargins(390, 844, [rect(8, 8, 382, 130), rect(8, 668, 382, 836)]);
+    assert.equal(px(m.top, 844), 142);
+    assert.equal(px(m.bottom, 844), 188);
+    assert.equal(px(m.left, 390), 12);
+  });
+
+  it('keeps right of the rail on a phone on its side', () => {
+    const m = panelMargins(844, 390, [rect(8, 8, 244, 120), rect(8, 160, 244, 382)]);
+    assert.equal(px(m.left, 844), 256);
+    assert.equal(px(m.top, 390), 12);
+    assert.equal(px(m.bottom, 390), 12);
+  });
+
+  it('pays no mind to a panel that is not showing', () => {
+    const m = panelMargins(800, 600, [rect(0, 0, 0, 0), null]);
+    assert.deepEqual([px(m.left, 800), px(m.right, 800), px(m.top, 600), px(m.bottom, 600)], [12, 12, 12, 12]);
+  });
 });
 
 describe('an egg', () => {

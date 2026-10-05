@@ -23,7 +23,7 @@ import { FILLINGS, FILLING_KINDS, HASH, isFilling, isTrimming, listed, shredSoli
 import { INGREDIENTS, FLESH } from '../food/index.js';
 import { BOARD } from '../scene/board.js';
 import { plateDish } from '../scene/cookware.js';
-import { HANDLE_TURN, LAYOUT, PAN_Y } from '../scene/kitchen.js';
+import { HANDLE_TURN, LAYOUT, PAN_Y, VIEWS } from '../scene/kitchen.js';
 import { COOK_RADIUS, FLAT, LIP_RADIUS, RIM_HEIGHT, RIM_RADIUS, floorHeight } from '../scene/pan.js';
 import { TOP } from '../scene/stove.js';
 import { PATS } from '../scene/props.js';
@@ -128,9 +128,12 @@ export function createGame({ stage, GFX, kitchen }) {
   const spatula = { last: null, work: 0 };
   const press = { down: false, id: null, x: 0, y: 0, zone: null, drag: null, grab: [0, 0] };
   /**
-   * Fingers on the glass, for the one gesture that takes two: a twist, which
-   * turns the pile the way the fingers go. `twist` is the angle between them
-   * last time, and how far they have turned since the pile last did.
+   * Fingers on the glass, for the gestures that take two: a twist, which
+   * turns the pile the way the fingers go, and a spread or a pinch, which
+   * closes in on a station or stands back from it. `twist` is the angle
+   * between them last time, how far they have turned since the pile last
+   * did, and how far apart they started; whichever of the two the fingers
+   * do first is what they are doing.
    */
   const fingers = new Map();
   let twist = null;
@@ -1147,7 +1150,7 @@ export function createGame({ stage, GFX, kitchen }) {
     plating = { t: 0, flights, pile };
     round.plated = true;
     pan.heat.set(0);
-    kitchen.focus(plateGroup.getWorldPosition(new GFX.Vector3()).add(new GFX.Vector3(0, 0.5, 0)), { distance: 26, pitch: 0.98 });
+    kitchen.focus(plateGroup.getWorldPosition(new GFX.Vector3()).add(new GFX.Vector3(0, 0.5, 0)), { radius: 6, pitch: 0.98 });
     emit('plating', { count: all.length });
     return true;
   }
@@ -1451,10 +1454,20 @@ export function createGame({ stage, GFX, kitchen }) {
     if (press.down && press.drag) return;
     press.down = false;
     press.drag = null;
-    twist = { angle: fingerAngle(), turned: 0 };
+    twist = { angle: fingerAngle(), turned: 0, apart: fingerSpread(), kind: null };
   }
 
-  /** Twisted far enough, the pile turns; keep twisting and it turns again a quarter later. */
+  /** How far apart the first two fingers are, on the screen. */
+  function fingerSpread() {
+    const [a, b] = fingers.values();
+    return Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+  }
+
+  /**
+   * Twisted far enough, the pile turns; keep twisting and it turns again a
+   * quarter later. Spread far enough, the camera closes in on whichever
+   * station is between the fingers; pinched, it stands back.
+   */
   function moveTwist() {
     const angle = fingerAngle();
     let d = angle - twist.angle;
@@ -1462,10 +1475,81 @@ export function createGame({ stage, GFX, kitchen }) {
     if (d < -Math.PI) d += 2 * Math.PI;
     twist.angle = angle;
     twist.turned += d;
-    if (Math.abs(twist.turned) < 0.55) return;
+    if (twist.kind !== 'turn') {
+      const spread = fingerSpread() / twist.apart;
+      if (spread > 1.3 || spread < 0.77) {
+        twist.kind = 'zoom';
+        const [a, b] = fingers.values();
+        if (spread > 1) lookAt({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 });
+        else look('all');
+        twist.apart = fingerSpread();
+        return;
+      }
+    }
+    if (twist.kind === 'zoom' || Math.abs(twist.turned) < 0.55) return;
     /** Clockwise on the screen is clockwise from above, which is the board's −1. */
     const dir = twist.turned > 0 ? -1 : 1;
-    if (turn(dir)) twist.turned += dir * (Math.PI / 2);
+    if (!turn(dir)) return;
+    twist.kind = 'turn';
+    twist.turned += dir * (Math.PI / 2);
+  }
+
+  /** Closes in on the board or the pan, whichever the camera is looking at round `point` on the screen. */
+  function lookAt(point) {
+    pointer.aim(point);
+    const at = locate().zone;
+    if (at === 'board') return look('board');
+    if (at === 'pan' || at === 'handle' || at === 'knob') return look('pan');
+    /** Between them, the nearer of the two. */
+    const p = pointer.at(0);
+    if (!p) return false;
+    const toBoard = Math.hypot(p.x - boardOrigin.x, p.z - boardOrigin.z);
+    const toPan = Math.hypot(p.x - panHome.x, p.z - panHome.z);
+    return look(toBoard < toPan ? 'board' : 'pan');
+  }
+
+  /** The camera over to `name`: the whole counter, the board or the pan. */
+  function look(name) {
+    if (!kitchen.show(name)) return false;
+    emit('view', { view: name });
+    return true;
+  }
+
+  /**
+   * The wheel closes in on whatever station is under the pointer, and rolled
+   * back stands back from it. A trackpad sends a stream of little turns, so
+   * they are added up, and one step is all a flick gets.
+   */
+  const wheel = { sum: 0, at: 0, held: 0 };
+  function onWheel(event) {
+    if (!live || round.plated) return;
+    event.preventDefault();
+    const now = performance.now();
+    if (now - wheel.at > 250) wheel.sum = 0;
+    wheel.at = now;
+    if (now < wheel.held) return;
+    wheel.sum += event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+    if (Math.abs(wheel.sum) < 40) return;
+    const closer = wheel.sum < 0;
+    wheel.sum = 0;
+    wheel.held = now + 450;
+    if (closer) lookAt(event);
+    else look('all');
+  }
+
+  /**
+   * The camera moved under a pointer that did not: what is under it now is
+   * something else, and what is held in the hand stays under it.
+   */
+  function follow() {
+    if (!pointer.state.inside || twist) return;
+    pointer.aim({ clientX: pointer.state.x, clientY: pointer.state.y });
+    if (press.down && press.drag === 'scrape') {
+      const p = pointer.at(CARRY);
+      if (p) carryAt.set(p.x + press.grab[0], CARRY, p.z + press.grab[1]);
+    } else if (!press.down) {
+      zone = locate();
+    }
   }
 
   function onMove(event) {
@@ -1704,7 +1788,8 @@ export function createGame({ stage, GFX, kitchen }) {
     if (key === ' ') {
       event.preventDefault();
       startToss();
-    } else if (key === 'r') turn();
+    } else if (key === 'v') look(VIEWS[(VIEWS.indexOf(kitchen.view) + 1) % VIEWS.length]);
+    else if (key === 'r') turn();
     else if (key === 't') roll(zone.zone === 'board' ? zone.point : null);
     else if (key === 'c') {
       /** C chops where the keys have the knife — or, if they have not aimed it, a slice off the end. */
@@ -1733,6 +1818,7 @@ export function createGame({ stage, GFX, kitchen }) {
   stage.addEventListener('pointercancel', onUp);
   stage.addEventListener('pointerleave', onLeave);
   stage.addEventListener('contextmenu', onContext);
+  stage.addEventListener('wheel', onWheel, { passive: false });
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', () => keys.clear());
@@ -1981,7 +2067,16 @@ export function createGame({ stage, GFX, kitchen }) {
     updateToss(dt);
     updatePlating(dt);
     updateSlicing(dt);
-    kitchen.updateCamera(dt);
+    /**
+     * Closed in on the board, there is nowhere in shot to take what is
+     * picked up: the camera stands back while it is carried, and goes back
+     * once it is let go.
+     */
+    kitchen.standBack(carried.length > 0 || press.drag === 'season' || press.drag === 'egg');
+    if (kitchen.moving) {
+      kitchen.updateCamera(dt);
+      follow();
+    }
 
     /** The pile in the hand follows it, a little behind. */
     if (carried.length) {
@@ -2029,10 +2124,12 @@ export function createGame({ stage, GFX, kitchen }) {
   newPotato();
 
   return {
-    update, chop, turn, roll, scrapeIntoPan, addPotato, tipRamekin, startToss, heat, oil, butter, season, newPotato, plateIt, reset, order, fold, addExtra, crackEgg, folds,
+    update, chop, turn, roll, scrapeIntoPan, addPotato, tipRamekin, startToss, heat, oil, butter, season, newPotato, plateIt, reset, order, fold, addExtra, crackEgg, folds, look,
     pourEggs: () => eggs.startPour(),
     board, pan, sheet, eggs, stats, views,
     get zone() { return zone; },
+    /** Which way the camera is looking: 'all', 'board' or 'pan'. */
+    get view() { return kitchen.view; },
     get live() { return live; },
     get stirring() { return spatula.work; },
     set live(on) { live = Boolean(on); },
@@ -2048,7 +2145,7 @@ export function createGame({ stage, GFX, kitchen }) {
      */
     get quiet() {
       if (performance.now() - lastActivity < 1500) return false;
-      if (toss || plating || carried.length || knife.chop || eggs.pouring || eggs.cracking || shake.on || turning.length) return false;
+      if (toss || plating || carried.length || knife.chop || eggs.pouring || eggs.cracking || shake.on || turning.length || kitchen.moving) return false;
       if (shake.offset.lengthSq() > 1e-4 || pan.airborne || !board.still()) return false;
       if (pan.heat.level > 0 || Object.values(hops).some((h) => h > 0)) return false;
       const cold = pan.heat.temp < 50;

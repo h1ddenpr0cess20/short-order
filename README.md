@@ -55,6 +55,7 @@ build), with a preview for every branch.
 | **handle** | Drag the pan's handle to shake it — the food slides — and flick upward as you let go to toss. |
 | **eggs** | Click the carton to break an egg into the bowl (`G`). Drag round and round in the bowl to whisk. `P` pours. For fried eggs the carton breaks them straight into the pan instead. Freestyle, drag an egg from the carton to the pan — or `H`, or **egg → pan** — to fry it. |
 | **turn an egg** | Click a fried egg to slide the spatula under it and turn it over; `space` turns them all. Not before the white has set enough to hold. A spatula dragged through a yolk breaks it. |
+| **look** | **all · board · pan** over the bar, or `V`, closes the camera in on the board or the pan, or stands it back to see the whole counter. With a mouse, roll the wheel forward over the board or the pan to close in on it and back to stand back; on a phone, spread two fingers over one, and pinch. Pick something up while closed in and the camera stands back while it is carried, so the pan and the ramekins are in reach, and goes back after. |
 | **order** | The dish's name on the ticket, or **change order** in the menu, for another dish. |
 | **fold** | `L`, or the bar's **fold**, folds the sheet of egg: rolled for a French omelette, in half for a diner one. Whatever is lying on the egg goes inside. Before that, **flip** (or a click on it) turns the whole omelette over once it has set. |
 | **extras** | Click one on the counter — cheese, tomato, ham, green pepper, onion, chives, or `1` to `6` — and it goes onto the board: a block of cheddar, a tomato, a slice of ham, a quarter of a pepper, half an onion, a bunch of chives. Cut it small and scrape it in — or drag the cheese, or a potato, to the box grater and it is shredded onto the board — a potato into long strands for hash browns; cheese over the side with the one wide slot is sliced instead. Onto the egg before folding is a filling; over the food after is a topping. |
@@ -62,10 +63,14 @@ build), with a preview for every branch.
 
 Everything in that list is also a button in the bar along the bottom, so it all
 works on a phone: a tap on the board chops, a drag carries or stirs or whisks, upright or
-on its side.
+on its side. Upright, the ticket is a strip across the top and the bar wraps
+into rows along the bottom; on its side, the two stand one over the other in a
+rail down the left and the kitchen has the rest of the screen. Either way,
+**board** and **pan** close in on the one being worked, big enough to aim a
+cut with a fingertip.
 And it all works from the keys: `↑` `↓` aim the knife along the pile and `C`
 chops, `S` scrapes, holding `W` whisks and holding `X` stirs, `G` cracks an egg
-(`H` into the pan, freestyle), `L` folds, `T` rolls, `1`–`6` the extras, `B` butters, `A` salts, `F` peppers, `enter`
+(`H` into the pan, freestyle), `L` folds, `T` rolls, `1`–`6` the extras, `B` butters, `A` salts, `F` peppers, `V` looks, `enter`
 plates, `M` mutes.
 
 ### What it takes

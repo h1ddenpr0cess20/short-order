@@ -23,6 +23,9 @@ const FRAME = { half: 7.5, width: 0.5, height: 0.62 };
 /** The burner's ring of ports, which is where the flame comes out. */
 export const BURNER_RADIUS = 1.45;
 
+/** Where the knob stands on the top, at its front left corner. */
+export const KNOB = Object.freeze({ x: -(TOP.w / 2 - 1.6), z: TOP.d / 2 - 1.6 });
+
 /** The knob's sweep, off to full. */
 export const KNOB_SWEEP = Object.freeze({ off: Math.PI * 0.75, full: -Math.PI * 0.75 });
 
@@ -198,7 +201,7 @@ export function buildStove(GFX) {
   pointer.position.set(0, 0.75, -0.34);
   dial.add(pointer);
   knob.add(dial);
-  knob.position.set(-(TOP.w / 2 - 1.6), TOP.y, TOP.d / 2 - 1.6);
+  knob.position.set(KNOB.x, TOP.y, KNOB.z);
   stove.add(knob);
 
   /** Markings round the knob: off, and a fan of ticks for the heat. */

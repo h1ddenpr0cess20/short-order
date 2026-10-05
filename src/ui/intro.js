@@ -16,6 +16,7 @@ const POINTER = `
   <li><b>Omelette</b><span>pour, let it set, then <i>fold</i> or <kbd>L</kbd> — anything lying on the egg is folded inside.</span></li>
   <li><b>Extras</b><span>click one on the counter — cheese, tomato, ham, pepper, onion, chives, <kbd>1</kbd>–<kbd>6</kbd> — and it goes on the board, or drag it to the board, a ramekin or the pan. Cut it small, then into the pan — or take the cheese to the grater, and it melts all the quicker for it. The grater shreds a potato too, into strands for hash browns; its side with the one wide slot slices cheese. Onion and pepper want cooking; cheese wants melting.</span></li>
   <li><b>Season</b><span>click the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
+  <li><b>Look</b><span>roll the wheel forward over the board or the pan to close in on it, back to see the whole counter — or <kbd>V</kbd>, or <i>all · board · pan</i> over the bar. Pick something up close in and the camera stands back while you carry it.</span></li>
   <li><b>Keys</b><span><kbd>↑</kbd> <kbd>↓</kbd> aim the knife and <kbd>C</kbd> chops, <kbd>S</kbd> scrapes the board into the pan, hold <kbd>W</kbd> to whisk and <kbd>X</kbd> to stir, <kbd>G</kbd> cracks an egg, <kbd>L</kbd> folds, <kbd>B</kbd> butters, <kbd>A</kbd> salts, <kbd>F</kbd> peppers, <kbd>enter</kbd> plates.</span></li>
 `;
 
@@ -28,6 +29,7 @@ const TOUCH = `
   <li><b>Omelette</b><span>pour, let it set, then tap <i>fold</i> — anything lying on the egg is folded inside.</span></li>
   <li><b>Extras</b><span>tap one on the counter — cheese, tomato, ham, pepper, onion, chives — and it goes on the board, or drag it to the board, a ramekin or the pan. Cut it small, then into the pan — or take the cheese to the grater, and it melts all the quicker for it. The grater shreds a potato too, into strands for hash browns; its side with the one wide slot slices cheese. Onion and pepper want cooking; cheese wants melting.</span></li>
   <li><b>Season</b><span>tap the salt for a pinch, the mill for a twist — over the pan, or drag either to the bowl to season the eggs. Potatoes and eggs both want it.</span></li>
+  <li><b>Look</b><span>tap <i>board</i> or <i>pan</i> along the top of the bar to close in on it, <i>all</i> for the whole counter — or spread two fingers over one to close in, pinch to stand back. Pick something up close in and the camera stands back while you carry it.</span></li>
 `;
 
 /** The last dish ordered on this browser, if it remembers. */

@@ -40,6 +40,26 @@ const sound = createSound();
 const cues = wireSound({ game, sound });
 const particles = createParticles({ GFX, room: kitchen.room });
 
+/**
+ * The camera frames the kitchen round the ticket and the bar, wherever they
+ * are, and again whenever either changes shape — a new ticket, a bar that
+ * wraps onto another row.
+ */
+kitchen.covers = () => [...card.covers(), ...hud.covers()];
+{
+  let queued = false;
+  const reframe = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      kitchen.frame({ glide: true });
+    });
+  };
+  const panels = new ResizeObserver(reframe);
+  for (const el of [document.getElementById('ticket'), document.getElementById('bar')]) panels.observe(el);
+}
+
 /** A random patch of the pan where egg is still wet, for the steam to come off. */
 function wetEgg() {
   const sheet = game.sheet;
@@ -83,7 +103,15 @@ function menu() {
   game.live = false;
   intro.show();
 }
-createResult({ game, onMenu: menu });
+const result = createResult({ game, onMenu: menu });
+/** At the plate, the camera keeps it clear of the verdict, and of the ticket while it is showing. */
+const showing = (el) => Number(getComputedStyle(el).opacity) > 0.05;
+kitchen.awayCovers = () => [...(showing(document.getElementById('ticket')) ? card.covers() : []), ...result.covers()];
+{
+  const panel = document.getElementById('result');
+  new ResizeObserver(() => kitchen.frame({ glide: true })).observe(panel);
+  panel.addEventListener('animationend', () => kitchen.frame({ glide: true }));
+}
 card.onChange = menu;
 createMenu({ game, sound, intro });
 
