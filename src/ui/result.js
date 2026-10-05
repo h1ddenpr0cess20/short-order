@@ -80,5 +80,10 @@ export function createResult({ game, onMenu = null, root = document.body }) {
     }
   });
 
-  return { show, get open() { return !panel.hidden; } };
+  return {
+    show,
+    get open() { return !panel.hidden; },
+    /** Where the verdict is, for the camera to keep the plate clear of it — once it has dropped in and is where it stays. */
+    covers: () => (panel.getAnimations?.().some((a) => a.playState === 'running') ? [] : [panel.getBoundingClientRect()]),
+  };
 }

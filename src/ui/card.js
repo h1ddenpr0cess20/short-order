@@ -76,6 +76,8 @@ export function createCard({ game, root = document.body }) {
   const api = {
     /** Set by whoever owns the menu: what a tap on the dish's name does. */
     onChange: null,
+    /** Where the ticket is, for the kitchen's camera to keep clear of. */
+    covers: () => [card.getBoundingClientRect()],
     update() {
       const dish = game.dish;
       if (dish !== written) write(dish);

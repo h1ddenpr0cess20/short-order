@@ -259,8 +259,23 @@ hand-written `ShaderMaterial`, in GLSL and WGSL both.
 
 The kitchen has two arrangements: on a wide window the board stands beside
 the range with the ticket down the left; on a tall one the board is above the
-range and the ticket is a strip across the top. The camera is framed by
-asking — walked back until every corner that has to be in shot is on screen
-and clear of the ticket and the bar — and re-framed when the window changes
-shape. Every station's simulation runs in that station's own frame, so moving
-a station moves everything on it with it.
+range and the ticket is a strip across the top. A window that is wide but
+short — a phone on its side — keeps the wide kitchen and stands the ticket and
+the bar one over the other in a rail down the left, since height is what it is
+short of. Every station's simulation runs in that station's own frame, so
+moving a station moves everything on it with it.
+
+The camera is framed by asking. The page says where its panels are — the
+ticket, the bar and the switch riding on it, as rectangles on the screen —
+and each is taken as a strip off whichever edge of the screen loses least to
+it. Then, from a fixed pitch, the camera is brought in by halves to the
+nearest it can stand with every corner that has to be in shot inside what is
+left, and slid along the counter until the slack is shared round it; and
+again from there. There are three such shots, all framed at once and again
+whenever the window or a panel changes shape: the whole counter, and the
+board or the pan close up, looked down on more steeply — as big as the room
+allows on a phone, no bigger than a hand's span on a big screen. The camera
+eases between them. Closed in on the board, there is nowhere in shot to take
+what is picked up, so while anything is carried the camera stands back to the
+whole counter, and goes back once it is let go. The plate is framed the same
+way, clear of the ticket and of the verdict once it has dropped in.

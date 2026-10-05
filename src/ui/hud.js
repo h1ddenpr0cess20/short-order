@@ -2,7 +2,8 @@
  * The bar along the bottom: the heat, and the moves that are buttons as well
  * as gestures. Everything here can also be done in the kitchen itself — the
  * knob turns, the bottle pours, a drag scrapes — so the bar is for the cook
- * who would rather press something, and for a phone.
+ * who would rather press something, and for a phone. Over it, which way the
+ * camera is looking: the whole counter, or the board or the pan close up.
  */
 
 import { SETTINGS } from '../sim/heat.js';
@@ -11,6 +12,11 @@ export function createHud({ game, root = document.body }) {
   const bar = document.createElement('div');
   bar.id = 'bar';
   bar.innerHTML = `
+    <div class="views" role="radiogroup" aria-label="Look at">
+      <button class="chip" role="radio" aria-checked="true" data-view="all" title="The whole counter (V)">all</button>
+      <button class="chip" role="radio" aria-checked="false" data-view="board" title="Close in on the board (V)">board</button>
+      <button class="chip" role="radio" aria-checked="false" data-view="pan" title="Close in on the pan (V)">pan</button>
+    </div>
     <div class="group heat" role="group" aria-label="Burner">
       <button class="chip round" data-act="cooler" aria-label="Turn the burner down" title="Down (Q)">−</button>
       <div class="dial">
@@ -53,6 +59,8 @@ export function createHud({ game, root = document.body }) {
   const act = (name) => bar.querySelector(`[data-act="${name}"]`);
 
   bar.addEventListener('click', (event) => {
+    const view = event.target.closest('button[data-view]');
+    if (view) game.look(view.dataset.view);
     const button = event.target.closest('button[data-act]');
     if (!button) return;
     const name = button.dataset.act;
@@ -72,7 +80,23 @@ export function createHud({ game, root = document.body }) {
     else if (name === 'pour') game.pourEggs();
   });
   /** A tap on the bar is not a tap on the kitchen behind it. */
-  for (const type of ['pointerdown', 'pointerup', 'pointermove']) bar.addEventListener(type, (e) => e.stopPropagation());
+  for (const type of ['pointerdown', 'pointerup', 'pointermove', 'wheel']) bar.addEventListener(type, (e) => e.stopPropagation());
+
+  /**
+   * How far up from the bottom of the window the bar reaches, for whatever
+   * floats over it — the hint, the cook's notes — to sit just above it,
+   * however many rows it has wrapped onto.
+   */
+  const views = bar.querySelector('.views');
+  const measure = () => {
+    const top = Math.min(bar.getBoundingClientRect().top, views.getBoundingClientRect().top);
+    document.documentElement.style.setProperty('--bar-top', `${Math.max(0, Math.round(window.innerHeight - top))}px`);
+  };
+  new ResizeObserver(measure).observe(bar);
+  window.addEventListener('resize', measure);
+  /** The bar moves when the window changes shape — along the bottom, or down the side of a phone on its side. */
+  new MutationObserver(measure).observe(document.body, { attributes: true, attributeFilter: ['data-shape', 'data-short'] });
+  measure();
 
   const HINTS = {
     board: 'click to chop · drag a thing to move it, between them for all — about the board, into the pan or a ramekin, or back to the counter to be rid of it · right-click turns the pile · T rolls one over',
@@ -102,8 +126,16 @@ export function createHud({ game, root = document.body }) {
     b.hidden = !on;
   };
 
+  let looking = null;
+
   return {
+    /** The bar's panels, for the kitchen's camera to keep clear of. */
+    covers: () => [bar.getBoundingClientRect(), views.getBoundingClientRect()],
     update() {
+      if (looking !== game.view) {
+        looking = game.view;
+        for (const b of views.querySelectorAll('button')) b.setAttribute('aria-checked', String(b.dataset.view === looking));
+      }
       const level = game.pan.heat.level;
       out('level').textContent = SETTINGS[level].name;
       out('level').dataset.level = String(level);
