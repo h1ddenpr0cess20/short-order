@@ -199,6 +199,7 @@ egg is Marc's shell.
 | `npm run preview` | `build`, then serve `dist/` |
 | `npm test` | `node:test` over the slicer, the simulations and the marking |
 | `npm run lint` | ESLint |
+| `node scripts/reel.js` | Gameplay reels for social media, into `reels/`: upright 1080×1920 films of the kitchen as a phone shows it, with a cook at the counter in place of a player (`src/reel/recorder.js` presses the keys a player would, each when the kitchen is ready for it, and cooks to what the ticket says), each ending on a card with the address. `scripts/reels.js` says which moments. They are filmed a frame at a time in headless Chromium (`reel.html`), so there's no GPU needed, only ffmpeg and a quarter of an hour a reel. |
 
 `?renderer=webgl` in the address forces the WebGL 2 backend where WebGPU would
 otherwise be used.

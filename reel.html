@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1813">
+<meta name="description" content="A cooking game in one cast iron pan: dice a potato, fry it golden, whisk some eggs and scramble them in.">
+<title>Short Order — reels</title>
+<link rel="stylesheet" href="/src/reel/reel.css">
+<style>
+  /* The film's own words: the title, as the menu has it, on the card. */
+  #card h1 { margin: 0; font: 700 64px/1 "Playfair Display", Georgia, serif; letter-spacing: -0.01em; color: #f4ecda; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
+  #card .kicker { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; color: #c9a45c; font: 500 12px/1 Oswald, sans-serif; letter-spacing: .2em; text-transform: uppercase; }
+  #card .kicker::before, #card .kicker::after { content: ""; width: 34px; height: 1px; background: rgba(201, 164, 92, 0.42); }
+  #card .url { font-family: Oswald, sans-serif; font-weight: 500; letter-spacing: 0.04em; border-color: #c9a45c; }
+  #hook { font-weight: 700; text-transform: none; font-size: 44px; text-shadow: 0 2px 4px #000, 0 0 24px rgba(0, 0, 0, 0.85), 0 0 40px rgba(201, 164, 92, 0.45); }
+  #hook { white-space: pre-line; }
+  /* The counter is pale: the line under the hook on a plate of the bar's green, so it reads. */
+  #hook small { display: table; margin: 14px auto 0; padding: 5px 12px; border-radius: 4px; background: rgba(15, 24, 19, 0.78); white-space: normal; font-family: Oswald, sans-serif; font-weight: 500; font-size: 15px; text-transform: uppercase; letter-spacing: 0.14em; color: #e4c584; }
+</style>
+</head>
+<body>
+<three-d-stage background="#0f1813"></three-d-stage>
+<script type="module" src="/src/reel/recorder.js"></script>
+</body>
+</html>

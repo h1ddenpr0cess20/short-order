@@ -1,0 +1,100 @@
+/*
+ * What the reels put over the game (reel.html, core.js): a thumb where a
+ * finger on the glass would be steering, one on the game's button while it is
+ * held, a line to open on, the address while it plays, and a card to end on.
+ * The page is a phone, upright, 405 by 720. Each game gives its own type and
+ * colours (the adapter's `theme`, as --reel-* properties).
+ *
+ * The same in every game that has reels.
+ */
+
+#film {
+  --reel-display: Impact, "Arial Narrow Bold", sans-serif;
+  --reel-body: "Arial Narrow", system-ui, sans-serif;
+  --reel-accent: #ff2d95;
+  --reel-accent-dark: #6e0a3c;
+  --reel-accent-2: #ffd23a;
+  --reel-cool: #2de2ff;
+  --reel-text: #fff;
+  --reel-dim: #a59fb5;
+  --reel-pill-top: 138px;
+  --reel-pill-size: 15px;
+  --reel-url-size: 30px;
+  --reel-cta-size: 21px;
+  --reel-logo-scale: 1;
+  position: fixed; inset: 0; pointer-events: none; z-index: 1000;
+}
+
+/* ———————————————————————————————————— thumbs */
+
+#film .thumb {
+  position: absolute; left: 0; top: 0; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.5) 0, rgba(255,255,255,0.22) 55%, rgba(255,255,255,0) 72%);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.6), 0 0 18px rgba(255,255,255,0.35);
+  opacity: 0; will-change: transform, opacity;
+}
+
+/* ———————————————————————————————————— the line to open on */
+
+#hook {
+  position: absolute; left: 16px; right: 16px; top: 21%; text-align: center; opacity: 0;
+  font-family: var(--reel-display); font-size: 46px; line-height: 1.02; letter-spacing: 0.02em; text-transform: uppercase; color: var(--reel-text);
+  text-shadow: 0 0 4px #fff, 0 0 18px var(--reel-accent), 0 0 40px var(--reel-accent), 0 3px 0 #000;
+}
+#hook small {
+  display: block; margin-top: 12px; font-family: var(--reel-body); font-weight: 700; font-size: 18px; letter-spacing: 0.14em;
+  color: #fff; text-shadow: 0 1px 8px #000, 0 0 2px #000;
+}
+#hook.on { animation: reel-hook-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+#hook.off { animation: reel-hook-out 0.3s ease-in forwards; }
+
+/* ———————————————————————————————————— the address, while it plays */
+
+#pill {
+  position: absolute; left: 50%; top: var(--reel-pill-top); transform: translateX(-50%); opacity: 0; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px 6px 10px; border-radius: 999px;
+  font: 700 var(--reel-pill-size) var(--reel-body); letter-spacing: 0.06em; color: #fff;
+  background: rgba(11,10,16,0.76); border: 1px solid var(--reel-cool); box-shadow: 0 0 16px color-mix(in srgb, var(--reel-cool) 40%, transparent);
+}
+#pill svg { width: 16px; height: 16px; flex: none; color: var(--reel-accent-2); }
+#pill b { color: var(--reel-accent-2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; }
+#pill.on { animation: reel-fade-in 0.4s ease-out forwards; }
+
+/* ———————————————————————————————————— the card to end on */
+
+#card {
+  position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 0; padding: 0 22px 60px;
+  text-align: center; opacity: 0;
+  background: radial-gradient(ellipse at 50% 42%, rgba(20,10,24,0.6), rgba(5,4,8,0.92));
+  backdrop-filter: blur(6px) saturate(1.2);
+}
+#card.on { animation: reel-fade-in 0.4s ease-out forwards; }
+#card .logo { opacity: 0; transform: scale(var(--reel-logo-scale)); }
+#card .cta {
+  margin: 30px 0 12px; font: 700 var(--reel-cta-size) var(--reel-body); letter-spacing: 0.2em; text-transform: uppercase; color: var(--reel-accent-2);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--reel-accent-2) 55%, transparent); opacity: 0;
+}
+#card .url {
+  font-family: var(--reel-display); font-size: var(--reel-url-size); letter-spacing: 0.02em; color: #fff; padding: 10px 20px 12px; white-space: nowrap;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--reel-accent) 80%, #fff), var(--reel-accent) 55%, color-mix(in srgb, var(--reel-accent) 75%, #000));
+  border: 2px solid #fff; border-radius: 6px;
+  box-shadow: 0 0 34px color-mix(in srgb, var(--reel-accent) 85%, transparent), 0 6px 0 var(--reel-accent-dark); transform: rotate(-1.5deg); opacity: 0;
+}
+#card .devices { display: flex; gap: 26px; margin-top: 30px; opacity: 0; }
+#card .devices span {
+  display: flex; align-items: center; gap: 8px; font: 700 19px var(--reel-body); letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--reel-cool); text-shadow: 0 0 12px color-mix(in srgb, var(--reel-cool) 60%, transparent);
+}
+#card .devices svg { width: 26px; height: 26px; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--reel-cool) 70%, transparent)); }
+#card .small { margin-top: 14px; font: 500 16px var(--reel-body); letter-spacing: 0.08em; color: var(--reel-dim); opacity: 0; }
+#card.on .logo { animation: reel-pop-in 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) 0.1s forwards; }
+#card.on .cta { animation: reel-fade-in 0.35s ease-out 0.45s forwards; }
+#card.on .url { animation: reel-stamp 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) 0.6s forwards; }
+#card.on .devices { animation: reel-fade-in 0.4s ease-out 0.95s forwards; }
+#card.on .small { animation: reel-fade-in 0.4s ease-out 1.15s forwards; }
+
+@keyframes reel-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes reel-hook-in { 0% { opacity: 0; transform: scale(0.6); } 60% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes reel-hook-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.1); } }
+@keyframes reel-pop-in { 0% { opacity: 0; transform: scale(calc(var(--reel-logo-scale) * 0.5)); } 100% { opacity: 1; transform: scale(var(--reel-logo-scale)); } }
+@keyframes reel-stamp { 0% { opacity: 0; transform: rotate(-1.5deg) scale(1.8); } 100% { opacity: 1; transform: rotate(-1.5deg) scale(1); } }
