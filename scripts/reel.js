@@ -21,7 +21,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
@@ -170,6 +170,19 @@ function exec(cmd, argv, { input = false } = {}) {
   return { child, done };
 }
 
+/** How loud a film's sound is, in LUFS, integrated. */
+function loudness(file) {
+  return new Promise((ok, fail) => {
+    const child = spawn('ffmpeg', ['-hide_banner', '-i', file, '-af', 'ebur128=framelog=quiet', '-f', 'null', '-'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    child.stderr.on('data', (d) => { err = (err + d).slice(-4000); });
+    child.on('close', () => {
+      const m = [...err.matchAll(/I:\s+(-?[\d.]+) LUFS/g)].at(-1);
+      if (m) ok(Number(m[1])); else fail(new Error(`couldn't measure ${file}`));
+    });
+  });
+}
+
 const write = (stream, data) => new Promise((ok) => (stream.write(data) ? ok() : stream.once('drain', ok)));
 
 async function film(name, reel) {
@@ -255,6 +268,16 @@ async function film(name, reel) {
     '-filter_complex', graph,
     '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', '-shortest',
     join(OUT, `${name}.mp4`)]).done;
+  // One pass of loudnorm can fall short on music heavy at the bottom: measured, and made up with a limiter if so.
+  const file = join(OUT, `${name}.mp4`);
+  const loud = await loudness(file);
+  if (Math.abs(loud + 14) > 0.7) {
+    const fixed = join(work, 'louder.mp4');
+    await exec('ffmpeg', ['-y', '-loglevel', 'error', '-i', file, '-map', '0:v', '-map', '0:a', '-c:v', 'copy',
+      '-af', `volume=${(-14 - loud).toFixed(2)}dB,alimiter=limit=0.85:level=false`, '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+      '-shortest', '-movflags', '+faststart', fixed]).done;
+    renameSync(fixed, file);
+  }
   rmSync(work, { recursive: true, force: true });
   console.log(`${name}: ${join(OUT, `${name}.mp4`)}, ${seconds.toFixed(1)}s, in ${((Date.now() - began) / 60000).toFixed(1)} min`);
 }

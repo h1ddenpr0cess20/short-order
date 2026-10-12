@@ -176,8 +176,11 @@ copies.
     against a reel the user liked:
     `-af "lowpass=f=60,volumedetect"`, then `bandpass=f=90:width_type=o:w=1`,
     `bandpass=f=1000:width_type=o:w=2` and `highpass=f=3000`, comparing the
-    mean volumes. Game synth drums can be all sub-bass on a phone. Fix it with
-    `MIX`. A reel already made can be re-mixed without re-rendering:
+    mean volumes. Game synth drums can be all sub-bass on a phone. Dungeon
+    Roller, Blubber and Catroller all needed `MIX`; only Rock 'n' Roller
+    didn't, so expect to need it. The driver measures the finished reel and
+    makes up any shortfall to -14 LUFS with a limiter (single-pass loudnorm
+    stops short on bass-heavy music). A reel already made can be re-mixed without re-rendering:
     `ffmpeg -i in.mp4 -map 0:v -map 0:a -c:v copy -af "<MIX>,loudnorm=I=-14:TP=-1.5:LRA=11" -c:a aac -b:a 192k out.mp4`. Make a contact sheet with
     `select='eq(n\,N)+...',scale=270:480,tile=4x2`. Pull extra frames at the
     exact moments the scouting data says matter (a boss going down), because
