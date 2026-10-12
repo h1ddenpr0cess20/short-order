@@ -226,7 +226,8 @@ async function film(name, reel) {
         for (const [what, ...how] of said) globalThis.recorder[what](...how);
         return globalThis.recorder.frame();
       }, say);
-      const shot = await page.screenshot({ type: 'jpeg', quality: 95 });
+      // A heavy scene on the CPU can take seconds to draw, and more the first time its shaders compile.
+      const shot = await page.screenshot({ type: 'jpeg', quality: 95, timeout: 300_000 });
       await write(video.child.stdin, shot);
       if (frame === Math.round((HOOK - 0.5) * FPS)) writeFileSync(join(OUT, `${name}.jpg`), shot);
       if ((frame + 1) % 60 === 0) {
