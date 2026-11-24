@@ -1,5 +1,5 @@
 /**
- * What there is to cook with, by kind: how to make one whole, and what colour
+ * What there is to cook with, by kind: how to make one whole, and what color
  * it is inside wherever a knife goes through it.
  */
 
@@ -11,5 +11,5 @@ export const INGREDIENTS = Object.freeze({
   ...Object.fromEntries(Object.keys(FILLINGS).map((kind) => [kind, { solids: () => wholeSolids(kind), flesh: FILLING_FLESH[kind] }])),
 });
 
-/** Inside colours by kind, the shape the board's knife asks for them in. */
+/** Inside colors by kind, the shape the board's knife asks for them in. */
 export const FLESH = Object.freeze(Object.fromEntries(Object.entries(INGREDIENTS).map(([k, v]) => [k, v.flesh])));

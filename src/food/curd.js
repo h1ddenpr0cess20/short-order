@@ -4,7 +4,7 @@
  * pushed in and out by noise and squashed flat — every one a little different.
  */
 
-import { hex, mix } from './colour.js';
+import { hex, mix } from './color.js';
 import { vnoise } from './noise.js';
 import { measure, solidFromBuffers } from '../geometry/slice.js';
 
@@ -129,7 +129,7 @@ export function curdSolid({ volume = 0.16, yolk = 0.33, seed = 1 } = {}) {
   const raw = rawEgg(yolk);
   const solid = solidFromBuffers({
     positions, normals, index,
-    colour: (x, y, z) => {
+    color: (x, y, z) => {
       /** Beaten egg sets in streaks — paler where the white was, deeper where the yolk was. */
       const m = 1 + 0.12 * vnoise(x * 4 + seed, y * 4, z * 4) + 0.06 * vnoise(x * 11, y * 11 + seed, z * 11);
       return [raw[0] * m, raw[1] * m, raw[2] * m];
@@ -164,8 +164,8 @@ function faceNormals(positions, index) {
   return normals;
 }
 
-/** The sphere pushed about by `shape(x, y, z, out)`, coloured by `colour`, scaled to hold `volume`. */
-function moulded({ shape, colour, volume, base = BASE }) {
+/** The sphere pushed about by `shape(x, y, z, out)`, colored by `color`, scaled to hold `volume`. */
+function molded({ shape, color, volume, base = BASE }) {
   const { v, f } = base;
   const positions = new Float64Array(v.length * 3);
   const out = [0, 0, 0];
@@ -176,7 +176,7 @@ function moulded({ shape, colour, volume, base = BASE }) {
     positions[i * 3 + 2] = out[2];
   });
   const index = f.flat();
-  const solid = solidFromBuffers({ positions, normals: faceNormals(positions, index), index, colour });
+  const solid = solidFromBuffers({ positions, normals: faceNormals(positions, index), index, color });
   if (volume) {
     const k = Math.cbrt(volume / Math.max(1e-6, measure(solid).volume));
     for (let i = 0; i < solid.pos.length; i++) solid.pos[i] *= k;
@@ -184,7 +184,7 @@ function moulded({ shape, colour, volume, base = BASE }) {
   return solid;
 }
 
-/** The colour a fried egg's yolk is painted with, raw: how its vertices are told from the white's. */
+/** The color a fried egg's yolk is painted with, raw: how its vertices are told from the white's. */
 export const YOLK_RAW = rawEgg(1);
 
 /**
@@ -194,7 +194,7 @@ export const YOLK_RAW = rawEgg(1);
 export function friedSolid({ radius = 2.4, thickness = 0.22, yolk = 0.75, whole = true, seed = 1 } = {}) {
   const white = rawEgg(0.02);
   const dome = whole ? 0.62 : 0;
-  return moulded({
+  return molded({
     base: FINE,
     shape: (x, y, z, out) => {
       const a = Math.atan2(z, x);
@@ -208,7 +208,7 @@ export function friedSolid({ radius = 2.4, thickness = 0.22, yolk = 0.75, whole 
       out[1] = py;
       out[2] = pz;
     },
-    colour: (x, y, z) => {
+    color: (x, y, z) => {
       const r = Math.hypot(x, z);
       if (whole && y > thickness * 0.4 && r < yolk * 0.97) return [...YOLK_RAW];
       /** Broken, the yolk has run out through the white in streaks. */
@@ -226,7 +226,7 @@ export function friedSolid({ radius = 2.4, thickness = 0.22, yolk = 0.75, whole 
  */
 export function omeletteSolid({ volume = 10, shape = 'roll', yolk = 0.33, seed = 1, radius = 4 } = {}) {
   const raw = rawEgg(yolk);
-  const solid = moulded({
+  const solid = molded({
     volume: shape === 'flat' ? 0 : volume,
     shape: shape === 'flat'
       ? (x, y, z, out) => {
@@ -254,7 +254,7 @@ export function omeletteSolid({ volume = 10, shape = 'roll', yolk = 0.33, seed =
         out[1] = y * (0.32 + 0.38 * fold);
         out[2] = pz + 0.9;
       },
-    colour: (x, y, z) => {
+    color: (x, y, z) => {
       const m = 1 + 0.08 * vnoise(x * 3 + seed, y * 3, z * 3);
       return [raw[0] * m, raw[1] * m, raw[2] * m];
     },

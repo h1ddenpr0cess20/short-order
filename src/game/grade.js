@@ -32,7 +32,7 @@ export function surfaceOf(piece) {
   return { mean, worst, least: Number.isFinite(least) ? least : mean };
 }
 
-/** Golden is golden on every face: none still flesh-coloured, none burnt. */
+/** Golden is golden on every face: none still flesh-colored, none burnt. */
 export const GOLDEN = Object.freeze({ mean: [0.5, 1.5], least: 0.3, worst: 1.8 });
 
 const share = (list, test) => {
@@ -310,27 +310,27 @@ export function friedReport(eggs, style = 'sunny', want = 2) {
  * smooth and soft inside; 'american' wants it set through, golden at most.
  */
 export function omeletteReport({ omelette = null, curds = [], beaten = 0, eggs = 0, style = 'french', buttered = false, want = 3 }) {
-  if (!omelette) return { eggs, folded: false, omelette: { score: 0 }, colour: { score: 0 }, core: 0, brown: 0, torn: 0, beaten };
+  if (!omelette) return { eggs, folded: false, omelette: { score: 0 }, color: { score: 0 }, core: 0, brown: 0, torn: 0, beaten };
   const core = omelette.core;
   const brown = surfaceOf(omelette).mean;
   const curdVolume = curds.reduce((a, p) => a + p.volume, 0);
   const torn = curdVolume / (curdVolume + omelette.volume);
   const short = Math.max(0, want - eggs) * 0.1;
-  let texture, colour;
+  let texture, color;
   if (style === 'french') {
     /** Baveuse: just set, still soft in the middle — neither running out nor dry. */
     const soft = core < 0.6 ? clamp01(core / 0.6) * 0.4 : core <= 1.1 ? 1 : clamp01(1 - (core - 1.1) / 0.4);
     texture = 0.55 * soft + 0.25 * beaten + 0.2 * (1 - clamp01(torn * 3)) + (buttered ? 0.06 : 0);
-    colour = brown < 0.25 ? 1 : clamp01(1 - (brown - 0.25) / 0.6);
+    color = brown < 0.25 ? 1 : clamp01(1 - (brown - 0.25) / 0.6);
   } else {
     const set = core < 0.85 ? clamp01(core / 0.85) * 0.6 : core <= 1.45 ? 1 : clamp01(1 - (core - 1.45) / 0.3);
     texture = 0.6 * set + 0.25 * beaten + 0.15 * (1 - clamp01(torn * 3));
-    colour = brown <= 0.9 ? 1 : clamp01(1 - (brown - 0.9) / 0.6);
+    color = brown <= 0.9 ? 1 : clamp01(1 - (brown - 0.9) / 0.6);
   }
   return {
     eggs, folded: true, style, core, brown, torn, beaten, buttered,
     omelette: { score: pct(texture - short) },
-    colour: { score: pct(colour) },
+    color: { score: pct(color) },
   };
 }
 
@@ -455,7 +455,7 @@ export function gradeDish(dish, data) {
     const curds = pieces.filter((p) => p.kind === 'egg' && !p.omelette);
     const r = omeletteReport({ omelette, curds, beaten: data.beaten ?? 0, eggs: data.eggs ?? 0, style: dish.style, buttered: data.buttered });
     add('omelette', 'omelette', r.omelette.score, omeletteNote(r), dish.style === 'french' ? 0.45 : 0.4);
-    add('colour', 'colour', r.colour.score, colourNote(r), dish.style === 'french' ? 0.25 : 0.15);
+    add('color', 'color', r.color.score, colorNote(r), dish.style === 'french' ? 0.25 : 0.15);
     if (dish.style === 'american') {
       const extras = extrasReport(pieces.filter(isFilling), { dish: 'american', inside: omelette?.inside ?? [], wants: true });
       add('fillings', 'filling', extras.score, extrasNote(extras), 0.2);
@@ -530,7 +530,7 @@ function gradeFree(data) {
     const style = surfaceOf(shape).mean < 0.25 && shape.core <= 1.2 ? 'french' : 'american';
     const r = omeletteReport({ omelette: shape, curds, beaten, eggs, style, buttered, want: 0 });
     const label = omelette ? 'omelette' : 'eggs';
-    add(label, label, Math.round(0.7 * r.omelette.score + 0.3 * r.colour.score), omeletteNote(r), 0.3);
+    add(label, label, Math.round(0.7 * r.omelette.score + 0.3 * r.color.score), omeletteNote(r), 0.3);
   } else if (curds.length || sheet) {
     const r = eggReport({ curds, sheet, beaten, eggs, buttered, want: 0 });
     add('eggs', 'eggs', r.score, eggNote(r), 0.3);
@@ -597,11 +597,11 @@ function omeletteNote(r) {
   return 'Set right through.';
 }
 
-function colourNote(r) {
+function colorNote(r) {
   if (!r.folded) return '';
   if (r.style === 'french') {
-    if (r.brown < 0.25) return 'Pale gold, no colour on it.';
-    if (r.brown < 0.6) return 'Some colour — a French one has none.';
+    if (r.brown < 0.25) return 'Pale gold, no color on it.';
+    if (r.brown < 0.6) return 'Some color — a French one has none.';
     return 'Brown. Gentler heat for a French omelette.';
   }
   if (r.brown < 0.3) return 'Pale.';

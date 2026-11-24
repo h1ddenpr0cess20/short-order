@@ -2,7 +2,7 @@
  * Eggs: Marc's shell, from the debate, at the size of an egg next to a pan,
  * and the two halves it breaks into against the rim of a bowl.
  *
- * The shape is his exactly — a sphere tapered towards the top and stretched a
+ * The shape is his exactly — a sphere tapered toward the top and stretched a
  * little tall — and so is the skin: cream, with faint warm speckles.
  */
 

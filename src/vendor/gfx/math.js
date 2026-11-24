@@ -1,5 +1,5 @@
 /**
- * Vectors, matrices, rotations, colour and bounds.
+ * Vectors, matrices, rotations, color and bounds.
  *
  * The scene code was written against three.js, and the numbers it lands on —
  * where a die comes to rest, how tall a debater stands, which way a face
@@ -940,9 +940,9 @@ function hue2rgb(p, q, t) {
 }
 
 /**
- * Colour, held linear. Hex and CSS inputs are sRGB and are decoded on the way
+ * Color, held linear. Hex and CSS inputs are sRGB and are decoded on the way
  * in; `setRGB` and `setHSL` take working (linear) values as they are — which
- * is what the scenes that paint vertex colours in HSL were tuned against.
+ * is what the scenes that paint vertex colors in HSL were tuned against.
  */
 export class Color {
   constructor(r, g, b) {
@@ -1012,7 +1012,7 @@ export class Color {
         SRGBToLinear(Math.min(255, parseInt(m[3], 10)) / 255),
       );
     }
-    throw new Error(`gfx: unsupported colour ${style}`);
+    throw new Error(`gfx: unsupported color ${style}`);
   }
 
   clone() { return new Color(this.r, this.g, this.b); }

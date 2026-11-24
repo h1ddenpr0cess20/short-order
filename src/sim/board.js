@@ -323,7 +323,7 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
     /** From where everything is going to, so nothing is left behind half fallen. */
     for (const p of pieces) if (p.target) p.pos = [...p.target];
     turning = {
-      t: 0, dir, centre: [cx, 0, cz],
+      t: 0, dir, center: [cx, 0, cz],
       start: pieces.map((p) => ({ piece: p, pos: [...p.pos], rot: [...p.rot] })),
     };
     return true;
@@ -336,9 +336,9 @@ export function createBoard({ halfWidth = 7.2, halfDepth = 4.9 } = {}) {
       const q = axisAngle([0, 1, 0], (Math.PI / 2) * turning.dir * k);
       for (const { piece, pos, rot } of turning.start) {
         if (!pieces.includes(piece)) continue;
-        const arm = rotate(q, [pos[0] - turning.centre[0], 0, pos[2] - turning.centre[2]]);
-        piece.pos[0] = turning.centre[0] + arm[0];
-        piece.pos[2] = turning.centre[2] + arm[2];
+        const arm = rotate(q, [pos[0] - turning.center[0], 0, pos[2] - turning.center[2]]);
+        piece.pos[0] = turning.center[0] + arm[0];
+        piece.pos[2] = turning.center[2] + arm[2];
         piece.rot = multiply(q, rot);
         piece.version += 1;
       }

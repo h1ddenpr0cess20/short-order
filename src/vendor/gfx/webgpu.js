@@ -7,8 +7,8 @@
  * Every pass is drawn with clip-space y negated, which stores it in OpenGL's
  * row order: the shadow map, the transmission buffer and the environment
  * atlas are then read with the same maths as the WebGL backend's, and the
- * frame itself is rasterised (multisample coverage included) exactly as
- * WebGL rasterises it, then turned the right way up as it is presented.
+ * frame itself is rasterized (multisample coverage included) exactly as
+ * WebGL rasterizes it, then turned the right way up as it is presented.
  */
 
 import { LinearMipmapLinearFilter, MirroredRepeatWrapping, RepeatWrapping, SRGBColorSpace } from './core.js';

@@ -318,12 +318,12 @@ describe('marking the other dishes', () => {
     };
     const french = omeletteReport({ omelette: omelette(0.9, 0.1), beaten: 1, eggs: 3, style: 'french' });
     const brownFrench = omeletteReport({ omelette: omelette(0.9, 1.0), beaten: 1, eggs: 3, style: 'french' });
-    assert.ok(french.omelette.score > 85 && french.colour.score === 100);
-    assert.ok(brownFrench.colour.score < 50);
+    assert.ok(french.omelette.score > 85 && french.color.score === 100);
+    assert.ok(brownFrench.color.score < 50);
     const runnyDiner = omeletteReport({ omelette: omelette(0.6, 0.4), beaten: 1, eggs: 3, style: 'american' });
     const diner = omeletteReport({ omelette: omelette(1.2, 0.6), beaten: 1, eggs: 3, style: 'american' });
     assert.ok(diner.omelette.score > runnyDiner.omelette.score + 15);
-    assert.equal(diner.colour.score, 100, 'a little golden is right for a diner omelette');
+    assert.equal(diner.color.score, 100, 'a little golden is right for a diner omelette');
   });
 
   it('gives every dish parts whose weights come to the whole plate', () => {

@@ -4,7 +4,7 @@
  * tipped out over the pan.
  */
 
-import { hex, mix } from '../food/colour.js';
+import { hex, mix } from '../food/color.js';
 import { crackedHalves, shellMaterial } from '../food/egg.js';
 import { rawEgg } from '../food/curd.js';
 import { BOWL, bowlRadius } from '../scene/cookware.js';
@@ -23,10 +23,10 @@ const WHITE_DRY = hex(0xf2eadb);
 
 const tint = [0, 0, 0], tint2 = [0, 0, 0], tint3 = [0, 0, 0];
 
-/** The colour of egg at a given set, yolkiness and browning. */
-export function eggColour(set, yolk, brown, out = [0, 0, 0]) {
+/** The color of egg at a given set, yolkiness and browning. */
+export function eggColor(set, yolk, brown, out = [0, 0, 0]) {
   const raw = rawEgg(yolk);
-  /** How much the set colours lean to yolk: beaten egg is all yellow, a white alone is white. */
+  /** How much the set colors lean to yolk: beaten egg is all yellow, a white alone is white. */
   const y = Math.min(1, Math.max(0, yolk * 2.6));
   const setting = mix(WHITE_SETTING, SETTING, y, tint), done = mix(WHITE_SET, SET, y, tint2), dry = mix(WHITE_DRY, DRY, y, tint3);
   const s = Math.min(1, Math.max(0, set));
@@ -167,8 +167,8 @@ export function createSheetView(GFX, sheet) {
       /** Turned face down it is flattened under the white, which shows as a pale film over it. */
       const down = y.flips % 2 === 1;
       dome.scale.set(1, down ? 0.45 : 0.85, 1);
-      eggColour(Math.min(1.2, y.set), 1, 0, yc);
-      if (down) mix(yc, eggColour(1, 0.05, 0, wc), 0.5, yc);
+      eggColor(Math.min(1.2, y.set), 1, 0, yc);
+      if (down) mix(yc, eggColor(1, 0.05, 0, wc), 0.5, yc);
       dome.material.color.setRGB(yc[0], yc[1], yc[2]);
       dome.material.roughness = 0.14 + Math.min(0.5, y.set * 0.5);
       dome.material.clearcoat = Math.max(0.2, 1 - y.set);
@@ -199,7 +199,7 @@ export function createSheetView(GFX, sheet) {
         const depth = n ? a / 4 : 0;
         height[k] = depth > 0.008 ? 0.01 + depth * 0.9 : -0.04;
         if (depth > 0.008) any = true;
-        if (a > 0) eggColour(s / a, y / a, b / a, c);
+        if (a > 0) eggColor(s / a, y / a, b / a, c);
         else c[0] = c[1] = c[2] = 0.8;
         col[k * 3] = c[0];
         col[k * 3 + 1] = c[1];
@@ -413,10 +413,10 @@ export function createBowlView(GFX, bowlGroup, bowlState, floor) {
 /**
  * An egg from the carton cracked into the bowl: carried over to the rim,
  * knocked on it, and opened over the bowl, the egg falling out between the
- * halves. `rimPoint()` is where on the rim it is knocked and `centre()` the
+ * halves. `rimPoint()` is where on the rim it is knocked and `center()` the
  * middle of the bowl, so the egg is always opened over the inside of it.
  */
-export function createCracker(GFX, { room, rimPoint, centre }) {
+export function createCracker(GFX, { room, rimPoint, center }) {
   const halves = crackedHalves(GFX);
   const material = shellMaterial(GFX);
   const active = [];
@@ -429,7 +429,7 @@ export function createCracker(GFX, { room, rimPoint, centre }) {
   });
   const drop = new GFX.SphereGeometry(0.55, 20, 14);
 
-  /** `to` overrides where this one egg is broken: `{ rimPoint, centre }`, as for the bowl. */
+  /** `to` overrides where this one egg is broken: `{ rimPoint, center }`, as for the bowl. */
   function start(eggMesh, onIn, to = null) {
     const from = eggMesh.getWorldPosition(new GFX.Vector3());
     from.y += 1.1;
@@ -449,7 +449,7 @@ export function createCracker(GFX, { room, rimPoint, centre }) {
     white.visible = false;
     room.add(group, yolk, white);
     group.position.copy(from);
-    active.push({ t: 0, from, group, top, bottom, yolk, white, onIn, landed: false, cracked: false, rimPoint: to?.rimPoint ?? rimPoint, centre: to?.centre ?? centre });
+    active.push({ t: 0, from, group, top, bottom, yolk, white, onIn, landed: false, cracked: false, rimPoint: to?.rimPoint ?? rimPoint, center: to?.center ?? center });
   }
 
   const ease = (t) => t * t * (3 - 2 * t);
@@ -462,7 +462,7 @@ export function createCracker(GFX, { room, rimPoint, centre }) {
       const t = a.t;
       const rim = a.rimPoint();
       /** Which way is into the bowl from the rim, across the counter; the egg is turned to face it. */
-      const c = a.centre();
+      const c = a.center();
       const ix0 = c.x - rim.x, iz0 = c.z - rim.z, il = Math.hypot(ix0, iz0) || 1;
       const ix = ix0 / il, iz = iz0 / il;
       const yaw = Math.atan2(-iz, ix);

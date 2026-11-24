@@ -28,7 +28,7 @@ export function pmremLayout(equirectWidth) {
 /**
  * One quad per face per level, in clip space, carrying the direction each
  * corner looks along. The UVs overshoot the face by one texel so the border
- * the bilinear lookup reads is baked from the neighbouring faces.
+ * the bilinear lookup reads is baked from the neighboring faces.
  */
 export function pmremPlanes(lodMax) {
   const planes = [];

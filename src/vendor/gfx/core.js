@@ -1099,7 +1099,7 @@ SpriteMaterial.prototype.isSpriteMaterial = true;
  *         `Object` in shaders/wgsl.js) and the entries of `uniforms`, in
  *         declaration order, as the fields of `material`.
  *
- * Whatever comes out is written as it is: no colour-space conversion, as
+ * Whatever comes out is written as it is: no color-space conversion, as
  * with any hand-written shader.
  */
 export class ShaderMaterial extends Material {

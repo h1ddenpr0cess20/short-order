@@ -1,4 +1,4 @@
-// One mip level from the one above: a bilinear tap at the centre of each 2×2 block.
+// One mip level from the one above: a bilinear tap at the center of each 2×2 block.
 
 @group(0) @binding(0) var t_source: texture_2d<f32>;
 @group(0) @binding(1) var s_source: sampler;

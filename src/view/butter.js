@@ -9,7 +9,7 @@ import { FLAT } from '../scene/pan.js';
 import { foam } from '../scene/textures.js';
 
 export function createButterView(GFX, parent) {
-  /** The pool's colour as its milk solids brown: golden, nutty, burnt. */
+  /** The pool's color as its milk solids brown: golden, nutty, burnt. */
   const rgb = (hex) => { const c = new GFX.Color(hex); return [c.r, c.g, c.b]; };
   const GOLDEN = rgb(0xffb43c), NUTTY = rgb(0xc9772c), BURNT = rgb(0x2e1d10);
 
@@ -70,12 +70,12 @@ export function createButterView(GFX, parent) {
         view.mesh.position.set(p.x, 0.21 * k + fall, p.z);
       }
 
-      /** The pool: as much as there is butter in the fat, coloured by how brown it has gone. */
+      /** The pool: as much as there is butter in the fat, colored by how brown it has gone. */
       const amount = Math.min(1, butter.solids) * Math.min(1, fat / 0.25);
       const b = butter.brown;
-      const colour = b < 1 ? mix(GOLDEN, NUTTY, Math.max(0, b - 0.25) / 0.75) : mix(NUTTY, BURNT, Math.min(1, (b - 1) / 0.6));
-      pool.material.color.setRGB(colour[0], colour[1], colour[2]);
-      pool.material.emissive.setRGB(colour[0] * 0.16, colour[1] * 0.1, colour[2] * 0.04);
+      const color = b < 1 ? mix(GOLDEN, NUTTY, Math.max(0, b - 0.25) / 0.75) : mix(NUTTY, BURNT, Math.min(1, (b - 1) / 0.6));
+      pool.material.color.setRGB(color[0], color[1], color[2]);
+      pool.material.emissive.setRGB(color[0] * 0.16, color[1] * 0.1, color[2] * 0.04);
       /** Over black iron a thin wash of yellow reads as murk: the pool is laid on thick enough to read as butter. */
       pool.material.opacity = Math.min(0.62, amount * (0.5 + 0.15 * Math.min(1, b)));
       pool.visible = pool.material.opacity > 0.01;

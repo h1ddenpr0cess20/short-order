@@ -54,7 +54,7 @@ function periodic(x, y, period, seed = 0) {
 }
 
 /**
- * Honed Calacatta: warm white, soft grey clouding, and the long grey veins
+ * Honed Calacatta: warm white, soft gray clouding, and the long gray veins
  * with a gold bloom either side that the stone is named for. Still lighter
  * than anything on it, so the iron and the board read against it. It tiles,
  * so it can be laid down as many times as the counter is long.
@@ -170,11 +170,11 @@ export function maple(GFX, { width = 1024, height = 720, seed = 7 } = {}) {
   }
   /** The juice groove routed round the top, a finger's width in from the edge. */
   const inset = height * 0.055, r = height * 0.06;
-  for (const [w, colour] of [[11, 'rgba(96,58,24,0.34)'], [6, 'rgba(70,40,14,0.32)'], [1.4, 'rgba(255,236,200,0.5)']]) {
-    ctx.strokeStyle = colour;
+  for (const [w, color] of [[11, 'rgba(96,58,24,0.34)'], [6, 'rgba(70,40,14,0.32)'], [1.4, 'rgba(255,236,200,0.5)']]) {
+    ctx.strokeStyle = color;
     ctx.lineWidth = w;
     ctx.beginPath();
-    const off = colour.startsWith('rgba(255') ? 4 : 0;
+    const off = color.startsWith('rgba(255') ? 4 : 0;
     ctx.roundRect(inset + off, inset + off, width - inset * 2, height - inset * 2, r);
     ctx.stroke();
   }
@@ -226,7 +226,7 @@ export function greenTile(GFX, { width = 1024, height = 512, seed = 3 } = {}) {
       ctx.beginPath();
       ctx.roundRect(x + 3, y + 3, tw - 6, th - 6, 6);
       ctx.fill();
-      /** The glaze is never quite even: a few soft pools of deeper colour on every tile. */
+      /** The glaze is never quite even: a few soft pools of deeper color on every tile. */
       for (let k = 0; k < 5; k++) {
         const px = x + 8 + random() * (tw - 16), py = y + 8 + random() * (th - 16), pr = 8 + random() * 22;
         const pool = ctx.createRadialGradient(px, py, 0, px, py, pr);
@@ -485,8 +485,8 @@ export function towel(GFX, { width = 1024, height = 512 } = {}) {
     ctx.fillRect(random() * width, random() * height, 6 + random() * 18, 1.2);
   }
   for (const end of [0.13, 0.81]) {
-    const stripe = (x, w, colour) => {
-      ctx.fillStyle = colour;
+    const stripe = (x, w, color) => {
+      ctx.fillStyle = color;
       ctx.fillRect(x * width, 0, w * width, height);
     };
     stripe(end, 0.006, 'rgba(176,138,62,0.9)');
@@ -530,7 +530,7 @@ export function walnut(GFX, { width = 512, height = 512, seed = 29 } = {}) {
 }
 
 /**
- * Moulded paper pulp, for the carton: grey-beige, mottled, with short fibres
+ * Molded paper pulp, for the carton: gray-beige, mottled, with short fibers
  * through it. Laid on from above, so its own scale is all that matters.
  */
 export function pulp(GFX, size = 256) {
@@ -569,15 +569,15 @@ const SERIF = '"Playfair Display", Georgia, "Times New Roman", serif';
 const CONDENSED = 'Oswald, "Arial Narrow", "Roboto Condensed", sans-serif';
 
 /** A double rule round the edge of a label: a thick one and a hairline inside it. */
-function frameLabel(ctx, w, h, inset, colour) {
-  ctx.strokeStyle = colour;
+function frameLabel(ctx, w, h, inset, color) {
+  ctx.strokeStyle = color;
   ctx.lineWidth = 4;
   ctx.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
   ctx.lineWidth = 1.2;
   ctx.strokeRect(inset + 8, inset + 8, w - inset * 2 - 16, h - inset * 2 - 16);
 }
 
-/** Text with its letters spread, centred on x. */
+/** Text with its letters spread, centerd on x. */
 function spaced(ctx, text, x, y, spacing) {
   const chars = [...text];
   const widths = chars.map((ch) => ctx.measureText(ch).width);
@@ -690,7 +690,7 @@ export function blade(GFX, { width = 512, height = 128 } = {}) {
   return texture(GFX, c.el);
 }
 
-/** Flaky sea salt: a white heap of little bright planes and grey shadows between them. */
+/** Flaky sea salt: a white heap of little bright planes and gray shadows between them. */
 export function flakes(GFX, size = 256) {
   const c = canvas(size);
   if (!c) return null;

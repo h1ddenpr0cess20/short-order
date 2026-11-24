@@ -1,4 +1,4 @@
-// A billboard: the colour, times the map.
+// A billboard: the color, times the map.
 
 #include <common>
 #include <output>

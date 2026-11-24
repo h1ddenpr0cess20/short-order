@@ -77,9 +77,9 @@ void main() {
   float core = (1.0 - smoothstep(0.0, 0.55, across)) * (1.0 - smoothstep(0.05, 0.45, along));
   vec3 mantle = vec3(0.16, 0.26, 1.0);
   vec3 inner = vec3(0.55, 0.85, 1.0);
-  vec3 colour = mix(mantle, inner, core);
+  vec3 color = mix(mantle, inner, core);
   float alpha = (body * 0.55 + core * 0.6) * clamp(vFade * 1.6, 0.0, 1.0);
-  gl_FragColor = vec4(colour, alpha);
+  gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -122,9 +122,9 @@ fn fs(i: Out) -> @location(0) vec4f {
   let core = (1.0 - smoothstep(0.0, 0.55, across)) * (1.0 - smoothstep(0.05, 0.45, along));
   let mantle = vec3f(0.16, 0.26, 1.0);
   let inner = vec3f(0.55, 0.85, 1.0);
-  let colour = mix(mantle, inner, core);
+  let color = mix(mantle, inner, core);
   let alpha = (body * 0.55 + core * 0.6) * clamp(i.fade * 1.6, 0.0, 1.0);
-  return vec4f(colour, alpha);
+  return vec4f(color, alpha);
 }
 `;
 

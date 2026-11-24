@@ -260,7 +260,7 @@ export class OrbitControls extends EventDispatcher {
   }
 
   /** Two fingers: the midpoint pans, and the spread between them dollies. */
-  _touchCentre(event) {
+  _touchCenter(event) {
     if (this._pointers.length === 1) return [event.pageX, event.pageY];
     const position = this._getSecondPointerPosition(event);
     return [0.5 * (event.pageX + position.x), 0.5 * (event.pageY + position.y)];
@@ -313,7 +313,7 @@ export class OrbitControls extends EventDispatcher {
     } else if (this._pointers.length === 2) {
       if (this.enableZoom === false && this.enablePan === false) return;
       if (this.enableZoom) this._dollyStart.set(0, this._touchSpread(event));
-      if (this.enablePan) this._panStart.set(...this._touchCentre(event));
+      if (this.enablePan) this._panStart.set(...this._touchCenter(event));
       this.state = STATE.TOUCH_DOLLY_PAN;
     } else {
       this.state = STATE.NONE;
@@ -325,12 +325,12 @@ export class OrbitControls extends EventDispatcher {
     this._trackPointer(event);
     if (this.state === STATE.TOUCH_ROTATE) {
       if (this.enableRotate === false) return;
-      this._handleMoveRotate(...this._touchCentre(event));
+      this._handleMoveRotate(...this._touchCenter(event));
       this.update();
     } else if (this.state === STATE.TOUCH_DOLLY_PAN) {
       if (this.enableZoom === false && this.enablePan === false) return;
       if (this.enableZoom) this._handleTouchMoveDolly(event);
-      if (this.enablePan) this._handleMovePan(...this._touchCentre(event));
+      if (this.enablePan) this._handleMovePan(...this._touchCenter(event));
       this.update();
     } else {
       this.state = STATE.NONE;

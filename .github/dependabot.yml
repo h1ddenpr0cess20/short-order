@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
+  - package-ecozystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -9,7 +9,7 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: "github-actions"
+  - package-ecozystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"

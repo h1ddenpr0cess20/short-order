@@ -8,28 +8,28 @@
  * cooks. Onion and pepper soften, ham crisps, cheese melts.
  *
  * Plain numbers, no GFX: each extra is one or more closed solids with their
- * colours, and a colour for the inside wherever a knife goes through.
+ * colors, and a color for the inside wherever a knife goes through.
  */
 
-import { hex, mix } from './colour.js';
+import { hex, mix } from './color.js';
 import { vnoise } from './noise.js';
 import { vertexNormals } from './potato.js';
 import { measure, solidFromBuffers, split } from '../geometry/slice.js';
 
 /**
- * Each extra: its name, its key, the colour it reads as, what comes off the
+ * Each extra: its name, its key, the color it reads as, what comes off the
  * counter (`whole`), how wet it is cut, and the longest side a bit of it can
  * have and still be cut small enough (`bite`). `cooks` is whether it wants to
  * be softened in the pan before it is eaten — raw onion is not a filling
  * anyone asked for.
  */
 export const FILLINGS = Object.freeze({
-  cheese: { name: 'cheese', key: '1', colour: hex(0xf2b33d), whole: 'a block of cheddar', moisture: 0.35, bite: 1.15, cooks: false, melts: true, grates: true },
-  tomato: { name: 'tomato', key: '2', colour: hex(0xd8402a), whole: 'a tomato', moisture: 1, bite: 1.15, cooks: false },
-  ham: { name: 'ham', key: '3', colour: hex(0xe39a95), whole: 'a slice of ham', moisture: 0.6, bite: 1.15, cooks: false },
-  pepper: { name: 'pepper', key: '4', colour: hex(0x3f8a2e), whole: 'a quarter of green pepper', moisture: 0.8, bite: 1.15, cooks: true },
-  onion: { name: 'onion', key: '5', colour: hex(0xf1ead8), whole: 'half an onion', moisture: 0.8, bite: 1.15, cooks: true },
-  chives: { name: 'chives', key: '6', colour: hex(0x4f9a35), whole: 'a bunch of chives', moisture: 0.7, bite: 0.6, cooks: false },
+  cheese: { name: 'cheese', key: '1', color: hex(0xf2b33d), whole: 'a block of cheddar', moisture: 0.35, bite: 1.15, cooks: false, melts: true, grates: true },
+  tomato: { name: 'tomato', key: '2', color: hex(0xd8402a), whole: 'a tomato', moisture: 1, bite: 1.15, cooks: false },
+  ham: { name: 'ham', key: '3', color: hex(0xe39a95), whole: 'a slice of ham', moisture: 0.6, bite: 1.15, cooks: false },
+  pepper: { name: 'pepper', key: '4', color: hex(0x3f8a2e), whole: 'a quarter of green pepper', moisture: 0.8, bite: 1.15, cooks: true },
+  onion: { name: 'onion', key: '5', color: hex(0xf1ead8), whole: 'half an onion', moisture: 0.8, bite: 1.15, cooks: true },
+  chives: { name: 'chives', key: '6', color: hex(0x4f9a35), whole: 'a bunch of chives', moisture: 0.7, bite: 0.6, cooks: false },
 });
 
 export const FILLING_KINDS = Object.freeze(Object.keys(FILLINGS));
@@ -42,7 +42,7 @@ export function listed(kinds) {
   return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
-/** A little mottle, so a cut face is not one flat colour. */
+/** A little mottle, so a cut face is not one flat color. */
 const mottle = (c, x, y, z, amount = 0.05, scale = 5) => {
   const m = 1 + amount * vnoise(x * scale + 7.1, y * scale + 2.9, z * scale + 4.3);
   return [c[0] * m, c[1] * m, c[2] * m];
@@ -73,14 +73,14 @@ export const FILLING_FLESH = Object.freeze({
  * stitches the shared corners back into one closed skin.
  */
 function faces() {
-  const positions = [], normals = [], colours = [], index = [];
+  const positions = [], normals = [], colors = [], index = [];
   const vertex = (p, n, c) => {
     positions.push(...p);
     normals.push(...n);
-    colours.push(c);
+    colors.push(c);
     return positions.length / 3 - 1;
   };
-  /** A triangle or a quad; `n` is one normal or one per corner, `c` one colour or one per corner. */
+  /** A triangle or a quad; `n` is one normal or one per corner, `c` one color or one per corner. */
   function face(points, n, c) {
     const ns = Array.isArray(n[0]) ? n : points.map(() => n);
     const cs = Array.isArray(c[0]) ? c : points.map(() => c);
@@ -95,17 +95,17 @@ function faces() {
   function solid() {
     return solidFromBuffers({
       positions: Float64Array.from(positions), normals: Float64Array.from(normals), index,
-      colour: (_x, _y, _z, i) => colours[i],
+      color: (_x, _y, _z, i) => colors[i],
     });
   }
   return { face, solid };
 }
 
-/** A box `[w, h, d]` standing on y = 0, centred over the origin, coloured by `colour(x, y, z)`. */
-function box([w, h, d], colour) {
+/** A box `[w, h, d]` standing on y = 0, centerd over the origin, colored by `color(x, y, z)`. */
+function box([w, h, d], color) {
   const m = faces();
   const x = w / 2, z = d / 2;
-  const quad = (pts, n) => m.face(pts, n, pts.map((p) => colour(...p)));
+  const quad = (pts, n) => m.face(pts, n, pts.map((p) => color(...p)));
   quad([[x, 0, -z], [x, h, -z], [x, h, z], [x, 0, z]], [1, 0, 0]);
   quad([[-x, 0, z], [-x, h, z], [-x, h, -z], [-x, 0, -z]], [-1, 0, 0]);
   quad([[-x, h, -z], [-x, h, z], [x, h, z], [x, h, -z]], [0, 1, 0]);
@@ -120,7 +120,7 @@ function box([w, h, d], colour) {
  * along x and curling round sideways as it goes, its ends `curl` out of line
  * with its middle — the way a shred of potato comes off the grater.
  */
-function strand([l, t, w], curl, colour, segments = 8) {
+function strand([l, t, w], curl, color, segments = 8) {
   const m = faces();
   const ring = (i) => {
     const s = -l / 2 + (l * i) / segments;
@@ -130,7 +130,7 @@ function strand([l, t, w], curl, colour, segments = 8) {
     return { side, along: [1 / n, 0, slope / n], bl: at(-1, 0), br: at(1, 0), tl: at(-1, t), tr: at(1, t) };
   };
   const rings = Array.from({ length: segments + 1 }, (_, i) => ring(i));
-  const quad = (pts, n) => m.face(pts, n, pts.map((p) => colour(...p)));
+  const quad = (pts, n) => m.face(pts, n, pts.map((p) => color(...p)));
   for (let i = 0; i < segments; i++) {
     const a = rings[i], b = rings[i + 1];
     const side = [(a.side[0] + b.side[0]) / 2, 0, (a.side[2] + b.side[2]) / 2];
@@ -147,9 +147,9 @@ function strand([l, t, w], curl, colour, segments = 8) {
 
 /**
  * A round thing: a sphere with no seam, each pole one vertex, every direction
- * pushed out to `point(dir)` and painted `colour(dir)`.
+ * pushed out to `point(dir)` and painted `color(dir)`.
  */
-function round({ columns = 36, rows = 22, point, colour }) {
+function round({ columns = 36, rows = 22, point, color }) {
   const dirs = [[0, 1, 0]];
   for (let j = 1; j < rows; j++) {
     const theta = (j / rows) * Math.PI;
@@ -172,7 +172,7 @@ function round({ columns = 36, rows = 22, point, colour }) {
   for (let i = 0; i < columns; i++) index.push(last, at(i + 1, rows - 1), at(i, rows - 1));
   const positions = new Float64Array(dirs.length * 3);
   dirs.forEach((d, i) => positions.set(point(d), i * 3));
-  return solidFromBuffers({ positions, normals: vertexNormals(positions, index), index, colour: (_x, _y, _z, i) => colour(dirs[i]) });
+  return solidFromBuffers({ positions, normals: vertexNormals(positions, index), index, color: (_x, _y, _z, i) => color(dirs[i]) });
 }
 
 /** A block of cheddar, longer front to back than across. */
@@ -188,7 +188,7 @@ function tomato() {
       const rib = 1 + 0.035 * Math.cos(5 * Math.atan2(z, x)) * (1 - Math.abs(y));
       return [x * R * rib, y * R * 0.84 + R * 0.84, z * R * rib];
     },
-    colour: ([x, y, z]) => {
+    color: ([x, y, z]) => {
       const star = Math.cos(5 * Math.atan2(z, x));
       if (y > 0.96 || (y > 0.86 && star > 0.3)) return [...TOMATO.calyx];
       return mottle(TOMATO.skin, x, y, z, 0.06, 4);
@@ -247,7 +247,7 @@ function onion() {
       const tip = 1 + 0.18 * Math.max(0, along) ** 3;
       return [x * R, -z * R * 0.95, along * R * tip];
     },
-    colour: ([x, y, z]) => {
+    color: ([x, y, z]) => {
       /** Faint lines running root to tip, the way the layers show through. */
       const streak = 0.5 + 0.5 * Math.cos(Math.atan2(z, x) * 26);
       return mix(ONION.skin, ONION.vein, streak * 0.35 * (1 - Math.abs(y)));
@@ -313,21 +313,21 @@ export const SHRED = Object.freeze({ thick: 0.13, wide: 0.2, long: 0.9, most: 90
  * up to `most` of them, thicker if there would be more — each lying flat at
  * the origin, its length along x, about `long` long, about `thick` by `wide`
  * across, and curling round sideways by up to `curl` of its length. `random`
- * gives each its own length and curl, and `flesh` their colour, for a kind
+ * gives each its own length and curl, and `flesh` their color, for a kind
  * that is not one of the extras.
  */
 export function shredSolids(kind, volume, random = Math.random, {
-  flesh = FILLING_FLESH[kind] ?? (() => FILLINGS[kind].colour), most = SHRED.most, long = SHRED.long, thick = SHRED.thick, wide = SHRED.wide, curl = 0,
+  flesh = FILLING_FLESH[kind] ?? (() => FILLINGS[kind].color), most = SHRED.most, long = SHRED.long, thick = SHRED.thick, wide = SHRED.wide, curl = 0,
 } = {}) {
   const one = thick * wide * long;
   const n = Math.max(3, Math.min(most, Math.round(volume / one)));
   const lengths = Array.from({ length: n }, () => long * (0.6 + 0.62 * random()));
   /** Thickened or thinned all alike so that, between them, the strips are all there was. */
   const k = Math.sqrt(volume / (thick * wide * lengths.reduce((a, b) => a + b, 0)));
-  const colour = (x, y, z) => flesh(x, y, z);
+  const color = (x, y, z) => flesh(x, y, z);
   const strips = lengths.map((l) => (curl
-    ? strand([l, thick * k, wide * k], (random() - 0.5) * 2 * curl * l, colour)
-    : box([l, thick * k, wide * k], colour)));
+    ? strand([l, thick * k, wide * k], (random() - 0.5) * 2 * curl * l, color)
+    : box([l, thick * k, wide * k], color)));
   if (!curl) return strips;
   /** Curled, they are a touch more or less than straight ones would be: made exactly all there was, by their thickness. */
   const made = strips.reduce((a, s) => a + measure(s).volume, 0), r = volume / made;
@@ -336,7 +336,7 @@ export function shredSolids(kind, volume, random = Math.random, {
 }
 
 /**
- * A potato through a box grater: long, curling strands a few millimetres
+ * A potato through a box grater: long, curling strands a few millimeters
  * across, a couple of hundred of them — what hash browns are made of.
  */
 export const HASH = Object.freeze({ thick: 0.1, wide: 0.13, long: 2.6, curl: 0.22, most: 220 });

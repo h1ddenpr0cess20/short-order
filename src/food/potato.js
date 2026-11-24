@@ -11,17 +11,17 @@
  * spot anyway.
  *
  * Plain numbers throughout, no GFX: the potato is a solid (see
- * `geometry/slice.js`) and a colour for its inside, both checkable under Node.
+ * `geometry/slice.js`) and a color for its inside, both checkable under Node.
  */
 
-import { hex } from './colour.js';
+import { hex } from './color.js';
 import { vnoise } from './noise.js';
 import { solidFromBuffers } from '../geometry/slice.js';
 
 /**
  * Half its length, height and depth. A big russet, about 11 cm end to end at
  * the scale the pan is drawn at, where a unit is a little under two and a half
- * centimetres: enough, diced, to cover a good part of a twelve-inch skillet.
+ * centimeters: enough, diced, to cover a good part of a twelve-inch skillet.
  */
 export const HALF = Object.freeze({ x: 2.3, y: 1.5, z: 1.36 });
 
@@ -81,8 +81,8 @@ function hsl(h, s, l) {
 const EYE = hex(0x4a3116);
 
 /**
- * Tater's skin was these netted values multiplied by a russet material colour;
- * here the colour is all in the vertices, so the russet is folded in.
+ * Tater's skin was these netted values multiplied by a russet material color;
+ * here the color is all in the vertices, so the russet is folded in.
  */
 const RUSSET = hex(0xa97c4c);
 
@@ -95,26 +95,26 @@ export function skinAt(x, y, z) {
     + vnoise(x * 40 + 5, y * 40 + 5, z * 40 + 5) * 0.35
     + vnoise(x * 90 + 9, y * 90 + 9, z * 90 + 9) * 0.2;
   const patch = vnoise(x * 5 + 90, y * 5 + 90, z * 5 + 90);
-  let colour = hsl(0.080 + 0.010 * patch, 0.36 + 0.06 * patch, 0.44 + 0.10 * net + 0.05 * patch).map((c, i) => c * RUSSET[i] * 1.9);
+  let color = hsl(0.080 + 0.010 * patch, 0.36 + 0.06 * patch, 0.44 + 0.10 * net + 0.05 * patch).map((c, i) => c * RUSSET[i] * 1.9);
   for (const [ex, ey, ez] of EYES) {
     const d = Math.acos(clamp(x * ex + y * ey + z * ez, -1, 1));
     if (d > 0.16) continue;
     if (d < 0.07) {
       const t = 1 - d / 0.07;
-      colour = colour.map((c, i) => c + (EYE[i] - c) * t * 0.85);
+      color = color.map((c, i) => c + (EYE[i] - c) * t * 0.85);
     } else {
       const t = 1 - Math.abs(d - 0.105) / 0.055;
-      colour = colour.map((c) => c * (1 + 0.18 * Math.max(0, t)));
+      color = color.map((c) => c * (1 + 0.18 * Math.max(0, t)));
     }
   }
-  return colour;
+  return color;
 }
 
 /** Cream with a little yellow in it: the inside of a floury potato, raw. */
 export const FLESH = hex(0xf1e3b6);
 
 /**
- * The colour of the inside at a point, for a face the knife has just made.
+ * The color of the inside at a point, for a face the knife has just made.
  * Flat, give or take a little starchy mottle — the cap is drawn from its
  * outline alone, so there is nowhere inside it to put a ring anyway.
  */
@@ -171,7 +171,7 @@ export function potatoSolid({ columns = 60, rows = 40 } = {}) {
     positions,
     normals,
     index,
-    colour: (_x, _y, _z, i) => skinAt(...dirs[i]),
+    color: (_x, _y, _z, i) => skinAt(...dirs[i]),
   });
 }
 

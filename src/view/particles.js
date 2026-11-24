@@ -25,7 +25,7 @@ export function createParticles({ GFX, room }) {
   const texture = puff(GFX);
   const make = (additive) => {
     const material = new GFX.SpriteMaterial({
-      name: additive ? 'spatter' : 'vapour',
+      name: additive ? 'spatter' : 'vapor',
       map: texture,
       color: 0xffffff,
       transparent: true,

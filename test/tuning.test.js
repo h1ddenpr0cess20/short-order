@@ -89,7 +89,7 @@ describe('the fry, cooked by a careless cook', () => {
 });
 
 describe('the fry, as the plate sees it', () => {
-  it('leaves no face of a golden batch the colour of raw potato', () => {
+  it('leaves no face of a golden batch the color of raw potato', () => {
     const { pan } = cook({ level: 3, tossEvery: 4, seconds: 120 });
     let area = 0, pale = 0;
     for (const p of pan.pieces) {

@@ -3,11 +3,11 @@
  *
  * This is what the knife does. Every piece on the board is one of these: a
  * closed triangle soup (no index, three vertices to a triangle, each with its
- * own copy), carrying a normal and a base colour per vertex, and a flag per
+ * own copy), carrying a normal and a base color per vertex, and a flag per
  * triangle saying whether it is the outside of the thing or a face somebody
  * cut. A cut sorts the triangles to either side of the plane, splits the ones
  * it passes through, and walks the edges it left behind into closed outlines,
- * which are filled in with flesh — coloured by asking the ingredient what its
+ * which are filled in with flesh — colored by asking the ingredient what its
  * inside looks like at each point.
  *
  * No GFX in here, so it can be checked without a renderer and run under Node.
@@ -66,10 +66,10 @@ export function triangleCount(solid) {
 }
 
 /**
- * An indexed or unindexed mesh, unrolled into a solid. `colour(x, y, z, i)`
- * gives the base colour of each original vertex.
+ * An indexed or unindexed mesh, unrolled into a solid. `color(x, y, z, i)`
+ * gives the base color of each original vertex.
  */
-export function solidFromBuffers({ positions, normals, index = null, colour }) {
+export function solidFromBuffers({ positions, normals, index = null, color }) {
   const order = index ?? Array.from({ length: positions.length / 3 }, (_, i) => i);
   const n = order.length;
   const pos = new Float32Array(n * 3);
@@ -86,7 +86,7 @@ export function solidFromBuffers({ positions, normals, index = null, colour }) {
     nrm[k * 3 + 2] = normals[i * 3 + 2];
     let c = cache.get(i);
     if (!c) {
-      c = colour(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2], i);
+      c = color(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2], i);
       cache.set(i, c);
     }
     col[k * 3] = c[0];
@@ -229,7 +229,7 @@ const keyOf = (x, y, z) => `${Math.round(x * 1e6)},${Math.round(y * 1e6)},${Math
  * front of it (the side the normal points to) and behind it, each a list —
  * one cut through a lumpy thing can leave more than one piece on a side.
  *
- * `flesh(x, y, z)` is the colour of the inside at a point, for the new faces.
+ * `flesh(x, y, z)` is the color of the inside at a point, for the new faces.
  * A plane that misses the solid hands it back whole, on the side it is on.
  */
 export function split(solid, { normal, offset }, { flesh = () => [1, 1, 1] } = {}) {

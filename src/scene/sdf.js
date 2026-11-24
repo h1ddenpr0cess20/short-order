@@ -4,7 +4,7 @@
  * on the surface; see `cast.js` for how a field is turned into a mesh.
  */
 
-/** A rectangle `w` by `d` centred on the origin with its corners rounded by `r`, in the plane. */
+/** A rectangle `w` by `d` centerd on the origin with its corners rounded by `r`, in the plane. */
 export function roundRect(x, z, w, d, r) {
   const qx = Math.abs(x) - w / 2 + r, qz = Math.abs(z) - d / 2 + r;
   return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - r;

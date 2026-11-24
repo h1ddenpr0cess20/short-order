@@ -14,7 +14,7 @@ export function buildCarton(GFX) {
   const group = new GFX.Group();
   group.name = 'carton';
   const map = pulp(GFX);
-  const fibre = new GFX.MeshStandardMaterial({
+  const fiber = new GFX.MeshStandardMaterial({
     name: 'carton-pulp', color: map ? 0xffffff : 0xb9ab95, map, bumpMap: map, bumpScale: 2, roughness: 0.97, metalness: 0,
     side: GFX.DoubleSide,
   });
@@ -29,7 +29,7 @@ export function buildCarton(GFX) {
   const posts = [-CARTON.pitch / 2, CARTON.pitch / 2];
 
   /**
-   * The tray, moulded in one: a block whose sides bulge round every cup, a
+   * The tray, molded in one: a block whose sides bulge round every cup, a
    * flat flange round the top, a cup scooped out under every egg, and a post
    * between each pair of cups that holds the lid off the eggs. It sits on the
    * counter, so its underside is never seen and never made: the box it is
@@ -58,13 +58,13 @@ export function buildCarton(GFX) {
     return solid;
   };
   const trayGeometry = planarUV(GFX, cast(GFX, { distance: tray, from: [-W / 2 - 0.15, 0.02, -D / 2 - 0.15], to: [W / 2 + 0.15, H + 1.45, D / 2 + 0.15], step: 0.12 }), 4);
-  const trayMesh = new GFX.Mesh(trayGeometry, fibre);
+  const trayMesh = new GFX.Mesh(trayGeometry, fiber);
   trayMesh.name = 'carton-tray';
   group.add(trayMesh);
 
   /**
    * The lid, folded open and leant back against the wall behind, inside out
-   * to the room: a shallow open box, moulded the same, with the farm's stamp
+   * to the room: a shallow open box, molded the same, with the farm's stamp
    * printed inside it.
    */
   const lid = new GFX.Group();
@@ -77,7 +77,7 @@ export function buildCarton(GFX) {
   /** Its outside is to the wall, so like the tray's underside it is left open. */
   const lidGeometry = planarUV(GFX, cast(GFX, { distance: box, from: [-W / 2 - 0.1, 0.04, -D / 2 - 0.1], to: [W / 2 + 0.1, 1.25, D / 2 + 0.1], step: 0.12 }), 4);
   lidGeometry.translate(0, 0, -D / 2);
-  const lidMesh = new GFX.Mesh(lidGeometry, fibre);
+  const lidMesh = new GFX.Mesh(lidGeometry, fiber);
   lidMesh.name = 'carton-lid-top';
   lid.add(lidMesh);
   const stamp = cartonLabel(GFX);
