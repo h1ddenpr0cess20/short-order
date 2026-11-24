@@ -42,7 +42,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
   const cracker = createCracker(GFX, {
     room: kitchen.room,
     rimPoint: () => rim.set(bowlGroup.position.x - BOWL.rim * 0.82, kitchen.bowl.floor + BOWL.depth + 0.05, bowlGroup.position.z + 0.9),
-    centre: () => bowlGroup.position,
+    center: () => bowlGroup.position,
   });
   const eggsLeft = [...kitchen.carton.eggs];
   let pending = 0;
@@ -91,7 +91,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
     const rig = kitchen.panRig.position;
     /** Knocked on the near rim, toward the counter, and opened over its place in the pan. */
     const rimAt = new GFX.Vector3();
-    const centre = new GFX.Vector3();
+    const center = new GFX.Vector3();
     cracker.start(egg, () => {
       headed.splice(headed.indexOf(at), 1);
       sheet.crack(at[0], at[1]);
@@ -99,7 +99,7 @@ export function createEggStation({ GFX, kitchen, sheet, pan, emit }) {
     }, {
       /** The rim on the cook's side, in line with where the egg is going, so it opens over its place. */
       rimPoint: () => rimAt.set(rig.x + at[0] * 0.8, PAN_Y + RIM_HEIGHT, rig.z + Math.min(RIM_RADIUS - 0.3, at[1] + 2.2)),
-      centre: () => centre.set(rig.x + at[0], PAN_Y, rig.z + at[1]),
+      center: () => center.set(rig.x + at[0], PAN_Y, rig.z + at[1]),
     });
     return true;
   }

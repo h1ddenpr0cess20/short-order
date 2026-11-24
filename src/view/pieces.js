@@ -1,24 +1,24 @@
 /**
- * Pieces of food as meshes: one per piece, its colour worked out per vertex
+ * Pieces of food as meshes: one per piece, its color worked out per vertex
  * from how browned each of the piece's six sides is.
  *
- * A vertex takes its share of each side by the way it faces, so the colour
+ * A vertex takes its share of each side by the way it faces, so the color
  * runs smoothly round a curved bit of skin and changes sharply at the edge of
  * a cube. The cut faces — flesh — go from cream through gold to brown and
  * then to black; the skin just darkens. Each vertex also has a little jitter
  * of its own, so a browned face comes out mottled rather than painted.
  *
  * Repainting is the expensive part — every vertex worked out again, and the
- * colours sent to the GPU — so a piece is only repainted once it has browned
+ * colors sent to the GPU — so a piece is only repainted once it has browned
  * or cooked enough since its last coat to show, a few pieces a frame at most.
  * A piece lying on the board, or one that has stopped changing, costs nothing.
  */
 
-import { hex, mix, ramp } from '../food/colour.js';
+import { hex, mix, ramp } from '../food/color.js';
 import { FILLINGS } from '../food/fillings.js';
 import { sideWeights } from '../sim/piece.js';
 import { conjugate, multiply, rotate } from '../sim/quat.js';
-import { eggColour } from './eggs.js';
+import { eggColor } from './eggs.js';
 import { melt, meltable } from './melt.js';
 
 /**
@@ -36,7 +36,7 @@ const FRIED = ramp([
   [2.2, hex(0x1c120a)],
 ]);
 
-/** Below this the flesh is still more its own colour than the pan's. */
+/** Below this the flesh is still more its own color than the pan's. */
 const FIRST = 0.2;
 
 /** How a piece cooked through looks against raw: a little more yellow, a little less chalky. */
@@ -175,8 +175,8 @@ export function createPieceViews(GFX) {
     const geometry = new GFX.BufferGeometry();
     geometry.setAttribute('position', new GFX.BufferAttribute(melts ? solid.pos.slice() : solid.pos, 3));
     geometry.setAttribute('normal', new GFX.BufferAttribute(melts ? solid.nrm.slice() : solid.nrm, 3));
-    const colour = new Float32Array(n * 3);
-    geometry.setAttribute('color', new GFX.BufferAttribute(colour, 3));
+    const color = new Float32Array(n * 3);
+    geometry.setAttribute('color', new GFX.BufferAttribute(color, 3));
     geometry.computeBoundingSphere();
 
     /** Per vertex: its share of each side, whether it is skin, and its own little offset. */
@@ -195,7 +195,7 @@ export function createPieceViews(GFX) {
     mesh.name = `piece-${piece.id}`;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    const view = { mesh, geometry, colour, weights, skin, wobble, piece, painted: null, solid, melted: melts ? { m: 0, up: [0, 1, 0] } : null };
+    const view = { mesh, geometry, color, weights, skin, wobble, piece, painted: null, solid, melted: melts ? { m: 0, up: [0, 1, 0] } : null };
     views.set(piece.id, view);
     paint(view);
     return view;
@@ -203,35 +203,35 @@ export function createPieceViews(GFX) {
 
   const fried = [0, 0, 0];
 
-  const yolkColour = [0, 0, 0], film = [0, 0, 0];
+  const yolkColor = [0, 0, 0], film = [0, 0, 0];
 
   /**
    * A fried egg: the white sets, dries and browns like a curd; the yolk keeps
-   * its own colour, going paler and matte as it sets, and under a thin film
+   * its own color, going paler and matte as it sets, and under a thin film
    * of white once the egg has been turned.
    */
   function paintFried(view) {
-    const { piece, colour, weights, wobble } = view;
+    const { piece, color, weights, wobble } = view;
     const b = piece.brown;
     const base = view.solid.col;
-    const n = colour.length / 3;
-    eggColour(piece.yolkSet ?? 0, 1, 0, yolkColour);
-    if (piece.filmed) mix(yolkColour, eggColour(1, 0.05, 0, film), 0.45, yolkColour);
+    const n = color.length / 3;
+    eggColor(piece.yolkSet ?? 0, 1, 0, yolkColor);
+    if (piece.filmed) mix(yolkColor, eggColor(1, 0.05, 0, film), 0.45, yolkColor);
     for (let i = 0; i < n; i++) {
-      /** The yolk's vertices are the ones painted yolk-coloured when the egg was made: next to no blue in them. */
+      /** The yolk's vertices are the ones painted yolk-colored when the egg was made: next to no blue in them. */
       if (base[i * 3 + 2] < base[i * 3] * 0.3) {
-        colour[i * 3] = yolkColour[0];
-        colour[i * 3 + 1] = yolkColour[1];
-        colour[i * 3 + 2] = yolkColour[2];
+        color[i * 3] = yolkColor[0];
+        color[i * 3 + 1] = yolkColor[1];
+        color[i * 3 + 2] = yolkColor[2];
         continue;
       }
       const o = i * 6;
       let t = 0;
       for (let k = 0; k < 6; k++) t += weights[o + k] * b[k];
-      eggColour(piece.core, 0.02, t * wobble[i], fried);
-      colour[i * 3] = fried[0];
-      colour[i * 3 + 1] = fried[1];
-      colour[i * 3 + 2] = fried[2];
+      eggColor(piece.core, 0.02, t * wobble[i], fried);
+      color[i * 3] = fried[0];
+      color[i * 3 + 1] = fried[1];
+      color[i * 3 + 2] = fried[2];
     }
     view.geometry.attributes.color.needsUpdate = true;
   }
@@ -242,12 +242,12 @@ export function createPieceViews(GFX) {
   };
   const toward = [0, 0, 0];
 
-  /** One of the extras: its own colour, turning as it cooks, darkening where it browns. */
+  /** One of the extras: its own color, turning as it cooks, darkening where it browns. */
   function paintBit(view) {
-    const { piece, colour, weights, wobble } = view;
+    const { piece, color, weights, wobble } = view;
     const b = piece.brown;
     const base = view.solid.col;
-    const n = colour.length / 3;
+    const n = color.length / 3;
     const cooked = smooth(0.1, 0.9, piece.core);
     for (let i = 0; i < n; i++) {
       const o = i * 6;
@@ -256,48 +256,48 @@ export function createPieceViews(GFX) {
       t *= wobble[i];
       mix([base[i * 3], base[i * 3 + 1], base[i * 3 + 2]], COOKS_TO[piece.kind], cooked * 0.75, toward);
       const k = 1 - 0.42 * smooth(0.3, 1.4, t) - 0.45 * smooth(1.4, 2.0, t);
-      colour[i * 3] = toward[0] * k;
-      colour[i * 3 + 1] = toward[1] * k;
-      colour[i * 3 + 2] = toward[2] * k;
+      color[i * 3] = toward[0] * k;
+      color[i * 3 + 1] = toward[1] * k;
+      color[i * 3 + 2] = toward[2] * k;
     }
     view.geometry.attributes.color.needsUpdate = true;
   }
 
-  /** A curd of egg is one colour all over that sets, dries and browns where it lies on the iron. */
+  /** A curd of egg is one color all over that sets, dries and browns where it lies on the iron. */
   function paintEgg(view) {
     if (view.piece.fried) {
       paintFried(view);
       return;
     }
-    const { piece, colour, weights, wobble } = view;
+    const { piece, color, weights, wobble } = view;
     const b = piece.brown;
     const base = view.solid.col;
-    const n = colour.length / 3;
+    const n = color.length / 3;
     let rawG = 0;
     for (let i = 0; i < n; i++) rawG += base[i * 3 + 1] / n;
     for (let i = 0; i < n; i++) {
       const o = i * 6;
       let t = 0;
       for (let k = 0; k < 6; k++) t += weights[o + k] * b[k];
-      eggColour(piece.core, piece.yolk ?? 0.33, t * wobble[i], fried);
+      eggColor(piece.core, piece.yolk ?? 0.33, t * wobble[i], fried);
       /** The streaks the curd was made with, carried through however cooked it gets. */
       const k = base[i * 3 + 1] / Math.max(1e-6, rawG);
-      colour[i * 3] = fried[0] * (0.96 + 0.04 * k);
-      colour[i * 3 + 1] = fried[1] * k;
-      colour[i * 3 + 2] = fried[2] * (0.9 + 0.1 * k);
+      color[i * 3] = fried[0] * (0.96 + 0.04 * k);
+      color[i * 3 + 1] = fried[1] * k;
+      color[i * 3 + 2] = fried[2] * (0.9 + 0.1 * k);
       /** A folded omelette's filling, showing along the fold. */
       if (piece.flecks && piece.flecks[i * 3] >= 0) {
-        colour[i * 3] = piece.flecks[i * 3];
-        colour[i * 3 + 1] = piece.flecks[i * 3 + 1];
-        colour[i * 3 + 2] = piece.flecks[i * 3 + 2];
+        color[i * 3] = piece.flecks[i * 3];
+        color[i * 3 + 1] = piece.flecks[i * 3 + 1];
+        color[i * 3 + 2] = piece.flecks[i * 3 + 2];
       }
     }
     view.geometry.attributes.color.needsUpdate = true;
   }
 
   /**
-   * What a piece's colour is worked out from, rounded to the smallest change
-   * that would show: the same coat means the same colours, and no repaint.
+   * What a piece's color is worked out from, rounded to the smallest change
+   * that would show: the same coat means the same colors, and no repaint.
    */
   function coat(piece) {
     const b = piece.brown;
@@ -316,11 +316,11 @@ export function createPieceViews(GFX) {
       paintBit(view);
       return;
     }
-    const { piece, colour, weights, skin, wobble } = view;
+    const { piece, color, weights, skin, wobble } = view;
     const base = view.solid.col;
     const b = piece.brown;
     const core = Math.min(1, piece.core);
-    const n = colour.length / 3;
+    const n = color.length / 3;
     for (let i = 0; i < n; i++) {
       const o = i * 6;
       let t = 0;
@@ -330,22 +330,22 @@ export function createPieceViews(GFX) {
       if (skin[i]) {
         /** Skin only darkens, and goes black past burnt like anything else. */
         const k = 1 - 0.42 * smooth(0.3, 1.4, t) - 0.45 * smooth(1.4, 2.0, t);
-        colour[i * 3] = r * k;
-        colour[i * 3 + 1] = g * k;
-        colour[i * 3 + 2] = bl * k;
+        color[i * 3] = r * k;
+        color[i * 3 + 1] = g * k;
+        color[i * 3 + 2] = bl * k;
       } else {
         const cr = r * (1 + (COOKED[0] - 1) * core), cg = g * (1 + (COOKED[1] - 1) * core), cb = bl * (1 + (COOKED[2] - 1) * core);
         if (t < FIRST) {
           FRIED(FIRST, fried);
           const k = t / FIRST;
-          colour[i * 3] = cr + (fried[0] - cr) * k * k;
-          colour[i * 3 + 1] = cg + (fried[1] - cg) * k * k;
-          colour[i * 3 + 2] = cb + (fried[2] - cb) * k * k;
+          color[i * 3] = cr + (fried[0] - cr) * k * k;
+          color[i * 3 + 1] = cg + (fried[1] - cg) * k * k;
+          color[i * 3 + 2] = cb + (fried[2] - cb) * k * k;
         } else {
           FRIED(t, fried);
-          colour[i * 3] = fried[0];
-          colour[i * 3 + 1] = fried[1];
-          colour[i * 3 + 2] = fried[2];
+          color[i * 3] = fried[0];
+          color[i * 3 + 1] = fried[1];
+          color[i * 3 + 2] = fried[2];
         }
       }
     }

@@ -8,7 +8,7 @@
  *
  * How cooked it is lives on six sides — the six directions of its own frame —
  * because a piece browns on whichever face is down. Every vertex reads its
- * colour from those six, weighted by the way it faces, so a cube that has sat
+ * color from those six, weighted by the way it faces, so a cube that has sat
  * on one face is golden there and pale everywhere else, and a curved bit of
  * skin is somewhere in between.
  */

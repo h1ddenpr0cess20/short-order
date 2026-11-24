@@ -479,7 +479,7 @@ export function createGame({ stage, GFX, kitchen }) {
 
   /** Somewhere on the board to pour something out, round `spot`: anywhere on it, so long as the middle of each piece is. */
   const boardPour = (spot, spread) => ({
-    centre: spot, spread,
+    center: spot, spread,
     holds: (x, z) => Math.abs(x) < board.halfWidth - 0.4 && Math.abs(z) < board.halfDepth - 0.4,
   });
 
@@ -1013,9 +1013,9 @@ export function createGame({ stage, GFX, kitchen }) {
   }
 
   /**
-   * Where a folded omelette's filling shows along its fold: the colour of one
+   * Where a folded omelette's filling shows along its fold: the color of one
    * of the extras inside it at some of the points near that edge, and none
-   * (−1) everywhere else. The same point always gets the same colour, so the
+   * (−1) everywhere else. The same point always gets the same color, so the
    * flecks do not tear across the triangles that share it.
    */
   function foldFlecks(piece, inside) {
@@ -1031,7 +1031,7 @@ export function createGame({ stage, GFX, kitchen }) {
       const h = Math.sin(Math.round(x * 20) * 12.9898 + Math.round(y * 20) * 78.233 + Math.round(z * 20) * 37.719) * 43758.5453;
       const r = h - Math.floor(h);
       if (r > 0.5) continue;
-      const c = FILLINGS[kinds[Math.floor(r * 2 * kinds.length) % kinds.length]].colour;
+      const c = FILLINGS[kinds[Math.floor(r * 2 * kinds.length) % kinds.length]].color;
       out[i * 3] = c[0];
       out[i * 3 + 1] = c[1];
       out[i * 3 + 2] = c[2];
@@ -1702,7 +1702,7 @@ export function createGame({ stage, GFX, kitchen }) {
     return true;
   }
 
-  /** Puts the knife over a point on the board, the way hovering does: blade centred on it. */
+  /** Puts the knife over a point on the board, the way hovering does: blade centerd on it. */
   function aimKnife([x, z]) {
     const pile = board.bounds();
     if (!pile) return false;

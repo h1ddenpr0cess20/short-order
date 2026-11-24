@@ -120,7 +120,7 @@ export function buildWhisk(GFX) {
 /**
  * A fish spatula: a thin, slotted, slightly flexible blade and a wooden handle.
  * Built with the blade flat on y = 0, its front edge along x at z = 0 and the
- * handle running back towards +z and up.
+ * handle running back toward +z and up.
  */
 export function buildSpatula(GFX) {
   const group = new GFX.Group();
@@ -206,7 +206,7 @@ export const plateDish = Object.freeze({
   floor: plateTop,
   base: (x, z) => (Math.hypot(x, z) <= PLATE.radius ? plateTop(Math.hypot(x, z)) : 0),
   holds: (x, z) => Math.hypot(x, z) <= PLATE.well + 0.4,
-  centre: [0, 0],
+  center: [0, 0],
   spread: 0.9,
 });
 

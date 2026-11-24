@@ -204,7 +204,7 @@ export const DISHES = Object.freeze({
     id: 'french', kind: 'omelette', style: 'french', no: '05', par: 150, potato: false, crack: 'bowl', fold: 'roll',
     name: 'French omelette', menu: 'French omelette',
     tag: 'Pale, soft inside, rolled.',
-    blurb: 'three eggs in butter, stirred, settled, rolled — no colour',
+    blurb: 'three eggs in butter, stirred, settled, rolled — no color',
     steps: [
       whisk,
       fat('Butter, gentle heat', 110, 170, true),
@@ -212,7 +212,7 @@ export const DISHES = Object.freeze({
         id: 'set', what: 'Stir, then let it set', short: 'set',
         read: (p) => ({
           how: p.omelette.poured === 0 ? 'pour; stir while it runs, then leave it'
-            : p.omelette.folded ? 'folded' : `${pct(1 - p.omelette.liquid)} set${p.omelette.brown > 0.3 ? ' · colouring underneath' : ''}`,
+            : p.omelette.folded ? 'folded' : `${pct(1 - p.omelette.liquid)} set${p.omelette.brown > 0.3 ? ' · coloring underneath' : ''}`,
           fill: p.omelette.folded ? 1 : p.omelette.poured ? 1 - p.omelette.liquid : 0,
           done: p.omelette.folded || (p.omelette.poured > 0 && p.omelette.liquid < 0.35),
         }),

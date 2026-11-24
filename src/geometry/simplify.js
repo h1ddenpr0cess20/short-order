@@ -102,7 +102,7 @@ export function simplify(solid) {
    * refilled, and in each of their outlines both edges through it are on the
    * crease between the two: it is partway along a straight edge, and nothing
    * turns there. Taken out of one face it has to come out of the other too,
-   * so a face that cannot be refilled keeps its points in its neighbours.
+   * so a face that cannot be refilled keeps its points in its neighbors.
    */
   const refill = new Set();
   loopsOf.forEach((loops, f) => { if (loops && loops.length === 1) refill.add(f); });

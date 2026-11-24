@@ -184,7 +184,7 @@ describe('a pile on the board', () => {
     const strands = shredSolids('potato', volume, seeded(7), { flesh: FLESH.potato, ...HASH }).map((solid) => Object.assign(makePiece({ solid, kind: 'potato' }), { shred: true }));
     for (let i = 0; i < strands.length; i += 2) {
       const some = strands.slice(i, i + 2);
-      pour(some, { centre: [0, 0], spread: 0.5, holds: (x, z) => Math.abs(x) < 6.9 && Math.abs(z) < 4.6 }, board.pieces, seeded(100 + i));
+      pour(some, { center: [0, 0], spread: 0.5, holds: (x, z) => Math.abs(x) < 6.9 && Math.abs(z) < 4.6 }, board.pieces, seeded(100 + i));
       for (const p of some) board.lay([p], { slump: false, settled: true });
     }
     run(board, 1);

@@ -177,7 +177,7 @@ describe('the pan', () => {
     run(pan, 100, (t, i) => { if (i % 300 === 299) pan.toss(0.6); });
     const sides = pan.pieces.map((p) => [...p.brown].filter((b) => b > 0.3).length);
     const mean = sides.reduce((a, b) => a + b, 0) / sides.length;
-    assert.ok(mean > 3, `on average only ${mean.toFixed(1)} sides have any colour`);
+    assert.ok(mean > 3, `on average only ${mean.toFixed(1)} sides have any color`);
   });
 
   it('cooks dice through long before it cooks a whole potato through', () => {

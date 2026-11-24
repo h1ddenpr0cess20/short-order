@@ -228,7 +228,7 @@ export function createSheet({ N = 40, random = Math.random } = {}) {
       if (set[k] > 0.85) brown[k] += (browning(t) / BROWN_TIME) * dt;
     }
 
-    /** Liquid levels out: each patch shares with its neighbours as far as both still run. */
+    /** Liquid levels out: each patch shares with its neighbors as far as both still run. */
     for (let pass = 0; pass < 2; pass++) {
       scratch.set(amount);
       for (let j = 0; j < N; j++) {

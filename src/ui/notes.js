@@ -64,7 +64,7 @@ export function createNotes({ game, root = document.body }) {
     if (butter.solids > 0.2 && butter.brown > 1.05) return 'The butter is browning fast — turn it down.';
     if (t > 246) return 'Smoking hot. Turn it down.';
     if (!game.sheet.empty && t > 205) return 'That is hot for eggs — turn it down, they will brown.';
-    if (game.dish.style === 'french' && !game.sheet.empty && t > 180) return 'Gentle — a French omelette takes no colour.';
+    if (game.dish.style === 'french' && !game.sheet.empty && t > 180) return 'Gentle — a French omelette takes no color.';
     const raw = pan.pieces.filter((p) => (p.kind === 'onion' || p.kind === 'pepper') && p.core < 0.3);
     /** Eggs beaten and waiting, over onion and pepper still raw: they want a minute first. */
     const eggsReady = game.eggs.bowl.eggs > 0 && game.eggs.bowl.mix > 0.6;

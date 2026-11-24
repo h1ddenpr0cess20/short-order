@@ -487,7 +487,7 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
    * middle comes up to done at a pace set by how thick it is.
    */
   function cook(dt) {
-    let wet = 0, hiss = 0, vapour = 0, char = 0;
+    let wet = 0, hiss = 0, vapor = 0, char = 0;
     const weights = new Float32Array(6);
     for (const piece of pieces) {
       const s = state(piece);
@@ -527,12 +527,12 @@ export function createPan({ random = Math.random, liquid = null, covered = null 
 
       wet += footprint * piece.moisture;
       hiss += footprint * (0.25 + piece.moisture) * browning(t) * (oil > 0.12 ? 1.2 : 0.7);
-      vapour += footprint * piece.moisture * cooking(t);
+      vapor += footprint * piece.moisture * cooking(t);
       char += footprint * Math.max(0, Math.max(...piece.brown) - 1.45) * browning(t);
     }
     load = wet;
     sizzle = Math.min(1, hiss / 14);
-    steam = Math.min(1, vapour / 10);
+    steam = Math.min(1, vapor / 10);
     smoke = Math.min(1, char / 3 + Math.max(0, heat.temp - 240) / 40 * (oil > 0.12 ? 1 : 0.3));
     /** The food soaks the oil up: a whole potato's worth drinks a pour in a couple of minutes. */
     const volume = pieces.reduce((sum, p) => sum + p.volume, 0);

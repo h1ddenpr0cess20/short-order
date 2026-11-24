@@ -92,7 +92,7 @@ export function buildTowel(GFX) {
     let d = Infinity;
     for (let k = 0; k < 3; k++) {
       const w = W - k * 0.1, depth = D - k * 0.06;
-      /** Each layer sags a touch towards its middle, and the cloth is never quite flat. */
+      /** Each layer sags a touch toward its middle, and the cloth is never quite flat. */
       const lift = k * (T - 0.012) - 0.012 * Math.cos((x / w) * Math.PI) * k;
       d = Math.min(d, extrude(roundRect(x, z, w, depth, 0.18), y, lift, lift + T, T * 0.48));
       if (k > 0) {
@@ -341,7 +341,7 @@ export function buildRamekin(GFX, { name, radius = 1.5 }) {
   const dish = {
     base: (x, z) => (Math.hypot(x, z) <= 0.9 * k ? wellAt(Math.hypot(x, z)) : 0),
     holds: (x, z) => Math.hypot(x, z) <= 0.7 * k,
-    centre: [0, 0],
+    center: [0, 0],
     spread: 0.3,
     brim: 0.84 * k * DEEP + 0.6,
   };

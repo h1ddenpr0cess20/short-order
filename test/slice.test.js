@@ -129,7 +129,7 @@ describe('split', () => {
     assert.deepEqual(capNormals(back[0]), [1]);
   });
 
-  it('colours the cut face from the flesh, and leaves the skin alone', () => {
+  it('colors the cut face from the flesh, and leaves the skin alone', () => {
     const solid = box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]);
     const { back } = split(solid, { normal: [0, 0, 1], offset: 0.1 }, { flesh: () => [0.9, 0.9, 0.7] });
     const piece = back[0];

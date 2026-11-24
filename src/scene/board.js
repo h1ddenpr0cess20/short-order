@@ -3,7 +3,7 @@
  *
  * The board is a slab of edge-grain maple with its corners rounded off, long
  * side left to right. Whatever is being cut lies on it front to back, so the
- * knife comes down across it with its blade towards the cook: every cut is a
+ * knife comes down across it with its blade toward the cook: every cut is a
  * plane z = constant in the board's own frame, and the blade is seen side on as
  * it falls, which is how a chop looks from where somebody is standing.
  */

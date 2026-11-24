@@ -7,7 +7,7 @@ main.js ──▶ scene/     the kitchen: counter, range, pan, board, knife, bow
         ──▶ game/      the hand (pointer and keys), the egg station, the marking
         ──▶ sim/       the board, the pan, the heat, the eggs — plain numbers
         ──▶ geometry/  the plane cut and the ear clipping it caps with
-        ──▶ food/      what a potato, an egg and a curd are, and their colours
+        ──▶ food/      what a potato, an egg and a curd are, and their colors
         ──▶ view/      meshes for pieces, the egg sheet, steam and smoke
         ──▶ ui/        the ticket, the bar, the verdict, the title, the menu
         ──▶ audio/     the synthesiser, and which sound goes with what
@@ -19,7 +19,7 @@ or the page, so all of it runs under Node, and that is what the tests exercise.
 ## A piece of food
 
 Every piece is a closed triangle soup — no index, three vertices to a
-triangle, each with its own copy — with a normal and a base colour per vertex,
+triangle, each with its own copy — with a normal and a base color per vertex,
 and a flag per triangle saying whether it is the original skin or a face the
 knife made. It is kept in its own frame with the middle of its volume at the
 origin, and carries a position and a rotation in whatever frame it is in now:
@@ -48,7 +48,7 @@ the cut: its rim is the edges lying in the plane that no other triangle on that
 side runs back along. A surface that only touched the plane has both directions
 and leaves nothing. The rim runs the opposite way to the face that closes it,
 which says which outline is the edge of a face and which is a hole in one. The
-outline is projected into the plane, ear clipped, and filled with flesh coloured
+outline is projected into the plane, ear clipped, and filled with flesh colored
 by asking the ingredient what its inside looks like there.
 
 Then the half is split into the separate lumps it is made of — one cut through
@@ -159,7 +159,7 @@ A block of cheddar, a tomato, a thick slice of ham, a quarter of a green
 pepper, half an onion and a bunch of chives lie whole along the front of the
 counter ([`food/fillings.js`](../src/food/fillings.js)). Each is one or more
 closed solids — a box, a seamless sphere pushed into shape, a curved strip of
-pepper wall extruded front to back, six thin stalks — with a colour for its
+pepper wall extruded front to back, six thin stalks — with a color for its
 inside, so the knife cuts it exactly as it cuts the potato. Picked up, it goes
 onto the board whole, at the first place clear of whatever is there, the
 right-hand end first, out of the knife's way while a potato is diced.
@@ -209,7 +209,7 @@ both for the plate and for the ticket's running commentary:
 | | |
 |---|---|
 | dice | the share of the potato, by volume, in pieces no side of which is a sliver or longer than a mouthful; and how alike those are |
-| fry | the share golden all round — every face coloured, none burnt — and cooked through, against pale, one-sided, burnt and raw in the middle |
+| fry | the share golden all round — every face colored, none burnt — and cooked through, against pale, one-sided, burnt and raw in the middle |
 | eggs | how smooth they were beaten, how much is in curds rather than set flat, and how much is set soft against runny, rubbery or brown |
 | season | salt against right for the potato and for the egg, each by its own volume — a pinch to every eight — and pepper the same, more forgivingly; bitter if the butter burnt |
 | time | from the first thing the cook did to the plate, against the dish's par |

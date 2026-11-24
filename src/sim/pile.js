@@ -431,7 +431,7 @@ export function lieDown(piece, placed, base = FLAT) {
  * Pours `list` out over `dish`, one piece after another, onto `under` — what
  * is there already — and onto each other. `dish` says how high its floor is
  * at a point (`base`), where the middle of a piece can be (`holds`), and
- * where the pour is aimed and how widely it falls (`centre`, `spread`).
+ * where the pour is aimed and how widely it falls (`center`, `spread`).
  *
  * Each piece tumbles as it lands, slides off whatever it is not held up by,
  * runs down any slope steeper than a heap stands, and lies along the slope of
@@ -444,7 +444,7 @@ export function lieDown(piece, placed, base = FLAT) {
  * back those pieces; with no brim, none.
  */
 export function pour(list, dish, under = [], random = Math.random) {
-  const { base = FLAT, holds = () => true, centre = [0, 0], spread = 0.4, brim = Infinity } = dish;
+  const { base = FLAT, holds = () => true, center = [0, 0], spread = 0.4, brim = Infinity } = dish;
   const placed = under instanceof Nearby ? under : new Nearby(under);
   const over = [];
   for (const piece of list) {
@@ -452,9 +452,9 @@ export function pour(list, dish, under = [], random = Math.random) {
     let fits = false;
     for (let tries = 0; tries < (brim < Infinity ? 4 : 1) && !fits; tries++) {
       tumble(piece, random);
-      let x = centre[0], z = centre[1];
+      let x = center[0], z = center[1];
       for (let t = 0; t < 12; t++) {
-        const nx = centre[0] + gauss(random) * spread, nz = centre[1] + gauss(random) * spread;
+        const nx = center[0] + gauss(random) * spread, nz = center[1] + gauss(random) * spread;
         if (holds(nx, nz)) {
           x = nx;
           z = nz;

@@ -166,7 +166,7 @@ export class Renderer {
       const size = [this.domElement.width, this.domElement.height];
       const frame = this._frame_(context, 'linear', null);
       // three clears this to white at half alpha, premultiplied by the context: where nothing opaque
-      // is behind a transmissive surface, that grey is what it refracts.
+      // is behind a transmissive surface, that gray is what it refracts.
       this.backend.beginPass({ target: 'transmission', clear: [0.5, 0.5, 0.5, 0.5], frame });
       this._renderItems(lists.opaque, context, frame);
       this.backend.endPass();
@@ -240,7 +240,7 @@ export class Renderer {
     else lists.opaque.push(item);
   }
 
-  /** Intensities folded into colours; view-space directions are done per pass. */
+  /** Intensities folded into colors; view-space directions are done per pass. */
   _setupLights(lights, shadowsOn) {
     const ambient = [0, 0, 0];
     const directional = [], point = [], hemi = [];

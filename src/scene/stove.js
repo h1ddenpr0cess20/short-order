@@ -16,7 +16,7 @@ const TRIM = { width: 0.42, rise: 0.035 };
 /** Where the fingers of the grate come to, which is where the bottom of a pan sits. */
 export const GRATE_TOP = 1.25;
 
-/** How far the grate's fingers reach in towards the burner, and out to its frame. */
+/** How far the grate's fingers reach in toward the burner, and out to its frame. */
 const FINGER = { from: 2.35, to: 7.3, width: 0.46 };
 const FRAME = { half: 7.5, width: 0.5, height: 0.62 };
 
@@ -128,7 +128,7 @@ export function buildStove(GFX) {
   cap.position.y = TOP.y + 0.4;
   stove.add(cap);
 
-  /** The grate: a square frame, and fingers from it in towards the flame. */
+  /** The grate: a square frame, and fingers from it in toward the flame. */
   const grate = new GFX.Group();
   grate.name = 'grate';
   const fingerLength = FINGER.to - FINGER.from;

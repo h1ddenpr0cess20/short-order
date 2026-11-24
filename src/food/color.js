@@ -1,6 +1,6 @@
 /**
- * Colours as plain linear RGB triples, which is what vertex colours are. The
- * hex values below are written the way a person picks a colour — sRGB — and
+ * Colors as plain linear RGB triples, which is what vertex colors are. The
+ * hex values below are written the way a person picks a color — sRGB — and
  * converted once.
  */
 
@@ -25,17 +25,17 @@ export function scale(a, k, out = [0, 0, 0]) {
 }
 
 /**
- * A piecewise ramp through colour stops, `[at, colour]`, in ascending `at`.
- * Below the first stop is the first colour, past the last the last.
+ * A piecewise ramp through color stops, `[at, color]`, in ascending `at`.
+ * Below the first stop is the first color, past the last the last.
  */
 export function ramp(stops) {
   return (t, out = [0, 0, 0]) => {
     if (t <= stops[0][0]) return mix(stops[0][1], stops[0][1], 0, out);
     for (let i = 1; i < stops.length; i++) {
-      const [at, colour] = stops[i];
+      const [at, color] = stops[i];
       if (t <= at) {
         const [from, previous] = stops[i - 1];
-        return mix(previous, colour, (t - from) / (at - from), out);
+        return mix(previous, color, (t - from) / (at - from), out);
       }
     }
     const last = stops[stops.length - 1][1];

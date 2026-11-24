@@ -13,7 +13,7 @@ cold.
 | **Scrambled eggs** | Three eggs, beaten smooth, stirred slowly in butter into soft curds. |
 | **Sunny side up** | Two eggs broken straight into the pan and left alone: whites set, yolks runny. |
 | **Over easy** | The same, turned over once — briefly, so the yolks still run. |
-| **French omelette** | Stirred while it runs, left to settle, rolled: pale, soft inside, no colour. |
+| **French omelette** | Stirred while it runs, left to settle, rolled: pale, soft inside, no color. |
 | **Diner omelette** | Set flat, filled — cheese and one more at least — and folded in half. |
 | **Freestyle** | No ticket. Anything on the counter, any way you like, marked on what it turns out to be. |
 
@@ -83,7 +83,7 @@ not know any of that — it only ever makes one flat cut — so how even the dic
 come out is how evenly you cut.
 
 In the pan a piece browns hardest on the face that is down; the faces
-standing up from it sit in the oil and colour slowly, and the top hardly at
+standing up from it sit in the oil and color slowly, and the top hardly at
 all. Leave it and it is dark underneath and pale on top; toss it, or stir it,
 and it comes down on another. Small pieces cook through in half a minute; a whole
 potato never does. Wet potato on iron that is not hot yet steams instead of
@@ -105,7 +105,7 @@ times as fast: over easy is a turn, a moment, and off.
 
 Folded, the sheet of egg is one piece from then on and cooks on like any
 other — a French omelette wants rolling while the top is still wet, so it is
-just set inside, and wants no colour at all; a diner omelette is set through
+just set inside, and wants no color at all; a diner omelette is set through
 and may be golden.
 
 The extras are real food too, and come whole: they go on the board beside
@@ -147,7 +147,7 @@ through against pale, burnt or raw, whether the eggs were beaten smooth,
 scrambled rather than set flat, and soft rather than runny, rubbery or brown,
 whether the potatoes and the eggs are each seasoned right — and how long the
 ticket waited. The other dishes are marked their own way — fried eggs on their
-whites and yolks, omelettes on their texture, their colour and, for the diner
+whites and yolks, omelettes on their texture, their color and, for the diner
 one, their filling — and each against its own time.
 
 ## How it works
